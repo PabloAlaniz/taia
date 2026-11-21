@@ -22,7 +22,8 @@
     "./runtime-instances": "./src/runtime-instances.ts",
     "./command-policy": "./src/command-policy.ts",
     "./agent-runtime": "./src/agent-runtime.ts",
-    "./db/*": "./src/db/*"
+    "./db/*": "./src/db/*",
+    "./rate-limit": "./src/rate-limit.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",
@@ -37,6 +38,7 @@
     "@taia/runtime": "workspace:*",
     "@taia/types": "workspace:*",
     "jszip": "^3.10.1",
+    "omnilimit": "^0.4.0",
     "pg": "^8.23.1",
     "ws": "^8.23.0",
     "zod": "^4.6.7"

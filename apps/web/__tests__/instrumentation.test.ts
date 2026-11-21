@@ -12,6 +12,12 @@ vi.mock('@taia/core/db/repositories/setting.repository', () => ({
   encryptStoredSecrets: () => mockEncryptStoredSecrets(),
 }))
 
+const mockStartRateLimitCleanup = vi.fn()
+
+vi.mock('@taia/core/rate-limit', () => ({
+  startRateLimitCleanup: () => mockStartRateLimitCleanup(),
+}))
+
 import { register } from '../instrumentation'
 
 describe('instrumentation register', () => {
@@ -31,6 +37,7 @@ describe('instrumentation register', () => {
     await register()
 
     expect(mockInitEventListeners).toHaveBeenCalledTimes(1)
+    expect(mockStartRateLimitCleanup).toHaveBeenCalledTimes(1)
   })
 
   it('does not register listeners on non-nodejs runtimes', async () => {
@@ -39,6 +46,7 @@ describe('instrumentation register', () => {
     await register()
 
     expect(mockInitEventListeners).not.toHaveBeenCalled()
+    expect(mockStartRateLimitCleanup).not.toHaveBeenCalled()
   })
 
   it('encrypts stored credentials on start and survives a failure', async () => {
