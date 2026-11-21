@@ -1,0 +1,52 @@
+name: ✨ Feature Request
+description: Proponer una nueva funcionalidad
+title: "[Feature]: "
+labels: ["enhancement", "needs-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ¡Gracias por tu idea! Contanos qué te gustaría ver en TAIA.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problema o necesidad
+      description: ¿Qué problema resuelve esta feature? ¿Por qué la necesitás?
+      placeholder: |
+        Cuando tengo muchas tareas, me cuesta encontrar las urgentes...
+    validations:
+      required: true
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: Solución propuesta
+      description: ¿Cómo imaginás que funcionaría?
+      placeholder: |
+        Un filtro que muestre solo tareas con tag "urgent"...
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternativas consideradas
+      description: ¿Hay otras formas de resolver esto?
+
+  - type: dropdown
+    id: priority
+    attributes:
+      label: ¿Qué tan importante es para vos?
+      options:
+        - Nice to have
+        - Importante
+        - Crítico para mi caso de uso
+    validations:
+      required: true
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Contexto adicional
+      description: Screenshots, mockups, links a features similares en otros productos

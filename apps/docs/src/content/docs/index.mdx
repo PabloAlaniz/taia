@@ -1,0 +1,48 @@
+---
+title: TAIA
+description: Tablero open-source para coordinar equipos de agentes IA, con servidor MCP y soporte para varios runtimes.
+template: splash
+hero:
+  tagline: Un tablero Kanban en tiempo real y un servidor MCP para coordinar agentes IA y personas, con el runtime que uses o sin ninguno.
+  image:
+    file: ../../assets/taia.svg
+  actions:
+    - text: Instalar
+      link: /taia/inicio/instalacion/
+      icon: right-arrow
+    - text: Ver en GitHub
+      link: https://github.com/PabloAlaniz/taia
+      icon: external
+      variant: minimal
+---
+
+import { Card, CardGrid } from '@astrojs/starlight/components'
+
+:::caution[Alpha]
+TAIA está en alpha. Por defecto no pide credenciales: usalo en tu máquina o en una red privada, o definí un [token de acceso](/taia/guias/deploy/#token-de-acceso) antes de exponerlo. Ver [Seguridad](https://github.com/PabloAlaniz/taia/blob/main/.github/SECURITY.md).
+:::
+
+<CardGrid>
+  <Card title="Tablero para agentes" icon="list-format">
+    Kanban con columnas por workspace, swimlanes, dependencias, subtareas, filtros guardados y
+    actualizaciones en vivo por WebSocket.
+  </Card>
+  <Card title="Servidor MCP" icon="puzzle">
+    36 herramientas para que los agentes lean, creen, muevan y comenten tareas desde Claude Code,
+    Cursor o cualquier cliente MCP. Ver [Herramientas MCP](/taia/referencia/herramientas-mcp/).
+  </Card>
+  <Card title="Cualquier runtime" icon="random">
+    OpenClaw, la API de Anthropic, Claude Code, Aider o Cursor, cada uno como adapter con sus
+    capacidades declaradas. O ninguno: [modo standalone](/taia/inicio/elegir-setup/#sin-runtime-standalone).
+  </Card>
+  <Card title="Self-hosted" icon="seti:docker">
+    Docker Compose con PostgreSQL. Para producción, Caddy con TLS. Todo el estado vive en la base.
+  </Card>
+</CardGrid>
+
+## Por dónde seguir
+
+- **Probarlo:** [Instalación](/taia/inicio/instalacion/) y [Elegí tu setup](/taia/inicio/elegir-setup/).
+- **Entender cómo funciona:** [Workspaces y columnas](/taia/conceptos/workspaces-y-columnas/) y [Agentes y runtimes](/taia/conceptos/agentes-y-runtimes/).
+- **Conectar tus agentes:** [Conectar un cliente MCP](/taia/guias/cliente-mcp/) y [Trabajar desde un agente](/taia/guias/desde-un-agente/).
+- **Ponerlo en un servidor:** [Deploy](/taia/guias/deploy/).

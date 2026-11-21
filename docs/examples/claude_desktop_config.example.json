@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "taia": {
+      "command": "npx",
+      "args": ["-y", "mcp-remote", "http://localhost:13336/mcp"]
+    }
+  }
+}

@@ -1,0 +1,437 @@
+# CI Pipeline for TAIA
+#
+# Jobs run in parallel where possible for faster feedback.
+# Docs-only changes skip expensive test jobs.
+#
+# Job flow:
+#   changes ──┬─> lint-and-security (always)
+#             ├─> secrets (always)
+#             ├─> build-and-test (if not docs-only)
+#             ├─> docker-smoke (needs build)
+#             ├─> integration (if not docs-only)
+#             └─> e2e (if not docs-only)
+
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+  pull-requests: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  NODE_VERSION: "26"
+
+jobs:
+  # ============================================================================
+  # Stage 0: Detect what changed
+  # ============================================================================
+  changes:
+    name: Detect changes
+    runs-on: ubuntu-latest
+    outputs:
+      docs_only: ${{ steps.filter.outputs.docs_only }}
+      src_changed: ${{ steps.filter.outputs.src_changed }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # The base commit has to be present for `git diff` below; with a
+          # shallow clone the diff fails and every PR runs the full pipeline.
+          fetch-depth: 0
+
+      - name: Check for docs-only changes
+        id: filter
+        run: |
+          if [ "${{ github.event_name }}" = "push" ]; then
+            BASE="${{ github.event.before }}"
+            # Handle initial push (no previous commit)
+            if [ "$BASE" = "0000000000000000000000000000000000000000" ]; then
+              echo "docs_only=false" >> $GITHUB_OUTPUT
+              echo "src_changed=true" >> $GITHUB_OUTPUT
+              exit 0
+            fi
+          else
+            BASE="${{ github.event.pull_request.base.sha }}"
+          fi
+
+          # Get list of changed files
+          CHANGED_FILES=$(git diff --name-only "$BASE" HEAD 2>/dev/null || echo "")
+
+          if [ -z "$CHANGED_FILES" ]; then
+            echo "docs_only=false" >> $GITHUB_OUTPUT
+            echo "src_changed=true" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          # Check if ALL changes are docs-only
+          DOCS_ONLY=true
+          SRC_CHANGED=false
+          while IFS= read -r file; do
+            case "$file" in
+              docs/*|apps/docs/*|*.md|LICENSE|.github/ISSUE_TEMPLATE/*|.github/pull_request_template.md)
+                # These are docs
+                ;;
+              *)
+                DOCS_ONLY=false
+                SRC_CHANGED=true
+                ;;
+            esac
+          done <<< "$CHANGED_FILES"
+
+          echo "docs_only=$DOCS_ONLY" >> $GITHUB_OUTPUT
+          echo "src_changed=$SRC_CHANGED" >> $GITHUB_OUTPUT
+          echo "Docs only: $DOCS_ONLY, Src changed: $SRC_CHANGED"
+
+  # ============================================================================
+  # Stage 1: Fast checks (always run)
+  # ============================================================================
+  lint-and-security:
+    name: Lint & Security
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
+      - name: Setup Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Format check
+        run: pnpm -w run format-check
+
+      - name: Lint
+        run: pnpm turbo lint
+
+      - name: Typecheck
+        run: pnpm turbo typecheck
+
+      - name: Architecture tests
+        run: pnpm test:architecture
+
+      - name: Dev script tests
+        run: node scripts/dev/check-local-stack.test.mjs
+
+      - name: Security audit
+        # Fails on high or critical advisories. One without a fix can be
+        # listed, with its reason, in `pnpm.auditConfig.ignoreGhsas`
+        # (package.json) and .github/SECURITY.md.
+        run: pnpm audit --audit-level=high
+
+  # ============================================================================
+  # Stage 1a: Secret scanning (always run)
+  # ============================================================================
+  secrets:
+    name: Secret scan
+    runs-on: ubuntu-latest
+    env:
+      GITLEAKS_VERSION: "8.30.1"
+      GITLEAKS_SHA256: 551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # Every commit of the range is scanned, not just the final tree: a
+          # secret removed in a later commit still leaked.
+          fetch-depth: 0
+
+      - name: Install gitleaks
+        run: |
+          set -euo pipefail
+          archive="gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
+          curl -fsSLO "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/${archive}"
+          echo "${GITLEAKS_SHA256}  ${archive}" | sha256sum --check
+          tar -xzf "${archive}" gitleaks
+          sudo install gitleaks /usr/local/bin/gitleaks
+
+      - name: Scan commits
+        env:
+          # What this pull request or push adds.
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+        run: |
+          set -euo pipefail
+          if [ -z "$BASE_SHA" ] || [ "$BASE_SHA" = "0000000000000000000000000000000000000000" ]; then
+            # New branch: there is no previous commit to compare with.
+            gitleaks git --redact --no-banner
+          else
+            gitleaks git --redact --no-banner --log-opts="${BASE_SHA}..HEAD"
+          fi
+
+  # ============================================================================
+  # Stage 1c: Dependency review (PRs on a public repository)
+  # ============================================================================
+  dependency-review:
+    name: Dependency review
+    runs-on: ubuntu-latest
+    # The dependency graph API is free on public repositories only.
+    if: github.event_name == 'pull_request' && !github.event.repository.private
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Review dependency changes
+        uses: actions/dependency-review-action@bbc44d14a204704ccc493733616cd1e93a0321ec # v5.0.1
+        with:
+          fail-on-severity: high
+
+  # ============================================================================
+  # Stage 1b: Commit message validation (PRs only)
+  # ============================================================================
+  commitlint:
+    name: Commit messages
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Install commitlint
+        run: npm install --no-save @commitlint/cli@19 @commitlint/config-conventional@19
+
+      - name: Validate commits
+        run: |
+          npx commitlint --from ${{ github.event.pull_request.base.sha }} --to ${{ github.event.pull_request.head.sha }} --verbose
+
+  # ============================================================================
+  # Stage 2: Build and test (skip for docs-only)
+  # ============================================================================
+  build-and-test:
+    name: Build & Test
+    needs: [changes, lint-and-security]
+    if: needs.changes.outputs.docs_only != 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
+      - name: Setup Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Test with coverage
+        # Each package fails below the thresholds in its vitest.config.ts.
+        run: pnpm turbo test:coverage
+
+      - name: Coverage summary
+        if: always()
+        run: |
+          for dir in apps/web apps/mcp packages/core packages/runtime packages/domain; do
+            p="$dir/coverage/coverage-summary.json"
+            if [ -f "$p" ]; then
+              node -e "
+                const s = JSON.parse(require('fs').readFileSync('$p', 'utf8')).total;
+                const fmt = (x) => (x && typeof x.pct === 'number') ? x.pct.toFixed(2) + '%' : 'n/a';
+                console.log('| $dir |', fmt(s.statements), '|', fmt(s.branches), '|', fmt(s.functions), '|', fmt(s.lines), '|');
+              " >> rows.md
+            fi
+          done
+          {
+            echo "## Coverage"
+            echo "| Package | Statements | Branches | Functions | Lines |"
+            echo "|---|---|---|---|---|"
+            cat rows.md 2>/dev/null || true
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Build
+        run: pnpm turbo build --filter=!@taia/docs
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: build-output
+          path: |
+            apps/web/.next
+            packages/*/dist
+          retention-days: 1
+
+  # ============================================================================
+  # Stage 3: Docker smoke test
+  # ============================================================================
+  docker-smoke:
+    name: Docker Smoke Test
+    needs: [changes, build-and-test]
+    if: needs.changes.outputs.docs_only != 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Docker smoke test
+        run: bash scripts/docker/smoke-test.sh
+
+      - name: Upload logs on failure
+        if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: smoke-test-logs
+          path: /tmp/smoke-logs.txt
+
+  # ============================================================================
+  # Stage 3b: Integration tests (parallel with docker-smoke)
+  # ============================================================================
+  integration:
+    name: Integration Tests
+    needs: [changes, lint-and-security]
+    if: needs.changes.outputs.docs_only != 'true'
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: taia_test
+          POSTGRES_PASSWORD: test
+          POSTGRES_DB: taia_test
+        ports:
+          - 5433:5432
+        options: >-
+          --health-cmd "pg_isready -U taia_test -d taia_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
+      - name: Setup Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Wait for Postgres
+        run: |
+          for i in $(seq 1 30); do
+            if pg_isready -h localhost -p 5433 -U taia_test; then
+              echo "Postgres is ready"
+              break
+            fi
+            echo "Waiting for Postgres... ($i/30)"
+            sleep 1
+          done
+
+      - name: Run integration tests
+        env:
+          TEST_DATABASE_URL: postgresql://taia_test:test@localhost:5433/taia_test
+          # Fail instead of silently skipping DB suites when Postgres is unreachable.
+          REQUIRE_TEST_DB: "1"
+        run: pnpm turbo test:integration
+
+  # ============================================================================
+  # Stage 3c: End-to-end tests (browser against the built app and Postgres)
+  # ============================================================================
+  e2e:
+    name: E2E Tests
+    needs: [changes, lint-and-security]
+    if: needs.changes.outputs.docs_only != 'true'
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: taia_test
+          POSTGRES_PASSWORD: test
+          POSTGRES_DB: taia_test
+        ports:
+          - 5433:5432
+        options: >-
+          --health-cmd "pg_isready -U taia_test -d taia_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
+      - name: Setup Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install Chromium
+        run: pnpm -F @taia/web exec playwright install --with-deps chromium
+
+      - name: Build
+        run: pnpm turbo build --filter=@taia/web
+
+      - name: Run e2e tests
+        env:
+          E2E_DATABASE_URL: postgresql://taia_test:test@localhost:5433/taia_test
+        run: pnpm -F @taia/web test:e2e
+
+      - name: Upload Playwright report
+        if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: playwright-report
+          path: |
+            apps/web/playwright-report
+            apps/web/test-results
+          retention-days: 7
+
+  # ============================================================================
+  # Stage 4: CI Status (for branch protection)
+  # ============================================================================
+  ci-status:
+    name: CI Status
+    runs-on: ubuntu-latest
+    needs: [lint-and-security, secrets, build-and-test, docker-smoke, integration, e2e]
+    if: always()
+    steps:
+      - name: Check all jobs
+        run: |
+          if [[ "${{ needs.lint-and-security.result }}" == "failure" ]]; then
+            echo "❌ Lint & Security failed"
+            exit 1
+          fi
+          if [[ "${{ needs.secrets.result }}" == "failure" ]]; then
+            echo "❌ Secret scan failed"
+            exit 1
+          fi
+          if [[ "${{ needs.build-and-test.result }}" == "failure" ]]; then
+            echo "❌ Build & Test failed"
+            exit 1
+          fi
+          if [[ "${{ needs.docker-smoke.result }}" == "failure" ]]; then
+            echo "❌ Docker Smoke Test failed"
+            exit 1
+          fi
+          if [[ "${{ needs.integration.result }}" == "failure" ]]; then
+            echo "❌ Integration Tests failed"
+            exit 1
+          fi
+          if [[ "${{ needs.e2e.result }}" == "failure" ]]; then
+            echo "❌ E2E Tests failed"
+            exit 1
+          fi
+          echo "✅ All checks passed"

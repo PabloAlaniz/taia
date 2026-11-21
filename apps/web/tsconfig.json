@@ -1,0 +1,26 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["./*"],
+      "@taia/types": ["../../packages/types/src"],
+      "@taia/types/*": ["../../packages/types/src/*"],
+      "@taia/runtime": ["../../packages/runtime/src"],
+      "@taia/runtime/*": ["../../packages/runtime/src/*"],
+      "@taia/core": ["../../packages/core/src"],
+      "@taia/core/*": ["../../packages/core/src/*"],
+      "@taia/domain": ["../../packages/domain/src"],
+      "@taia/domain/*": ["../../packages/domain/src/*"]
+    },
+    "jsx": "preserve",
+    "incremental": true,
+    "plugins": [
+      {
+        "name": "next"
+      }
+    ]
+  },
+  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],
+  "exclude": ["node_modules", "__tests__"]
+}

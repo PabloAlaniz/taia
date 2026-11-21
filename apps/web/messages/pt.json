@@ -1,0 +1,350 @@
+{
+  "common": {
+    "save": "Salvar",
+    "cancel": "Cancelar",
+    "create": "Criar",
+    "delete": "Excluir",
+    "edit": "Editar",
+    "close": "Fechar",
+    "back": "Voltar",
+    "loading": "Carregando...",
+    "all": "Todos",
+    "none": "Nenhum",
+    "clear": "Limpar",
+    "send": "Enviar",
+    "skipToContent": "Pular para o conteúdo"
+  },
+  "nav": {
+    "board": "Quadro",
+    "dashboard": "Dashboard",
+    "sessions": "Sessões",
+    "calendar": "Calendário",
+    "settings": "Configurações",
+    "settingsShort": "Config",
+    "mainNav": "Navegação principal",
+    "mobileNav": "Navegação móvel"
+  },
+  "header": {
+    "planWizard": "Assistente de planejamento IA",
+    "hideActivity": "Ocultar atividade",
+    "showActivity": "Mostrar atividade",
+    "hideAgents": "Ocultar painel de agentes",
+    "showAgents": "Mostrar painel de agentes",
+    "refresh": "Atualizar quadro",
+    "search": "Buscar tarefas (tecla /)",
+    "newTask": "+ Tarefa",
+    "wsConnected": "WebSocket conectado — atualizações em tempo real",
+    "wsDisconnected": "WebSocket desconectado — usando polling"
+  },
+  "board": {
+    "groupBy": "Agrupar por",
+    "groupLabel": "Agrupar:",
+    "groupNone": "Nenhum",
+    "groupAgent": "Agente",
+    "groupProject": "Projeto",
+    "groupPriority": "Prioridade",
+    "projectLabel": "Projeto:",
+    "filterByProject": "Filtrar por projeto",
+    "allTasks": "Todas as tarefas",
+    "unassigned": "Sem atribuição",
+    "noProject": "Sem projeto",
+    "columnAria": "Coluna {name}, {count} {count, plural, one {tarefa} other {tarefas}}{hasLimit, select, true {, limite WIP {limit}} other {}}. Clique para configurar limite WIP",
+    "noColumns": "Sem colunas configuradas. Execute o wizard de setup em Configurações."
+  },
+  "taskCard": {
+    "aria": "Tarefa: {title}, prioridade {priority}",
+    "openRepo": "Abrir repositório",
+    "blockers": "{count} {count, plural, one {bloqueio} other {bloqueios}}",
+    "assign": "🎯 Atribuir"
+  },
+  "addTask": {
+    "title": "Nova Tarefa",
+    "template": "Modelo",
+    "blankTask": "Tarefa em branco",
+    "taskTitle": "Título",
+    "taskTitlePlaceholder": "Título da tarefa…",
+    "description": "Descrição",
+    "descriptionPlaceholder": "Descrição…",
+    "project": "Projeto",
+    "noProject": "Sem projeto",
+    "priority": "Prioridade",
+    "priorityLow": "Baixa",
+    "priorityMedium": "Média",
+    "priorityHigh": "Alta",
+    "priorityUrgent": "Urgente",
+    "repoUrl": "URL do repo (opcional)",
+    "tags": "Tags (separadas por vírgula)",
+    "tagsPlaceholder": "api, bugfix…"
+  },
+  "search": {
+    "label": "Buscar tarefas",
+    "ariaLabel": "Buscar tarefas por título, ID, projeto ou tag",
+    "placeholder": "Buscar tarefas… (por título, ID, projeto ou tag)",
+    "noResults": "Nenhuma tarefa encontrada",
+    "navigate": "↑↓ navegar",
+    "select": "↵ selecionar",
+    "close": "esc fechar"
+  },
+  "agents": {
+    "heading": "🤖 Agentes",
+    "team": "👥 Equipe",
+    "filtering": "Filtrando: {name}",
+    "config": "🤖 Configuração de agentes",
+    "loadingAgents": "Carregando agentes...",
+    "quickGuide": "📝 Guia rápido",
+    "soulDesc": "Personalidade, capacidades e restrições do agente",
+    "heartbeatDesc": "Instruções para cada heartbeat",
+    "scheduleDesc": "Expressão cron (ex: {example} = a cada 15 min)",
+    "changesNote": "As alterações são salvas em disco e têm efeito no próximo heartbeat"
+  },
+  "agentCard": {
+    "statusLive": "ativo",
+    "statusIdle": "inativo",
+    "statusOffline": "desconectado",
+    "statusStarting": "iniciando...",
+    "human": "Humano",
+    "trigger": "Executar {name}",
+    "triggering": "Executando {name}",
+    "viewTranscript": "Ver transcrição completa",
+    "deleteSubtask": "Excluir subtarefa",
+    "selectAgent": "Selecionar agente {name}"
+  },
+  "activity": {
+    "heading": "📊 Atividade",
+    "help": "Clique em uma tarefa para ver detalhes",
+    "empty": "Sem atividade ainda",
+    "openTask": "→ ver tarefa"
+  },
+  "wipLimit": {
+    "title": "Limite WIP",
+    "maxTasks": "Máximo de tarefas nesta coluna",
+    "noLimit": "Sem limite",
+    "helpText": "Deixe vazio para sem limite. As tarefas podem ser movidas mesmo que o limite seja excedido, mas um aviso será exibido.",
+    "removeLimit": "Remover limite"
+  },
+  "planWizard": {
+    "title": "Assistente de planejamento IA",
+    "subtitle": "Revise e edite as tarefas antes de criá-las",
+    "goalLabel": "O que você quer alcançar?",
+    "goalPlaceholder": "ex: Construir uma REST API para autenticação de usuários com JWT",
+    "contextLabel": "Contexto adicional (opcional)",
+    "contextPlaceholder": "ex: Usando Node.js + Express, banco de dados PostgreSQL, seguir padrões de auth existentes…",
+    "generating": "Dividindo seu objetivo em tarefas...",
+    "generatingHelp": "Isso pode levar alguns segundos",
+    "selected": "{selected} de {total} tarefas selecionadas",
+    "deselectAll": "Desmarcar tudo",
+    "selectAll": "Selecionar tudo",
+    "removeTask": "Remover tarefa",
+    "generatePlan": "Gerar plano",
+    "creating": "Criando...",
+    "createTasks": "Criar {count} {count, plural, one {tarefa} other {tarefas}}"
+  },
+  "filters": {
+    "all": "Todos",
+    "deleteFilter": "Excluir filtro",
+    "saveFilter": "+ Salvar filtro",
+    "iconPlaceholder": "Ícone",
+    "namePlaceholder": "Nome do filtro…"
+  },
+  "taskDetail": {
+    "status": "Status:",
+    "assigned": "Atribuído:",
+    "comments": "💬 Comentários",
+    "noComments": "Sem comentários ainda",
+    "addComment": "Escreva um comentário…"
+  },
+  "dashboard": {
+    "title": "📊 Dashboard",
+    "refresh": "🔄 Atualizar",
+    "totalTasks": "Total de tarefas",
+    "completedToday": "Concluídas hoje",
+    "thisWeek": "Esta semana",
+    "avgTime": "Tempo médio",
+    "inProgress": "Em progresso",
+    "blocked": "Bloqueadas",
+    "inReview": "Em revisão",
+    "stale": "Paradas (>24h)",
+    "totalCost": "Custo total",
+    "totalTokens": "Tokens totais",
+    "sessionCount": "Sessões",
+    "models": "Modelos",
+    "chartTitle": "📊 Tarefas concluídas por dia (últimos 30 dias)",
+    "noCompletions": "Não há tarefas concluídas nos últimos 30 dias",
+    "byAgent": "🤖 Por agente",
+    "offlineMode": "(modo offline)",
+    "noAgentData": "Sem dados de agentes",
+    "tracked": "{time} registrado",
+    "doneVsPending": "concluídas / pendentes",
+    "byProject": "📁 Por projeto",
+    "noProjects": "Sem projetos",
+    "staleTasks": "⚠️ Tarefas paradas (>24h atribuídas)",
+    "recentActivity": "📜 Atividade recente",
+    "costByAgent": "💰 Custo por agente",
+    "sessions": "{count} sessões · {models}",
+    "dailyCostTrend": "📈 Tendência diária de custo",
+    "last24h": "Últimas 24h",
+    "lastWeek": "Última semana",
+    "lastMonth": "Último mês",
+    "allTime": "Tudo"
+  },
+  "settingsPage": {
+    "title": "⚙️ Configurações",
+    "generalDesc": "WebSocket, fuso horário e configuração geral.",
+    "agentsTitle": "Agentes",
+    "agentsDesc": "Configurar agentes, funções, avatares e estados.",
+    "teamTitle": "Equipe",
+    "teamDesc": "Gerenciar membros humanos da equipe.",
+    "projectsTitle": "Projetos",
+    "projectsDesc": "Gerenciar projetos e repositórios do GitHub.",
+    "worktreesDesc": "Paths, cleanup automático e configuração de worktrees.",
+    "language": "Idioma",
+    "languageDesc": "Idioma da interface",
+    "runtimeDesc": "Runtime que executa os agentes (OpenClaw, Claude, CLIs) ou modo standalone.",
+    "runtimeTitle": "Runtime",
+    "modelsTitle": "Modelos",
+    "modelsDesc": "Modelos usados pelos agentes no runtime ativo."
+  },
+  "home": {
+    "shortcutHint": "Pressione <key>?</key> para atalhos"
+  },
+  "onboarding": {
+    "subtitle": "Quadro de Agentes IA",
+    "welcomeText": "Configure seu quadro de agentes em poucos passos: escolha um runtime (ou siga sem um) e crie seu primeiro workspace.",
+    "setupButton": "Configurar TAIA",
+    "skipConnection": "Pular conexão",
+    "connectTitle": "Conecte seu runtime",
+    "connectDesc": "Escolha o provedor de IA que vai executar seus agentes e configure o acesso dele."
+  },
+  "appearance": {
+    "title": "Aparência",
+    "theme": "Tema",
+    "fontScale": "Tamanho da fonte",
+    "decreaseFont": "Diminuir fonte",
+    "resetFont": "Redefinir fonte",
+    "increaseFont": "Aumentar fonte"
+  },
+  "filterDropdowns": {
+    "assignedTo": "Atribuído a",
+    "unassigned": "Sem atribuição",
+    "human": "humano",
+    "due": "Vencimento",
+    "dueToday": "Vence hoje",
+    "overdue": "Vencidas",
+    "thisWeek": "Esta semana",
+    "tags": "Tags",
+    "blocked": "Bloqueadas",
+    "clearAll": "Limpar tudo",
+    "activeFilters": "Filtros ativos",
+    "remove": "Remover",
+    "priority": "Prioridade",
+    "status": "Status",
+    "search": "Buscar"
+  },
+  "locale": {
+    "es": "Español",
+    "pt": "Português"
+  },
+  "runtime": {
+    "title": "Runtime de agentes",
+    "pageDesc": "Escolha qual runtime executa seus agentes. O TAIA funciona sem runtime (standalone): o quadro, as tarefas e o servidor MCP não precisam dele.",
+    "provider": "Runtime",
+    "active": "ativo",
+    "show": "Mostrar",
+    "hide": "Ocultar",
+    "secretStored": "Há um valor salvo. Deixe assim para não alterá-lo.",
+    "contextSyncPull": "O agente lê do TAIA (pull)",
+    "contextSyncPush": "O TAIA grava os arquivos do workspace (push)",
+    "promptModeArg": "Como argumento",
+    "promptModeStdin": "Via stdin",
+    "testConnection": "Testar conexão",
+    "testing": "Verificando...",
+    "saveAndActivate": "Salvar e ativar",
+    "saving": "Salvando...",
+    "saveFailed": "Não foi possível salvar a configuração.",
+    "testFailed": "O teste de conexão falhou.",
+    "connected": "Conexão verificada",
+    "connectedAgents": "Conectado — {count} agentes encontrados",
+    "savedStandalone": "Modo standalone ativado.",
+    "fields": {
+      "url": "URL",
+      "token": "Token",
+      "model": "Modelo",
+      "command": "Comando",
+      "commandHelp": "Executável que o TAIA inicia para cada sessão. Por segurança, só é aceito o binário do runtime (por exemplo, claude ou /usr/local/bin/claude); para outro, defina a variável TAIA_CLI_COMMAND_… do runtime no servidor (por exemplo, TAIA_CLI_COMMAND_CLAUDE_CODE).",
+      "cwd": "Diretório de trabalho",
+      "cwdHelp": "Opcional. Pasta onde o comando é executado.",
+      "promptMode": "Como a tarefa é enviada",
+      "taia_base_url": "URL do TAIA (opcional)",
+      "context_sync": "Contexto do agente",
+      "context_syncHelp": "Com push, o TAIA grava SOUL.md, IDENTITY.md, AGENTS.md e USER.md no workspace de cada agente e não sobrescreve arquivos que o agente tenha editado.",
+      "taia_base_urlHelp": "URL que as ferramentas do agente usam para chamar a API do TAIA. Por padrão usa TAIA_URL."
+    },
+    "providers": {
+      "none": {
+        "label": "Sem runtime (standalone)",
+        "description": "Quadro, tarefas e MCP sem executar agentes. Você pode configurar um runtime depois."
+      },
+      "anthropic": {
+        "label": "Claude (API da Anthropic)",
+        "description": "O TAIA executa os agentes diretamente na API da Anthropic.",
+        "token": "API key da Anthropic",
+        "tokenHelp": "Sua chave sk-ant-…; fica salva apenas neste servidor.",
+        "modelHelp": "Modelo padrão dos agentes."
+      },
+      "openclaw": {
+        "label": "OpenClaw (gateway)",
+        "description": "Delegue a execução a um gateway do OpenClaw.",
+        "url": "URL do gateway",
+        "urlHelp": "Endereço onde o gateway do OpenClaw está rodando.",
+        "token": "Token do gateway",
+        "tokenHelp": "Token de operador do gateway (gateway.auth.token em openclaw.json)."
+      },
+      "claude-code": {
+        "label": "Claude Code (CLI)",
+        "description": "Inicia o CLI do Claude Code no servidor para cada sessão."
+      },
+      "aider": {
+        "label": "Aider (CLI)",
+        "description": "Inicia o Aider no servidor para cada sessão."
+      },
+      "cursor": {
+        "label": "Cursor (CLI)",
+        "description": "Detecta o CLI do Cursor; ainda não suporta sessões."
+      }
+    },
+    "status": {
+      "standalone": "Sem runtime — modo standalone",
+      "connected": "Runtime {provider} conectado",
+      "connecting": "Conectando a {provider}...",
+      "disconnected": "Runtime {provider} desconectado — verifique Configurações › Runtime",
+      "allConnected": "{total} runtimes conectados",
+      "degraded": "{connected} de {total} runtimes conectados — verifique Configurações › Runtime",
+      "connectingMany": "Conectando a {total} runtimes...",
+      "allDisconnected": "{total} runtimes desconectados — verifique Configurações › Runtime",
+      "instance": "{label} ({provider}): {state, select, connected {conectado} connecting {conectando} reconnecting {reconectando} other {desconectado}}"
+    },
+    "unsupported": "O runtime ativo ({provider}) não expõe esta informação.",
+    "unavailable": "Runtime indisponível"
+  },
+  "modelsPage": {
+    "title": "Modelos",
+    "description": "Modelos usados pelos agentes no runtime ativo.",
+    "unsupported": "O runtime ativo ({provider}) não publica sua configuração de modelos.",
+    "runtimeLink": "Ver configuração do runtime",
+    "loading": "Carregando modelos...",
+    "usedBy": "Usado por:",
+    "empty": "Nenhum modelo configurado encontrado.",
+    "provider": "Provedor:",
+    "info": "O modelo padrão é usado pelos agentes que não têm um próprio. Cada runtime define como alterá-lo: no OpenClaw, na configuração de agentes; com Claude (API da Anthropic), em Configurações › Runtime."
+  },
+  "login": {
+    "title": "Entre no TAIA",
+    "description": "Esta instância está protegida. Cole o token de acesso definido por quem a administra (TAIA_API_TOKEN).",
+    "tokenLabel": "Token de acesso",
+    "submit": "Entrar",
+    "submitting": "Entrando…",
+    "invalid": "O token não está correto.",
+    "throttled": "Muitas tentativas falhas. Espere alguns minutos e tente de novo.",
+    "failed": "Não foi possível verificar o token. Tente novamente."
+  }
+}

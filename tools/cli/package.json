@@ -1,0 +1,16 @@
+{
+  "name": "@taia/cli",
+  "version": "1.0.0-alpha.3",
+  "private": true,
+  "bin": {
+    "taia": "./src/taia"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "taia": "tsx src/taia.ts",
+    "lint": "eslint . --max-warnings=0"
+  },
+  "devDependencies": {
+    "tsx": "^4.23.15"
+  }
+}

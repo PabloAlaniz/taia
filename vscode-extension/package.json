@@ -1,0 +1,182 @@
+{
+  "name": "taia-vscode-extension",
+  "displayName": "TAIA",
+  "description": "VS Code sidebar and status bar for TAIA tasks.",
+  "version": "0.1.0",
+  "publisher": "taia",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/PabloAlaniz/taia.git",
+    "directory": "vscode-extension"
+  },
+  "engines": {
+    "vscode": "^1.92.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [
+    "onView:taia.taskTree",
+    "onCommand:taia.setup",
+    "onCommand:taia.testConnection",
+    "onCommand:taia.selectWorkspace",
+    "onCommand:taia.setApiKey",
+    "onCommand:taia.refreshTasks",
+    "onCommand:taia.createTask",
+    "onCommand:taia.beginTask",
+    "onCommand:taia.moveTask",
+    "onCommand:taia.assignTask"
+  ],
+  "main": "./dist/extension.js",
+  "scripts": {
+    "compile": "tsc -p ./tsconfig.json",
+    "watch": "tsc -watch -p ./tsconfig.json",
+    "package": "npm run compile && npx --yes @vscode/vsce package --no-dependencies",
+    "vscode:prepublish": "npm run compile"
+  },
+  "files": [
+    "dist",
+    "resources",
+    "README.md",
+    "LICENSE",
+    "package.json"
+  ],
+  "contributes": {
+    "configuration": {
+      "title": "TAIA",
+      "properties": {
+        "taia.apiUrl": {
+          "type": "string",
+          "default": "http://localhost:13333",
+          "description": "Base URL for the TAIA web/API server."
+        },
+        "taia.workspaceId": {
+          "type": "string",
+          "default": "ws-default",
+          "description": "TAIA workspace id used to scope task queries and creation. Defaults to `ws-default`, the workspace TAIA creates on first boot."
+        },
+        "taia.apiKey": {
+          "type": "string",
+          "default": "",
+          "description": "Optional TAIA API key sent as X-API-Key for protected local/API deployments."
+        },
+        "taia.agentId": {
+          "type": "string",
+          "default": "system",
+          "description": "Actor used by VS Code commands when creating or moving tasks. Use 'system' unless you have a registered TAIA agent id."
+        }
+      }
+    },
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "taia",
+          "title": "TAIA",
+          "icon": "resources/taia.svg"
+        }
+      ]
+    },
+    "views": {
+      "taia": [
+        {
+          "id": "taia.taskTree",
+          "name": "Tasks"
+        }
+      ]
+    },
+    "commands": [
+      {
+        "command": "taia.setup",
+        "title": "TAIA: Setup Connection"
+      },
+      {
+        "command": "taia.testConnection",
+        "title": "TAIA: Test Connection"
+      },
+      {
+        "command": "taia.selectWorkspace",
+        "title": "TAIA: Select Workspace"
+      },
+      {
+        "command": "taia.setApiKey",
+        "title": "TAIA: Set API Key"
+      },
+      {
+        "command": "taia.refreshTasks",
+        "title": "TAIA: Refresh Tasks"
+      },
+      {
+        "command": "taia.createTask",
+        "title": "TAIA: Create Task"
+      },
+      {
+        "command": "taia.beginTask",
+        "title": "TAIA: Begin Task"
+      },
+      {
+        "command": "taia.moveTask",
+        "title": "TAIA: Move Task"
+      },
+      {
+        "command": "taia.assignTask",
+        "title": "TAIA: Assign Task"
+      }
+    ],
+    "menus": {
+      "view/title": [
+        {
+          "command": "taia.setup",
+          "when": "view == taia.taskTree",
+          "group": "navigation"
+        },
+        {
+          "command": "taia.testConnection",
+          "when": "view == taia.taskTree",
+          "group": "navigation"
+        },
+        {
+          "command": "taia.selectWorkspace",
+          "when": "view == taia.taskTree",
+          "group": "navigation"
+        },
+        {
+          "command": "taia.setApiKey",
+          "when": "view == taia.taskTree",
+          "group": "navigation"
+        },
+        {
+          "command": "taia.refreshTasks",
+          "when": "view == taia.taskTree",
+          "group": "navigation"
+        },
+        {
+          "command": "taia.createTask",
+          "when": "view == taia.taskTree",
+          "group": "navigation"
+        }
+      ],
+      "view/item/context": [
+        {
+          "command": "taia.beginTask",
+          "when": "view == taia.taskTree && viewItem == taiaTask",
+          "group": "inline"
+        },
+        {
+          "command": "taia.moveTask",
+          "when": "view == taia.taskTree && viewItem == taiaTask",
+          "group": "inline"
+        },
+        {
+          "command": "taia.assignTask",
+          "when": "view == taia.taskTree && viewItem == taiaTask",
+          "group": "inline"
+        }
+      ]
+    }
+  },
+  "devDependencies": {
+    "@types/vscode": "^1.92.0",
+    "typescript": "^5.9.3"
+  }
+}

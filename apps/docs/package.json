@@ -1,0 +1,25 @@
+{
+  "name": "@taia/docs",
+  "version": "1.0.0-alpha.3",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "gen": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON ../../scripts/docs/gen-reference.mts",
+    "dev": "pnpm gen && astro dev",
+    "build": "pnpm gen && astro build",
+    "preview": "astro preview",
+    "typecheck": "pnpm gen && astro check"
+  },
+  "dependencies": {
+    "@astrojs/markdown-remark": "7.3.9",
+    "@astrojs/starlight": "0.43.1",
+    "astro": "7.4.12",
+    "sharp": "0.35.5"
+  },
+  "devDependencies": {
+    "@astrojs/check": "0.9.12",
+    "@emnapi/core": "1.11.3",
+    "@emnapi/runtime": "1.11.3",
+    "typescript": "^5.9.3"
+  }
+}

@@ -1,0 +1,20 @@
+# TAIA — Reverse proxy (Caddy)
+#
+# Punto de entrada único para producción. Caddy expone solo 80/443, termina TLS
+# automáticamente y enruta el tráfico hacia los servicios internos del compose.
+#
+# - Con dominio real:  DOMAIN=taia.tudominio.com  -> Caddy pide cert a Let's Encrypt.
+# - Sin dominio (IP):  DOMAIN=:80                  -> sirve por HTTP plano (demo/LAN/RPi).
+# - Local:             DOMAIN=localhost            -> Caddy genera un cert local de confianza.
+#
+# El broadcast interno (puerto 13335) NO se expone: es server-to-server dentro de la red.
+
+{$DOMAIN:localhost} {
+	# WebSocket en tiempo real -> ws-server (mismo contenedor app, puerto 13334).
+	# El servidor ws acepta el upgrade en cualquier path, así que /ws funciona sin tocar el código.
+	@websocket path /ws /ws/*
+	reverse_proxy @websocket app:13334
+
+	# Todo lo demás -> Next.js (app, puerto 13333).
+	reverse_proxy app:13333
+}

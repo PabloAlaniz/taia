@@ -1,0 +1,89 @@
+name: 🐛 Bug Report
+description: Reportar un bug o comportamiento inesperado
+title: "[Bug]: "
+labels: ["bug", "needs-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Gracias por reportar este bug. Por favor completá la info para ayudarnos a investigar.
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Descripción del bug
+      description: ¿Qué pasó? ¿Qué esperabas que pasara?
+      placeholder: |
+        El board no actualiza cuando muevo una tarea...
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Pasos para reproducir
+      description: ¿Cómo podemos reproducir el bug?
+      placeholder: |
+        1. Ir a '...'
+        2. Click en '...'
+        3. Ver error
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Comportamiento esperado
+      description: ¿Qué debería pasar?
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: Versión de TAIA
+      description: "Está en el package.json raíz o en el tag de la imagen Docker"
+      placeholder: "1.0.0-alpha.3"
+    validations:
+      required: false
+
+  - type: dropdown
+    id: deployment
+    attributes:
+      label: Tipo de deployment
+      options:
+        - Docker (docker-compose)
+        - Docker (imagen standalone)
+        - Local (pnpm dev)
+        - Otro
+    validations:
+      required: true
+
+  - type: dropdown
+    id: runtime
+    attributes:
+      label: Runtime afectado
+      description: "El provider de la instancia en la que corre el agente, si aplica. Ver https://pabloalaniz.github.io/taia/runtimes/"
+      options:
+        - Ninguno / no aplica (standalone)
+        - OpenClaw (gateway)
+        - Claude (API de Anthropic)
+        - Claude Code (CLI)
+        - Aider (CLI)
+        - Cursor (CLI)
+        - Otro / adapter propio
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs relevantes
+      description: Pegá cualquier log de error (server o browser console)
+      render: shell
+
+  - type: textarea
+    id: additional
+    attributes:
+      label: Contexto adicional
+      description: Screenshots, config, etc.

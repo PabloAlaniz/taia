@@ -1,0 +1,42 @@
+{
+  "name": "@taia/runtime",
+  "version": "1.0.0-alpha.3",
+  "private": true,
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./models": "./src/models.ts",
+    "./providers": "./src/providers.ts",
+    "./adapters/noop": "./src/adapters/noop/index.ts",
+    "./adapters/openclaw": "./src/adapters/openclaw/index.ts",
+    "./adapters/openclaw/client": "./src/adapters/openclaw/client.ts",
+    "./adapters/openclaw/types": "./src/adapters/openclaw/types.ts",
+    "./adapters/cli": "./src/adapters/cli/index.ts",
+    "./adapters/claude-code": "./src/adapters/claude-code/index.ts",
+    "./adapters/cursor": "./src/adapters/cursor/index.ts",
+    "./adapters/aider": "./src/adapters/aider/index.ts",
+    "./adapters/anthropic": "./src/adapters/anthropic/index.ts",
+    "./adapters/anthropic/client": "./src/adapters/anthropic/client.ts",
+    "./adapters/anthropic/tools": "./src/adapters/anthropic/tools.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "lint": "eslint . --max-warnings=0",
+    "test:coverage": "vitest run --coverage"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^1.8.0",
+    "@openclaw/gateway-client": "2026.11.3",
+    "@openclaw/gateway-protocol": "2026.11.3",
+    "@taia/types": "workspace:*",
+    "ws": "^8.23.0"
+  },
+  "devDependencies": {
+    "@types/ws": "^8.18.2",
+    "@vitest/coverage-v8": "^5.1.0",
+    "vitest": "^5.1.0"
+  }
+}

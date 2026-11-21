@@ -1,0 +1,82 @@
+{
+  "name": "taia",
+  "version": "1.0.0-alpha.3",
+  "description": "TAIA - Tablero de Agentes IA. Kanban open-source para coordinar equipos de agentes IA.",
+  "private": true,
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/PabloAlaniz/taia.git"
+  },
+  "homepage": "https://github.com/PabloAlaniz/taia",
+  "bugs": {
+    "url": "https://github.com/PabloAlaniz/taia/issues"
+  },
+  "keywords": [
+    "kanban",
+    "ai-agents",
+    "task-management",
+    "multi-agent",
+    "dashboard",
+    "nextjs",
+    "typescript"
+  ],
+  "author": "Pablo Alaniz",
+  "license": "MIT",
+  "engines": {
+    "node": ">=26.0.0"
+  },
+  "packageManager": "pnpm@9.15.4",
+  "scripts": {
+    "dev": "turbo dev",
+    "build": "turbo build",
+    "test": "turbo test",
+    "test:integration": "turbo test:integration",
+    "lint": "turbo lint",
+    "format": "biome format --write .",
+    "format-check": "biome format .",
+    "test:architecture": "depcruise packages apps --config .dependency-cruiser.cjs",
+    "check:runtime-target": "node scripts/dev/check-runtime-target.mjs",
+    "check:migrations": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/migrate.mts --check",
+    "dev:ws": "node apps/web/scripts/ws-server.js",
+    "db:up": "docker compose up -d postgres",
+    "db:down": "docker compose down",
+    "db:logs": "docker compose logs -f postgres",
+    "db:test:up": "docker compose up -d test-db",
+    "compose:up": "docker compose up -d --build",
+    "migrate": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/migrate.mts",
+    "mcp": "pnpm -F @taia/mcp start",
+    "taia": "pnpm -F @taia/cli taia",
+    "prepare": "husky"
+  },
+  "lint-staged": {
+    "*.{ts,tsx,js,jsx,mjs,cjs}": [
+      "biome format --write --no-errors-on-unmatched",
+      "eslint"
+    ],
+    "*.{json,css}": [
+      "biome format --write --no-errors-on-unmatched"
+    ]
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2.6.7",
+    "dependency-cruiser": "18.7.2",
+    "husky": "^9.1.7",
+    "lint-staged": "^17.6.0",
+    "pg": "^8.23.1",
+    "turbo": "^2.11.11",
+    "typescript": "^5.9.3"
+  },
+  "pnpm": {
+    "overrides": {
+      "hono": ">=4.13.16",
+      "@hono/node-server": ">=2.1.6",
+      "express-rate-limit": ">=8.2.2",
+      "minimatch@>=10 <11": ">=11.0.1"
+    },
+    "auditConfig": {
+      "ignoreGhsas": [
+        "GHSA-fc5q-39xc-vjpf"
+      ]
+    }
+  }
+}

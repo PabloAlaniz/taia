@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: 💬 Preguntas y Discusiones
+    url: https://github.com/PabloAlaniz/taia/discussions
+    about: Para preguntas generales, ideas, o discusiones que no son bugs ni features específicas.
+  - name: 📖 Documentación
+    url: https://pabloalaniz.github.io/taia/
+    about: Consultá la documentación antes de abrir un issue.

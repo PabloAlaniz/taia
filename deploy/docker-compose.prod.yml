@@ -1,0 +1,65 @@
+# TAIA — Override de producción (Caddy + TLS, un solo punto de entrada)
+#
+# Uso:
+#   cp deploy/.env.production.example .env
+#   # editar .env (DOMAIN, POSTGRES_PASSWORD, ...)
+#   docker compose -f docker-compose.yml -f deploy/docker-compose.prod.yml up -d --build
+#
+# Requiere Docker Compose v2.24+ (por el tag !override en ports).
+# Caddy queda como único servicio expuesto (80/443); app, mcp y postgres son internos.
+# TAIA_API_TOKEN es obligatorio acá: sin él, el stack no arranca.
+# El servidor MCP no se publica: los agentes lo alcanzan dentro de la red de compose.
+
+services:
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      - DOMAIN=${DOMAIN:-localhost}
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - app
+
+  app:
+    # Sin publicar puertos al host: el tráfico entra solo por Caddy.
+    ports: !override []
+    environment:
+      # DATABASE_URL en .env apunta a una base externa (con deploy/docker-compose.external-db.yml).
+      - DATABASE_URL=${DATABASE_URL:-postgresql://${POSTGRES_USER:-taia}:${POSTGRES_PASSWORD:-}@postgres:5432/${POSTGRES_DB:-taia}}
+      - NODE_ENV=production
+      # URL que el navegador usa para el WebSocket (vía Caddy, mismo dominio).
+      # Para deploy por HTTP/IP sin dominio, poné en .env: WS_CLIENT_URL=ws://TU_IP/ws
+      - WS_CLIENT_URL=${WS_CLIENT_URL:-wss://${DOMAIN:-localhost}/ws}
+      - TAIA_URL=${TAIA_URL:-https://${DOMAIN:-localhost}}
+      - BROADCAST_URL=http://localhost:13335/broadcast
+      - TAIA_API_TOKEN=${TAIA_API_TOKEN:?Definí TAIA_API_TOKEN en .env (openssl rand -hex 32)}
+      # Caddy es el único proxy delante de la app: el freno de intentos de ingreso cuenta por IP.
+      - TAIA_TRUSTED_PROXIES=${TAIA_TRUSTED_PROXIES:-1}
+
+  mcp:
+    # No se publica al host: los agentes lo alcanzan dentro de la red de compose.
+    ports: !override []
+    environment:
+      - DATABASE_URL=${DATABASE_URL:-postgresql://${POSTGRES_USER:-taia}:${POSTGRES_PASSWORD:-}@postgres:5432/${POSTGRES_DB:-taia}}
+      - NODE_ENV=production
+      - MCP_PORT=13336
+      - TAIA_API_TOKEN=${TAIA_API_TOKEN:?Definí TAIA_API_TOKEN en .env (openssl rand -hex 32)}
+
+  postgres:
+    # Solo accesible dentro de la red de compose (no se publica al host).
+    # Sin POSTGRES_PASSWORD en .env, la imagen de Postgres se niega a arrancar.
+    ports: !override []
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-taia}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-}
+      POSTGRES_DB: ${POSTGRES_DB:-taia}
+
+volumes:
+  caddy_data:
+  caddy_config:

@@ -1,0 +1,34 @@
+{
+  "$schema": "https://turbo.build/schema.json",
+  "tasks": {
+    "build": {
+      "dependsOn": ["^build"],
+      "outputs": [".next/**", "dist/**"]
+    },
+    "typecheck": {
+      "dependsOn": ["^build"]
+    },
+    "test": {
+      "dependsOn": ["^build", "typecheck"]
+    },
+    "test:coverage": {
+      "dependsOn": ["^build", "typecheck"],
+      "outputs": ["coverage/**"]
+    },
+    "test:integration": {
+      "cache": false,
+      "passThroughEnv": [
+        "TEST_DATABASE_URL",
+        "REQUIRE_TEST_DB",
+        "DATABASE_URL",
+        "INTEGRATION_TEST_MUTATE",
+        "OPENCLAW_*"
+      ]
+    },
+    "lint": {},
+    "dev": {
+      "cache": false,
+      "persistent": true
+    }
+  }
+}

@@ -1,0 +1,50 @@
+{
+  "name": "@taia/core",
+  "version": "1.0.0-alpha.3",
+  "private": true,
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./db": "./src/db/index.ts",
+    "./services/*": "./src/services/*",
+    "./events": "./src/events/index.ts",
+    "./events/*": "./src/events/*",
+    "./validation/*": "./src/validation/*",
+    "./errors": "./src/errors.ts",
+    "./api-handler": "./src/api-handler.ts",
+    "./config": "./src/config.ts",
+    "./diagnostics/runtime-target": "./src/diagnostics/runtime-target.ts",
+    "./broadcast": "./src/broadcast.ts",
+    "./alerts": "./src/alerts.ts",
+    "./agents/*": "./src/agents/*",
+    "./runtime": "./src/runtime.ts",
+    "./runtime-instances": "./src/runtime-instances.ts",
+    "./command-policy": "./src/command-policy.ts",
+    "./agent-runtime": "./src/agent-runtime.ts",
+    "./db/*": "./src/db/*"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:coverage": "vitest run --coverage",
+    "test:watch": "vitest",
+    "test:integration": "vitest run --config vitest.integration.config.ts",
+    "lint": "eslint . --max-warnings=0"
+  },
+  "dependencies": {
+    "@taia/domain": "workspace:*",
+    "@taia/runtime": "workspace:*",
+    "@taia/types": "workspace:*",
+    "jszip": "^3.10.1",
+    "pg": "^8.23.1",
+    "ws": "^8.23.0",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@types/pg": "^8.23.1",
+    "@types/ws": "^8.18.2",
+    "@vitest/coverage-v8": "^5.1.0",
+    "vitest": "^5.1.0"
+  }
+}

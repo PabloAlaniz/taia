@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "taia": {
+      "type": "http",
+      "url": "http://localhost:13336/mcp"
+    }
+  }
+}

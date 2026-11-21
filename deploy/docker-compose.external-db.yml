@@ -1,0 +1,17 @@
+# TAIA — Override para usar una base PostgreSQL externa (gestionada) en vez del
+# contenedor `postgres`.
+#
+# Uso (con DATABASE_URL definido en .env):
+#   docker compose -f docker-compose.yml -f deploy/docker-compose.prod.yml \
+#     -f deploy/docker-compose.external-db.yml up -d --build
+#
+# Requiere Docker Compose v2.24+ (por el tag !reset).
+
+services:
+  app:
+    depends_on: !reset {}
+  mcp:
+    depends_on: !reset {}
+  postgres:
+    # Solo arranca si se pide explícitamente el perfil.
+    profiles: [bundled-db]

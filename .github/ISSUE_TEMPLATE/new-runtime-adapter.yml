@@ -1,0 +1,89 @@
+name: 🔌 New Runtime Adapter
+description: Proponer o tomar un AgentRuntimeAdapter nuevo, o ampliar las capacidades de uno existente
+title: "[Adapter]: "
+labels: ["runtime-adapter", "needs-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Querés sumar un runtime nuevo a TAIA o estás por empezar uno. Lee primero:
+        - [Visión general y límites](https://pabloalaniz.github.io/taia/arquitectura/vision-general/)
+        - [Escribir un adapter](https://pabloalaniz.github.io/taia/runtimes/escribir-un-adapter/)
+        - [Runtimes soportados](https://pabloalaniz.github.io/taia/runtimes/): los que ya existen y sus capacidades
+
+  - type: input
+    id: runtime-name
+    attributes:
+      label: Runtime name
+      description: ¿Qué runtime querés conectar?
+      placeholder: "Gemini CLI / Codex / mi-runtime-interno, o uno existente (Cursor, Aider) para ampliarlo"
+    validations:
+      required: true
+
+  - type: input
+    id: runtime-url
+    attributes:
+      label: Link al runtime
+      description: Repo, docs o landing del runtime que vas a integrar
+      placeholder: "https://..."
+
+  - type: dropdown
+    id: status
+    attributes:
+      label: Estado de la propuesta
+      options:
+        - "Idea — quiero discutir antes de implementar"
+        - "Voy a empezar a trabajar en esto"
+        - "Adapter implementado — abriendo PR"
+    validations:
+      required: true
+
+  - type: textarea
+    id: transport
+    attributes:
+      label: Transporte
+      description: ¿Cómo se comunica TAIA con este runtime?
+      placeholder: |
+        HTTP REST / WebSocket / subprocess (stdin-stdout) / IPC / MCP / SDK nativo / otro
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: capabilities
+    attributes:
+      label: Capabilities estimadas
+      description: Marcá las que el runtime puede soportar (ver `RuntimeCapability` en `@taia/runtime`)
+      options:
+        - label: "sessions (spawnSession, listSessions)"
+        - label: "transcripts (getSessionHistory)"
+        - label: "live_events (push events vía on())"
+        - label: "health"
+        - label: "approvals"
+        - label: "cron (listCrons, cronAction)"
+        - label: "messaging (canales externos)"
+        - label: "context_sync (contexto como archivos nativos)"
+        - label: "runtime_settings_read (modelo y tools por agente)"
+        - label: "agent_provisioning (alta y edición de agentes)"
+        - label: "native_config (config cruda del runtime)"
+
+  - type: textarea
+    id: gaps
+    attributes:
+      label: ¿Hay capabilities que el runtime NO soporta?
+      description: Decímelo — la abstracción está pensada para degradar elegantemente cuando faltan capabilities
+      placeholder: "Cursor no expone cron, así que no declararíamos RuntimeCapability.Cron"
+
+  - type: textarea
+    id: config
+    attributes:
+      label: Config que necesita el adapter
+      description: ¿Qué campos necesita la instancia? Los no secretos van en `runtime_instances` y los secretos en `settings` (URL, token, path al binario, etc.)
+      placeholder: |
+        - binaryPath: ruta al ejecutable
+        - workspaceDir: directorio de trabajo
+
+  - type: textarea
+    id: questions
+    attributes:
+      label: Preguntas / dudas
+      description: Cualquier cosa que no esté clara antes de empezar

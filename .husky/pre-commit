@@ -1,0 +1,7 @@
+pnpm exec lint-staged
+
+# Scan the staged changes for secrets when gitleaks is installed
+# (https://github.com/gitleaks/gitleaks). CI runs the same scan.
+if command -v gitleaks >/dev/null 2>&1; then
+  gitleaks git --pre-commit --staged --redact --no-banner
+fi

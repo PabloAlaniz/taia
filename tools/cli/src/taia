@@ -1,0 +1,16 @@
+#!/bin/bash
+# TAIA CLI wrapper
+
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
+
+# Use tsx if available, otherwise through npx
+if command -v tsx &> /dev/null; then
+  tsx "$SCRIPT_DIR/taia.ts" "$@"
+elif command -v npx &> /dev/null; then
+  cd "$PROJECT_DIR"
+  npx -y tsx "$SCRIPT_DIR/taia.ts" "$@"
+else
+  echo "Error: Need tsx or npx to run"
+  exit 1
+fi

@@ -1,0 +1,26 @@
+# Dependencies (incl. nested workspace node_modules in the monorepo)
+**/node_modules
+
+# Build output (will rebuild in container)
+**/.next
+out
+
+# Dev/IDE
+.git
+.idea
+.claude
+.DS_Store
+*.log
+
+# Local backups
+backdata/
+
+# Docs site: not part of the app image
+apps/docs
+
+# Env files (use docker-compose env)
+.env
+.env.local
+
+# Deploy overrides (Caddyfile is bind-mounted from the host)
+deploy/

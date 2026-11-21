@@ -1,0 +1,111 @@
+# TAIA - Tablero de Agentes IA
+# Usage: docker compose up -d --build
+#
+# Every port is published on 127.0.0.1 only: without TAIA_API_TOKEN nothing asks
+# for credentials, so it must not be reachable from other machines. To expose
+# it, use deploy/docker-compose.prod.yml (Caddy + TLS), which requires the
+# token. See .github/SECURITY.md.
+
+services:
+  app:
+    build: .
+    restart: unless-stopped
+    # Linux: hace que host.docker.internal apunte al host, como en Docker Desktop.
+    # TAIA reescribe localhost en las URLs de runtime a ese nombre.
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    ports:
+      - "127.0.0.1:${APP_PORT:-13333}:13333" # Next.js
+      - "127.0.0.1:${WS_PORT:-13334}:13334" # WebSocket
+      - "127.0.0.1:${BROADCAST_PORT:-13335}:13335" # Broadcast HTTP
+    environment:
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-taia}:${POSTGRES_PASSWORD:-taia}@postgres:5432/${POSTGRES_DB:-taia}
+      - NODE_ENV=production
+      # Opcionales, desde .env (ver .github/SECURITY.md). Vacías = desactivadas.
+      - TAIA_API_TOKEN=${TAIA_API_TOKEN:-} # token de acceso para web, API, MCP y WebSocket
+      - TAIA_SECRET_KEY=${TAIA_SECRET_KEY:-} # cifra los secretos guardados en la base
+      - TAIA_WEBHOOK_ALLOW_PRIVATE=${TAIA_WEBHOOK_ALLOW_PRIVATE:-}
+      - WORKTREE_BASE_PATH=${WORKTREE_BASE_PATH:-}
+      - WORKTREE_REPO_PATH=${WORKTREE_REPO_PATH:-}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:13333/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  mcp:
+    build: .
+    restart: unless-stopped
+    # Linux: hace que host.docker.internal apunte al host, como en Docker Desktop.
+    # TAIA reescribe localhost en las URLs de runtime a ese nombre.
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    entrypoint: [] # skip scripts/docker/entrypoint.sh (no migrations here)
+    command: ["pnpm", "-F", "@taia/mcp", "start:http"]
+    ports:
+      - "127.0.0.1:${MCP_PORT:-13336}:13336" # host port parametrizable for multi-instance
+    environment:
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-taia}:${POSTGRES_PASSWORD:-taia}@postgres:5432/${POSTGRES_DB:-taia}
+      - NODE_ENV=production
+      - MCP_PORT=13336
+      # El WebSocket vive en `app`: sin esto, lo que cambian los agentes por
+      # MCP no se refleja en el tablero hasta recargar.
+      - BROADCAST_URL=http://app:13335/broadcast
+      # Las mismas que en `app`: los dos procesos leen los mismos settings.
+      - TAIA_API_TOKEN=${TAIA_API_TOKEN:-}
+      - TAIA_SECRET_KEY=${TAIA_SECRET_KEY:-}
+      - TAIA_WEBHOOK_ALLOW_PRIVATE=${TAIA_WEBHOOK_ALLOW_PRIVATE:-}
+      - WORKTREE_BASE_PATH=${WORKTREE_BASE_PATH:-}
+      - WORKTREE_REPO_PATH=${WORKTREE_REPO_PATH:-}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:13336/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+
+  postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-taia}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-taia}
+      POSTGRES_DB: ${POSTGRES_DB:-taia}
+    ports:
+      - "127.0.0.1:${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-taia} -d ${POSTGRES_DB:-taia}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # Postgres for the integration tests (`pnpm db:test:up`). Behind a profile so
+  # `docker compose up` and the smoke test never start it.
+  test-db:
+    image: postgres:17-alpine
+    profiles: [test]
+    environment:
+      POSTGRES_USER: taia_test
+      POSTGRES_PASSWORD: test
+      POSTGRES_DB: taia_test
+    ports:
+      - "127.0.0.1:5433:5432"
+    tmpfs:
+      - /var/lib/postgresql/data # RAM disk for speed
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U taia_test -d taia_test"]
+      interval: 2s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  postgres_data:
