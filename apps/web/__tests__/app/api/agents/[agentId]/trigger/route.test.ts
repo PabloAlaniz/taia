@@ -60,6 +60,17 @@ describe('POST /api/agents/[agentId]/trigger', () => {
     const req = new NextRequest('http://localhost/api/agents/bob/trigger', { method: 'POST' })
     await POST(req, makeContext('bob'))
 
-    expect(triggerService.triggerAgentHeartbeat).toHaveBeenCalledWith('bob')
+    expect(triggerService.triggerAgentHeartbeat).toHaveBeenCalledWith('bob', { force: false })
+  })
+
+  it('passes force=true through', async () => {
+    vi.mocked(triggerService.triggerAgentHeartbeat).mockResolvedValue({ ok: true })
+
+    const req = new NextRequest('http://localhost/api/agents/bob/trigger?force=true', {
+      method: 'POST',
+    })
+    await POST(req, { params: Promise.resolve({ agentId: 'bob' }) })
+
+    expect(triggerService.triggerAgentHeartbeat).toHaveBeenCalledWith('bob', { force: true })
   })
 })

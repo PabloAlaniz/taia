@@ -2,13 +2,17 @@ import { NextRequest, NextResponse } from 'next/server'
 import { triggerAgentHeartbeat } from '@taia/core/services/trigger.service'
 import { apiError } from '@taia/core/errors'
 
+/** `?force=1` starts a run even if the agent has one running. */
+const forced = (request: NextRequest) =>
+  ['1', 'true'].includes(request.nextUrl.searchParams.get('force') ?? '')
+
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ agentId: string }> },
 ) {
   try {
     const { agentId } = await params
-    const result = await triggerAgentHeartbeat(agentId)
+    const result = await triggerAgentHeartbeat(agentId, { force: forced(request) })
 
     if (!result.ok) {
       return NextResponse.json(result, {
@@ -33,12 +37,12 @@ export async function GET(
     return NextResponse.json({
       endpoint: 'trigger',
       agentId,
-      usage: 'GET /api/trigger/{agentId}?run=true',
+      usage: 'GET /api/trigger/{agentId}?run=true[&force=1]',
     })
   }
 
   try {
-    const result = await triggerAgentHeartbeat(agentId)
+    const result = await triggerAgentHeartbeat(agentId, { force: forced(request) })
 
     if (!result.ok) {
       return NextResponse.json(result, {

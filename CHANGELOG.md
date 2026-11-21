@@ -42,6 +42,8 @@ Con `TAIA_API_TOKEN`, la web, la API, el servidor MCP y el WebSocket piden ese t
 
 La pantalla de ingreso frena los intentos con un token equivocado: 10 seguidos y después uno cada 90 segundos (`429` mientras tanto). Cuenta por IP detrás de un proxy propio (`TAIA_TRUSTED_PROXIES`), guarda la cuenta en Postgres (sobrevive a un reinicio) y nunca verifica más tokens a la vez que los que quedan en el cupo.
 
+Disparar a mano un agente que ya está corriendo no lanza otra corrida: devuelve la que está en curso (`coalesced: true`), y `?force=1` lanza otra igual. Arranca en modo sombra (`TAIA_AGENT_RUN_LOCK=shadow`, sólo loguea); `enforce` lo activa.
+
 `POST /api/webhooks/incoming`, abierto sin token, admite 120 entregas por minuto por cliente (`TAIA_WEBHOOK_RATE_LIMIT`) y responde `429` antes de leer el cuerpo o tocar la base.
 
 Sin el token, TAIA **no pide credenciales**. Los defaults están pensados para eso:
