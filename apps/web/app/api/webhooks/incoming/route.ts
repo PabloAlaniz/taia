@@ -1,11 +1,22 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { apiError } from '@taia/core/errors'
 import { handleIncomingWebhook } from '@taia/core/services/incoming-webhook.service'
+import { clientBucket } from '@/lib/client-bucket'
+import { checkWebhookLimit } from '@/lib/webhook-limit'
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
 
 export async function POST(request: NextRequest) {
+  // Before the body or the database: see lib/webhook-limit.
+  const limited = await checkWebhookLimit(clientBucket(request.headers))
+  if (!limited.allowed) {
+    return NextResponse.json(
+      { ok: false, code: 'RATE_LIMITED', error: 'Too many webhook deliveries, try again later' },
+      { status: limited.status ?? 429, headers: limited.headers },
+    )
+  }
+
   try {
     const workspaceId =
       request.nextUrl.searchParams.get('workspace_id') ||

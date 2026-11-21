@@ -57,6 +57,7 @@ Dentro de los contenedores, los puertos son siempre los mismos. Fuera de Docker,
 | `TAIA_API_TOKEN` | — | Token de acceso (16+ caracteres). Con él, la web, la API, el MCP y el WebSocket piden credenciales. La app y el MCP tienen que compartirlo. Ver [Deploy](/taia/guias/deploy/#token-de-acceso) |
 | `TAIA_TRUSTED_PROXIES` | `0` (`1` en `deploy/docker-compose.prod.yml`) | Cuántos proxies propios hay delante de la app y agregan la IP del cliente a `X-Forwarded-For`, como Caddy. Con `0`, el freno de intentos fallidos de ingreso cuenta a todos los clientes juntos; con `1` o más, por IP |
 | `TAIA_SECRET_KEY` | — | Clave (16+ caracteres) para cifrar en la base los tokens, API keys y secretos de webhooks. La app y el MCP tienen que compartirla. Ver [SECURITY](https://github.com/PabloAlaniz/taia/blob/main/.github/SECURITY.md#variables-de-entorno) |
+| `TAIA_WEBHOOK_RATE_LIMIT` | `120/minute` | Cuántas entregas acepta `POST /api/webhooks/incoming` por cliente (por IP con `TAIA_TRUSTED_PROXIES`, si no todas juntas) antes de responder `429`. Formato `<cantidad>/<unidad>`, como `30/minute` o `1000/hour` |
 | `TAIA_WEBHOOK_ALLOW_PRIVATE` | desactivado | Con `1`, los webhooks salientes pueden ir a `localhost` y a redes privadas |
 
 ### Comandos que ejecuta el servidor

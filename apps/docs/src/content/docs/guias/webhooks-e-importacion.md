@@ -25,7 +25,7 @@ curl -X PUT http://localhost:13333/api/settings -H 'content-type: application/js
 | GitHub | `x-hub-signature-256`, `x-github-event` y `x-github-delivery` (GitHub los manda solos si configurás el mismo secreto) |
 | Propio | `x-taia-webhook-signature` = `sha256=` + HMAC-SHA256 de `"<timestamp>.<body>"`, `x-taia-webhook-timestamp` (segundos Unix) y `x-taia-webhook-id` |
 
-Se rechazan las firmas inválidas, los timestamps de más de 5 minutos y las entregas repetidas (mismo id).
+Se rechazan las firmas inválidas, los timestamps de más de 5 minutos y las entregas repetidas (mismo id). Más de 120 entregas por minuto de un mismo cliente reciben `429` con `Retry-After`; se ajusta con `TAIA_WEBHOOK_RATE_LIMIT`. Sin `TAIA_TRUSTED_PROXIES`, todos los clientes comparten ese cupo.
 
 **Qué hace con GitHub:** busca en el issue o PR una referencia a una tarea (`task:<id>`) y, según el evento, la mueve:
 

@@ -40,7 +40,9 @@ Primera versión pública.
 
 Con `TAIA_API_TOKEN`, la web, la API, el servidor MCP y el WebSocket piden ese token (pantalla de ingreso en el navegador, `Authorization: Bearer` para agentes y scripts). Es un token compartido, sin usuarios ni permisos, y el compose de producción lo exige.
 
-La pantalla de ingreso frena los intentos con un token equivocado: 10 seguidos y después uno cada 90 segundos (`429` mientras tanto). Cuenta por IP detrás de un proxy propio (`TAIA_TRUSTED_PROXIES`).
+La pantalla de ingreso frena los intentos con un token equivocado: 10 seguidos y después uno cada 90 segundos (`429` mientras tanto). Cuenta por IP detrás de un proxy propio (`TAIA_TRUSTED_PROXIES`), guarda la cuenta en Postgres (sobrevive a un reinicio) y nunca verifica más tokens a la vez que los que quedan en el cupo.
+
+`POST /api/webhooks/incoming`, abierto sin token, admite 120 entregas por minuto por cliente (`TAIA_WEBHOOK_RATE_LIMIT`) y responde `429` antes de leer el cuerpo o tocar la base.
 
 Sin el token, TAIA **no pide credenciales**. Los defaults están pensados para eso:
 
