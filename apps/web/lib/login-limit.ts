@@ -1,5 +1,6 @@
-import { createLimiter, createLockout, memoryStore, type Attempt } from 'omnilimit'
-import { clientKey } from 'omnilimit/ip'
+import { createLimiter, createLockout, type Attempt } from 'omnilimit'
+import { rateLimitStore } from '@taia/core/rate-limit'
+import { clientBucket } from '@/lib/client-bucket'
 
 // Brake on wrong access tokens at /api/auth/login.
 //
@@ -8,52 +9,39 @@ import { clientKey } from 'omnilimit/ip'
 // checking the token, so a correct one is refused too. That is what makes
 // guessing useless.
 //
-// The count lives in this process. TAIA runs as one app container, so that is
-// exact there and is lost on a restart.
+// The count lives in Postgres (see @taia/core/rate-limit), so a restart does
+// not hand out a fresh budget.
 
 export const LOGIN_LIMIT = { limit: 10, windowMs: 15 * 60 * 1000 } as const
 
 const limiter = createLimiter({
-  store: memoryStore(),
+  store: rateLimitStore(),
   scope: 'login-failures',
   ...LOGIN_LIMIT,
-  // The memory store cannot fail; a remote one must not lock everybody out.
-  onStoreError: 'open',
+  // A credential check must not go uncounted: if the database cannot count the
+  // attempt, refuse it (503). TAIA does not work without the database anyway.
+  onStoreError: 'closed',
   headers: 'none',
 })
 
-/**
- * How many reverse proxies of your own sit in front of the app
- * (`TAIA_TRUSTED_PROXIES`). Each one has to append the address it received the
- * request from to `X-Forwarded-For`, as Caddy does.
- */
-function trustedProxies(env: Record<string, string | undefined>): number {
-  const value = Number(env.TAIA_TRUSTED_PROXIES)
-  return Number.isInteger(value) && value > 0 ? value : 0
-}
+/** The bucket a login attempt counts against: see `clientBucket`. */
+export const loginBucket = clientBucket
 
-/**
- * The bucket a login attempt counts against: the client address when a trusted
- * proxy reports it, otherwise one bucket shared by everybody. A route handler
- * cannot see the TCP peer, and without a proxy of ours `X-Forwarded-For` is
- * whatever the client typed.
- */
-export function loginBucket(
-  headers: Headers,
-  env: Record<string, string | undefined> = process.env,
-): string {
-  const proxies = trustedProxies(env)
-  if (proxies === 0) return 'shared'
-  return clientKey({ headers }, { xff: { hops: proxies - 1 } }) ?? 'shared'
-}
-
+// Reserve mode counts the attempt before the token is checked and gives it back
+// when the token is right, so attempts sent all at once can never check more
+// tokens than the budget has left.
+//
 // A right token does not clear the count: with one bucket shared by everybody,
 // the owner signing in must not hand a guesser a fresh budget.
-const lockout = createLockout({ limiter, resetOnSuccess: false })
+const lockout = createLockout({
+  limits: [{ limiter, resetOnSuccess: false }],
+  mode: 'reserve',
+})
 
 /**
  * Run `verify` unless the bucket has failed too often. A false result counts as
- * one failed attempt.
+ * one failed attempt. When the database cannot count, the attempt is refused
+ * and `decision.reason` is `store_error`.
  */
 export function attemptLogin(
   bucket: string,
