@@ -29,8 +29,8 @@
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^1.8.0",
-    "@openclaw/gateway-client": "2026.11.3",
-    "@openclaw/gateway-protocol": "2026.11.3",
+    "@openclaw/gateway-client": "2026.11.5",
+    "@openclaw/gateway-protocol": "2026.11.5",
     "@taia/types": "workspace:*",
     "ws": "^8.23.0"
   },
