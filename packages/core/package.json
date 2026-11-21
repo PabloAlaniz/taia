@@ -23,7 +23,8 @@
     "./command-policy": "./src/command-policy.ts",
     "./agent-runtime": "./src/agent-runtime.ts",
     "./db/*": "./src/db/*",
-    "./rate-limit": "./src/rate-limit.ts"
+    "./rate-limit": "./src/rate-limit.ts",
+    "./spend-limit": "./src/spend-limit.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",

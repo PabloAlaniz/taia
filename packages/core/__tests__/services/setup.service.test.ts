@@ -20,6 +20,12 @@ vi.mock('../../src/runtime', () => ({
 
 import { generateSetup } from '@taia/core/services/setup.service'
 
+// Rate limits are covered in spend-limit.test.ts; here they let everything through.
+vi.mock('@taia/core/spend-limit', () => ({
+  withSpendLimit: (_name: string, _id: string, work: () => Promise<unknown>) => work(),
+  SpendLimitError: class SpendLimitError extends Error {},
+}))
+
 const validSetupJson = {
   workspace: {
     name: 'My Workspace',

@@ -6,6 +6,7 @@ import { RuntimeCapability, requireCapabilityMethod } from '@taia/runtime'
 import { getRuntimeAdapterForAgent } from '../runtime'
 import { logAgentTriggered } from './activity.service'
 import { abandonAgentRun, claimAgentRun, trackAgentRun } from './agent-run-lease.service'
+import { SpendLimitError, withSpendLimit } from '../spend-limit'
 import { getActiveBundleVersionIds } from './agent-context.service'
 import { getAgentRuntimeSettings } from './agent-runtime-settings.service'
 import { loadAgentContextBundle } from './context.service'
@@ -20,6 +21,8 @@ export interface TriggerResult {
   /** No run started: the trigger joined the agent's running session. */
   coalesced?: boolean
   error?: string
+  /** Set when a spent rate limit refused the run (TAIA_SPEND_LIMITS=enforce). */
+  retryAfterSeconds?: number
 }
 
 export interface TriggerOptions {
@@ -81,16 +84,21 @@ export async function triggerAgentHeartbeat(
       ? undefined
       : (await getAgentRuntimeSettings(agentId)).model?.primary
 
-    const result = await spawnSession(HEARTBEAT_FALLBACK, {
-      agentId,
-      label: `heartbeat-manual-${Date.now()}`,
-      runTimeoutSeconds: HEARTBEAT_RUN_TIMEOUT_SECONDS,
-      ...(model ? { model } : {}),
-      trigger: { kind: 'heartbeat' },
-      context: bundle ?? undefined,
-      bundleVersionIds:
-        bundleVersionIds && Object.keys(bundleVersionIds).length > 0 ? bundleVersionIds : undefined,
-    })
+    // Only a run that really starts counts: a coalesced trigger spent nothing.
+    const result = await withSpendLimit('agent-run', agentId, () =>
+      spawnSession(HEARTBEAT_FALLBACK, {
+        agentId,
+        label: `heartbeat-manual-${Date.now()}`,
+        runTimeoutSeconds: HEARTBEAT_RUN_TIMEOUT_SECONDS,
+        ...(model ? { model } : {}),
+        trigger: { kind: 'heartbeat' },
+        context: bundle ?? undefined,
+        bundleVersionIds:
+          bundleVersionIds && Object.keys(bundleVersionIds).length > 0
+            ? bundleVersionIds
+            : undefined,
+      }),
+    )
 
     if (leaseId) {
       const awaitSessionComplete = adapter.awaitSessionComplete?.bind(adapter)
@@ -125,6 +133,7 @@ export async function triggerAgentHeartbeat(
       ok: false,
       agentId,
       error: err instanceof Error ? err.message : String(err),
+      ...(err instanceof SpendLimitError ? { retryAfterSeconds: err.retryAfterSeconds } : {}),
     }
   }
 }

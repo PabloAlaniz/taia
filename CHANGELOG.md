@@ -42,6 +42,8 @@ Con `TAIA_API_TOKEN`, la web, la API, el servidor MCP y el WebSocket piden ese t
 
 La pantalla de ingreso frena los intentos con un token equivocado: 10 seguidos y después uno cada 90 segundos (`429` mientras tanto). Cuenta por IP detrás de un proxy propio (`TAIA_TRUSTED_PROXIES`), guarda la cuenta en Postgres (sobrevive a un reinicio) y nunca verifica más tokens a la vez que los que quedan en el cupo.
 
+Las operaciones que gastan en el modelo tienen límites: 20 corridas por hora por agente, 30 planes y 10 setups de onboarding por hora (`TAIA_AGENT_RUN_LIMIT`, `TAIA_PLANNING_LIMIT`, `TAIA_ONBOARDING_SETUP_LIMIT`). Frenan a un script o a un agente en bucle, no a una persona. Arrancan en modo sombra (`TAIA_SPEND_LIMITS=shadow`, sólo loguean lo que rechazarían); `enforce` responde `429`.
+
 Disparar a mano un agente que ya está corriendo no lanza otra corrida: devuelve la que está en curso (`coalesced: true`), y `?force=1` lanza otra igual. Arranca en modo sombra (`TAIA_AGENT_RUN_LOCK=shadow`, sólo loguea); `enforce` lo activa.
 
 `POST /api/webhooks/incoming`, abierto sin token, admite 120 entregas por minuto por cliente (`TAIA_WEBHOOK_RATE_LIMIT`) y responde `429` antes de leer el cuerpo o tocar la base.

@@ -1,6 +1,12 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { triggerAgentHeartbeat } from '@taia/core/services/trigger.service'
 
+// Rate limits are covered in spend-limit.test.ts; here they let everything through.
+vi.mock('@taia/core/spend-limit', () => ({
+  withSpendLimit: (_name: string, _id: string, work: () => Promise<unknown>) => work(),
+  SpendLimitError: class SpendLimitError extends Error {},
+}))
+
 const mockSpawnSession = vi.fn()
 
 let hasCapability: (cap: string) => boolean = () => true

@@ -26,6 +26,21 @@ describe('POST /api/trigger/[agentId]', () => {
     expect(data.ok).toBe(true)
   })
 
+  it('answers 429 with Retry-After when a spend limit refused the run', async () => {
+    vi.mocked(triggerService.triggerAgentHeartbeat).mockResolvedValue({
+      ok: false,
+      agentId: 'agent-1',
+      error: 'Too many agent-run requests; try again in 120s',
+      retryAfterSeconds: 120,
+    })
+
+    const req = new NextRequest('http://localhost/api/trigger/agent-1', { method: 'POST' })
+    const res = await POST(req, makeParams('agent-1'))
+
+    expect(res.status).toBe(429)
+    expect(res.headers.get('retry-after')).toBe('120')
+  })
+
   it('answers 200 with the running session when the trigger is coalesced', async () => {
     vi.mocked(triggerService.triggerAgentHeartbeat).mockResolvedValue({
       ok: true,

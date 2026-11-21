@@ -85,6 +85,11 @@ export async function generatePlanWithTelemetry(
 }
 
 async function generateViaRuntime(userMessage: string): Promise<PlanGenerationResult> {
+  const { withSpendLimit } = await import('../spend-limit')
+  return withSpendLimit('planning', 'instance', () => runPlanning(userMessage))
+}
+
+async function runPlanning(userMessage: string): Promise<PlanGenerationResult> {
   const { getDefaultRuntimeAdapter } = await import('../runtime')
   const { RuntimeCapability, requireCapabilityMethod } = await import('@taia/runtime')
   const adapter = await getDefaultRuntimeAdapter()

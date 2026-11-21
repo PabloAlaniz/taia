@@ -82,6 +82,11 @@ export interface ApplyResult {
  * Generate a setup suggestion via the runtime adapter.
  */
 export async function generateSetup(userNeed: string): Promise<SetupResult> {
+  const { withSpendLimit } = await import('../spend-limit')
+  return withSpendLimit('onboarding-setup', 'instance', () => runSetup(userNeed))
+}
+
+async function runSetup(userNeed: string): Promise<SetupResult> {
   const { getDefaultRuntimeAdapter } = await import('../runtime')
   const { RuntimeCapability, requireCapabilityMethod } = await import('@taia/runtime')
   const adapter = await getDefaultRuntimeAdapter()

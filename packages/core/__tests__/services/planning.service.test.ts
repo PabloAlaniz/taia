@@ -20,6 +20,12 @@ vi.mock('@taia/core/runtime', () => ({
 
 import { generatePlan } from '@taia/core/services/planning.service'
 
+// Rate limits are covered in spend-limit.test.ts; here they let everything through.
+vi.mock('@taia/core/spend-limit', () => ({
+  withSpendLimit: (_name: string, _id: string, work: () => Promise<unknown>) => work(),
+  SpendLimitError: class SpendLimitError extends Error {},
+}))
+
 // --- Helpers ---
 
 const validPlanJson = {
