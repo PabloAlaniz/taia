@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { Alert, Button, Input, Select } from '@/components/atoms'
-import { Modal, ModalHeader, ModalBody, ModalFooter } from '@/components/organisms/modal'
+import { Modal, ModalHeader, ModalBody, ModalFooter } from '@/components/molecules/modal'
 
 export function AddAgentModal({
   onClose,

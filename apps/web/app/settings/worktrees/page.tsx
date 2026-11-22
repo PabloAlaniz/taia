@@ -1,5 +1,6 @@
 'use client'
 
+import { useTranslations } from 'next-intl'
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { Button, Input, Checkbox } from '@/components/atoms'
@@ -8,6 +9,7 @@ import { fetchJson } from '@/lib/use-resource'
 import { SectionCard } from '@/components/molecules/section-card'
 
 export default function WorktreeSettingsPage() {
+  const tp = useTranslations('pageTitles')
   const [basePath, setBasePath] = useState('/tmp/taia-worktrees')
   const [repoClonePath, setRepoClonePath] = useState('/tmp/taia-repos')
   const [cleanupHours, setCleanupHours] = useState('72')
@@ -91,17 +93,22 @@ export default function WorktreeSettingsPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
+      <div className="min-h-full bg-background flex items-center justify-center">
         <span className="text-muted text-sm">Cargando...</span>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      <PageHeader title="Git Worktrees" backHref="/settings" />
+    <div className="min-h-full bg-background">
+      <PageHeader
+        width="form"
+        title={tp('worktrees')}
+        backHref="/settings"
+        backLabel={tp('settings')}
+      />
 
-      <div className="p-6 pt-8 max-w-2xl mx-auto space-y-8">
+      <div className="px-4 md:px-6 pt-5 pb-10 max-w-2xl mx-auto space-y-8">
         {/* Paths Section */}
         <SectionCard
           title="Paths"

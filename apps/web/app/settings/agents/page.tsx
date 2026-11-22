@@ -12,7 +12,7 @@ export default function AgentSettingsPage() {
   }, [router])
 
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center">
+    <div className="min-h-full bg-background flex items-center justify-center">
       <span className="text-2xl">🔄 Redirecting to Squad Dashboard...</span>
     </div>
   )

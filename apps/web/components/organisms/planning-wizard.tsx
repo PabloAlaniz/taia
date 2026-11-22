@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { useTranslations } from 'next-intl'
 import { Alert, Button, Input, Select, Textarea, Label } from '../atoms'
-import { Modal, ModalHeader, ModalBody, ModalFooter } from './modal'
+import { Modal, ModalHeader, ModalBody, ModalFooter } from '../molecules/modal'
 
 interface PlannedTask {
   title: string

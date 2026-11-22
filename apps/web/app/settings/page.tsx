@@ -66,10 +66,10 @@ export default function SettingsPage() {
   ]
 
   return (
-    <div className="min-h-screen bg-background">
-      <PageHeader title={t('title')} />
+    <div className="min-h-full bg-background">
+      <PageHeader width="form" title={t('title')} />
 
-      <div className="p-6 pt-8 max-w-2xl mx-auto">
+      <div className="px-4 md:px-6 pt-5 pb-10 max-w-2xl mx-auto">
         <p className="text-muted text-sm mb-6">{t('generalDesc')}</p>
 
         <div className="space-y-2">

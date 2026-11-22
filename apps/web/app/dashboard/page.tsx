@@ -230,7 +230,7 @@ export default function DashboardPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
+      <div className="min-h-full bg-background flex items-center justify-center">
         <span className="text-2xl">⏳</span>
       </div>
     )
@@ -238,14 +238,14 @@ export default function DashboardPage() {
 
   if (!stats) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
+      <div className="min-h-full bg-background flex items-center justify-center">
         <span className="text-red-500">Failed to load stats</span>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-full bg-background">
       <PageHeader title={t('title')}>
         <Select
           value={period}
@@ -262,7 +262,7 @@ export default function DashboardPage() {
         </Button>
       </PageHeader>
 
-      <div className="p-6 pt-8 max-w-6xl mx-auto">
+      <div className="px-4 md:px-6 pt-5 pb-10 max-w-6xl mx-auto">
         {/* Overview Cards — hero size for primary metrics */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-10">
           <StatCard label={t('totalTasks')} value={stats.totalTasks} icon="📋" size="hero" />
@@ -333,7 +333,7 @@ export default function DashboardPage() {
 
         {/* Status Overview */}
         <h2 className="text-xs font-medium text-muted uppercase tracking-wider mb-3">
-          {t('statusSection') || 'Status'}
+          {t('statusSection')}
         </h2>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-10">
           <StatCard
@@ -342,7 +342,11 @@ export default function DashboardPage() {
             icon="🔨"
             color="text-yellow-500"
           />
-          <StatCard label={t('blocked')} value={stats.blocked} icon="🚫" color="text-red-500" />
+          <StatCard
+            label={t('blocked')}
+            value={stats.blocked}
+            tone={stats.blocked > 0 ? 'alert' : 'default'}
+          />
           <StatCard
             label={t('inReview')}
             value={stats.inReview}
@@ -352,8 +356,7 @@ export default function DashboardPage() {
           <StatCard
             label={t('stale')}
             value={stats.staleTasks.length}
-            icon="⚠️"
-            color="text-orange-500"
+            tone={stats.staleTasks.length > 0 ? 'waiting' : 'default'}
           />
         </div>
 
@@ -361,7 +364,7 @@ export default function DashboardPage() {
         {costMetrics && costMetrics.totals.total_tokens > 0 && (
           <>
             <h2 className="text-xs font-medium text-muted uppercase tracking-wider mb-3">
-              {t('costSection') || 'Cost'}
+              {t('costSection')}
             </h2>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
               <StatCard

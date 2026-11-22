@@ -1,5 +1,11 @@
 import { clsx, type ClassValue } from 'clsx'
-import { twMerge } from 'tailwind-merge'
+import { extendTailwindMerge } from 'tailwind-merge'
+
+// Our micro font sizes (globals.css --text-*) must read as sizes, not colours:
+// otherwise `text-xxs` would knock out `text-background` in the same class list.
+const twMerge = extendTailwindMerge({
+  extend: { theme: { text: ['3xs', '2xs', 'xxs', 'mid'] } },
+})
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))

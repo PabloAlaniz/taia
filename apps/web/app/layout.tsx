@@ -2,8 +2,25 @@ import type { Metadata, Viewport } from 'next'
 import { ThemeProvider } from 'next-themes'
 import { NextIntlClientProvider } from 'next-intl'
 import { getLocale, getMessages } from 'next-intl/server'
+import { Barlow_Semi_Condensed, IBM_Plex_Mono } from 'next/font/google'
 import { SkipLink } from '../components/atoms'
+import { AppShell } from '../components/templates/app-shell'
 import './globals.css'
+
+// Barlow Semi Condensed carries the strips; Plex Mono only ids, commands and
+// diff counts. next/font self-hosts both at build time.
+const barlow = Barlow_Semi_Condensed({
+  subsets: ['latin', 'latin-ext'],
+  weight: ['400', '500', '600', '700'],
+  variable: '--font-barlow',
+  display: 'swap',
+})
+const plexMono = IBM_Plex_Mono({
+  subsets: ['latin'],
+  weight: ['400', '500'],
+  variable: '--font-plex-mono',
+  display: 'swap',
+})
 
 export const metadata: Metadata = {
   title: 'TAIA - Tablero de Agentes IA',
@@ -12,8 +29,8 @@ export const metadata: Metadata = {
 
 export const viewport: Viewport = {
   themeColor: [
-    { media: '(prefers-color-scheme: light)', color: '#ffffff' },
-    { media: '(prefers-color-scheme: dark)', color: '#0a0a0a' },
+    { media: '(prefers-color-scheme: light)', color: '#2b3138' },
+    { media: '(prefers-color-scheme: dark)', color: '#1d2329' },
   ],
 }
 
@@ -22,13 +39,18 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   const messages = await getMessages()
 
   return (
-    <html lang={locale} suppressHydrationWarning style={{ colorScheme: 'dark light' }}>
+    <html
+      lang={locale}
+      suppressHydrationWarning
+      className={`${barlow.variable} ${plexMono.variable}`}
+      style={{ colorScheme: 'dark light' }}
+    >
       <head />
       <body>
         <NextIntlClientProvider messages={messages}>
           <ThemeProvider attribute="class" defaultTheme="dark" enableSystem>
             <SkipLink />
-            {children}
+            <AppShell>{children}</AppShell>
           </ThemeProvider>
         </NextIntlClientProvider>
       </body>

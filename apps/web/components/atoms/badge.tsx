@@ -9,12 +9,12 @@ export interface BadgeProps extends React.HTMLAttributes<HTMLSpanElement> {
 
 const variants = {
   default: 'bg-background text-muted',
-  accent: 'bg-accent text-white',
+  accent: 'bg-agent-ink text-white dark:text-rack-deep',
   muted: 'bg-card text-muted',
   secondary: 'bg-card border border-border text-foreground',
-  success: 'bg-green-500/20 text-green-400',
-  warning: 'bg-yellow-500/20 text-yellow-400',
-  danger: 'bg-red-500/20 text-red-400',
+  success: 'bg-ok/15 text-ok',
+  warning: 'bg-person/20 text-person-ink',
+  danger: 'bg-alert/15 text-alert',
 }
 
 const sizes = {
@@ -41,7 +41,7 @@ export function Badge({
   return (
     <span
       className={cn(
-        'rounded-full font-medium inline-flex items-center',
+        'rounded-sm font-semibold inline-flex items-center',
         !color && variants[variant],
         sizes[size],
         className,

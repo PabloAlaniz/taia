@@ -10,9 +10,12 @@ import {
 } from '@/lib/store-selectors'
 import { Button } from '../atoms'
 import { Dropdown } from './dropdown'
+import { ChevronDown, Plus, UserPlus } from 'lucide-react'
+import { useTranslations } from 'next-intl'
 import { cn } from '../../lib/utils'
 
 export function UserSwitcher() {
+  const t = useTranslations('shell.user')
   const currentUserId = useCurrentUserId()
   const currentUser = useCurrentUserAgent()
   const setCurrentUser = useSetCurrentUser()
@@ -41,28 +44,33 @@ export function UserSwitcher() {
     return (
       <Link
         href="/settings/team"
-        className="text-2xs text-muted hover:text-accent transition-colors no-underline"
-        title="Add team members"
+        className="p-1.5 rounded text-on-rack-muted hover:text-white hover:bg-rack-line focus-visible:outline-2 focus-visible:outline-white"
+        aria-label={t('addTeam')}
+        title={t('addTeam')}
       >
-        👤 ?
+        <UserPlus size={17} aria-hidden="true" />
       </Link>
     )
   }
 
   return (
     <div className="relative" ref={ref}>
-      <Button
-        variant="ghost"
-        size="sm"
+      {/* eslint-disable-next-line no-restricted-syntax -- control on the dark rack, not a page button */}
+      <button
+        type="button"
         onClick={() => setOpen(!open)}
-        className="flex items-center gap-1.5 px-2 py-1 text-xs font-medium"
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        aria-label={t('switch', { name: currentUser?.name ?? '' })}
+        className="flex items-center gap-1 rounded-full focus-visible:outline-2 focus-visible:outline-white"
       >
-        <span>{currentUser?.avatar || '👤'}</span>
-        <span className="max-w-[100px] truncate">{currentUser?.name || 'Select user'}</span>
-        <span className="text-muted">▾</span>
-      </Button>
+        <span className="w-7 h-7 rounded-full bg-person text-on-person grid place-items-center text-xs font-bold">
+          {initials(currentUser?.name)}
+        </span>
+        <ChevronDown size={13} className="text-on-rack-muted" aria-hidden="true" />
+      </button>
 
-      <Dropdown open={open} className="w-48 py-1">
+      <Dropdown open={open} align="right" className="w-52 py-1">
         {humanAgents.map((agent) => (
           <Button
             key={agent.id}
@@ -73,11 +81,13 @@ export function UserSwitcher() {
               setOpen(false)
             }}
             className={cn(
-              'w-full px-3 py-2 text-left text-sm flex items-center gap-2 hover:bg-background transition-colors rounded-none justify-start',
-              agent.id === currentUserId && 'bg-accent/10 text-accent',
+              'w-full px-3 py-2 text-left text-sm flex items-center gap-2 hover:bg-strip transition-colors rounded-none justify-start',
+              agent.id === currentUserId && 'font-semibold bg-strip',
             )}
           >
-            <span>{agent.avatar || '👤'}</span>
+            <span className="w-5 h-5 rounded-full bg-person text-on-person grid place-items-center text-3xs font-bold">
+              {initials(agent.name)}
+            </span>
             <span className="flex-1 truncate">{agent.name}</span>
           </Button>
         ))}
@@ -85,13 +95,19 @@ export function UserSwitcher() {
           <Link
             href="/settings/team"
             onClick={() => setOpen(false)}
-            className="w-full px-3 py-2 text-left text-sm text-accent hover:bg-background transition-colors flex items-center gap-2 no-underline"
+            className="w-full px-3 py-2 text-left text-sm text-accent hover:bg-strip transition-colors flex items-center gap-2 no-underline"
           >
-            <span>+</span>
-            <span>Manage team</span>
+            <Plus size={14} aria-hidden="true" />
+            <span>{t('manageTeam')}</span>
           </Link>
         </div>
       </Dropdown>
     </div>
   )
+}
+
+function initials(name?: string | null): string {
+  if (!name) return '?'
+  const parts = name.trim().split(/\s+/)
+  return (parts[0][0] + (parts[1]?.[0] ?? parts[0][1] ?? '')).toUpperCase()
 }

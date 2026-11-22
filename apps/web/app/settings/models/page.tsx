@@ -48,6 +48,7 @@ async function loadModels(): Promise<ModelsResponse> {
 }
 
 export default function ModelsPage() {
+  const tp = useTranslations('pageTitles')
   const t = useTranslations('modelsPage')
   const { data, loading, error } = useResource('/api/models', loadModels)
   const models = data?.models ?? []
@@ -56,8 +57,8 @@ export default function ModelsPage() {
   const multiInstance = (data?.instances?.length ?? 0) > 1
 
   return (
-    <div className="min-h-screen bg-background">
-      <PageHeader title={t('title')} icon="🧠" backHref="/settings" />
+    <div className="min-h-full bg-background">
+      <PageHeader title={t('title')} backHref="/settings" backLabel={tp('settings')} />
 
       <div className="p-6 max-w-3xl mx-auto">
         <p className="text-muted text-sm mb-6">{t('description')}</p>

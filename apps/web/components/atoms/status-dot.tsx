@@ -10,19 +10,20 @@ export interface StatusDotProps extends React.HTMLAttributes<HTMLSpanElement> {
 }
 
 const colors = {
-  green: 'bg-green-500',
-  yellow: 'bg-yellow-500',
-  red: 'bg-red-500',
+  green: 'bg-ok',
+  yellow: 'bg-person',
+  red: 'bg-alert',
   gray: 'bg-muted',
-  blue: 'bg-accent',
+  blue: 'bg-agent',
 }
 
+// A soft offset ring instead of a zero-offset glow.
 const glowColors = {
-  green: 'shadow-[0_0_6px_#22c55e]',
-  yellow: 'shadow-[0_0_6px_#eab308]',
-  red: 'shadow-[0_0_6px_#ef4444]',
+  green: 'ring-2 ring-ok/25',
+  yellow: 'ring-2 ring-person/25',
+  red: 'ring-2 ring-alert/25',
   gray: '',
-  blue: 'shadow-[0_0_6px_#3b82f6]',
+  blue: 'ring-2 ring-agent/25',
 }
 
 const sizes = {

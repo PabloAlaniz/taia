@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { Button, Input, Select } from '@/components/atoms'
-import { Modal, ModalHeader, ModalBody, ModalFooter } from '@/components/organisms/modal'
+import { Modal, ModalHeader, ModalBody, ModalFooter } from '@/components/molecules/modal'
 import type { SquadMember } from './types'
 
 export function EditAgentModal({

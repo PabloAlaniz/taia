@@ -13,11 +13,11 @@ interface TimelineItemProps {
 }
 
 const ROLE_STYLES = {
-  user: { color: 'text-blue-400', bg: 'bg-blue-500', icon: '👤' },
-  assistant: { color: 'text-green-400', bg: 'bg-green-500', icon: '🤖' },
+  user: { color: 'text-person-ink', bg: 'bg-person', icon: '' },
+  assistant: { color: 'text-agent-ink', bg: 'bg-agent', icon: '' },
 }
 
-export function TimelineItem({ entry, agentName, agentAvatar, isLast = false }: TimelineItemProps) {
+export function TimelineItem({ entry, agentName, isLast = false }: TimelineItemProps) {
   const [expanded, setExpanded] = useState(false)
   const style = ROLE_STYLES[entry.role]
   const hasExpandableContent = entry.parts?.some((p) => p.type === 'thinking' || p.type === 'tool')
@@ -32,9 +32,9 @@ export function TimelineItem({ entry, agentName, agentAvatar, isLast = false }: 
 
       {/* Content */}
       <div className="flex-1 pb-3 min-w-0">
-        <div className="flex items-center gap-2 text-2xs">
+        <div className="flex items-center gap-2 text-xs">
           <span className={style.color}>
-            {agentAvatar || style.icon} {entry.role === 'user' ? 'User' : agentName || 'Agent'}
+            {entry.role === 'user' ? 'User' : agentName || 'Agent'}
           </span>
           {entry.timestamp && (
             <span className="text-muted">{new Date(entry.timestamp).toLocaleTimeString()}</span>
@@ -79,10 +79,9 @@ function PartView({ part, expanded }: { part: TranscriptPart; expanded: boolean 
   if (part.type === 'tool') {
     return (
       <div className="flex items-center gap-1 mt-0.5">
-        <span className="text-orange-400 text-2xs">🔧</span>
-        <code className="text-2xs text-orange-300 font-mono">{part.name}</code>
+        <code className="text-xs text-person-ink font-mono">{part.name}</code>
         {expanded && part.preview && (
-          <span className="text-3xs text-muted truncate max-w-[300px]">{part.preview}</span>
+          <span className="text-xxs text-muted truncate max-w-[300px]">{part.preview}</span>
         )}
       </div>
     )
@@ -90,7 +89,7 @@ function PartView({ part, expanded }: { part: TranscriptPart; expanded: boolean 
 
   if (part.type === 'thinking' && expanded && part.text) {
     return (
-      <div className="mt-1 p-1.5 rounded-sm bg-background/50 border border-border/50 text-2xs text-muted leading-relaxed whitespace-pre-wrap">
+      <div className="mt-1 p-1.5 rounded-sm bg-background/50 border border-border/50 text-xs text-muted leading-relaxed whitespace-pre-wrap">
         💭 {part.text.slice(0, 300)}
         {part.text.length > 300 && '...'}
       </div>
@@ -99,7 +98,7 @@ function PartView({ part, expanded }: { part: TranscriptPart; expanded: boolean 
 
   if (part.type === 'thinking' && !expanded) {
     return (
-      <div className="text-2xs text-muted mt-0.5">
+      <div className="text-xs text-muted mt-0.5">
         💭 <span className="italic">thinking...</span>
       </div>
     )

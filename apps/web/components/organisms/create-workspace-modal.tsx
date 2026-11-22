@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { Button, Input } from '../atoms'
-import { Modal, ModalHeader, ModalBody, ModalFooter } from './modal'
+import { Modal, ModalHeader, ModalBody, ModalFooter } from '../molecules/modal'
 import { useStore } from '@/lib/store'
 import { api } from '@/lib/api'
 import type { WorkspacePreset, Agent } from '@taia/types'

@@ -1,9 +1,11 @@
 'use client'
 
 import { useState, useRef, useEffect } from 'react'
+import { useTranslations } from 'next-intl'
 import { useWorkspaces, useActiveWorkspace, useSetActiveWorkspace } from '@/lib/store-selectors'
 import { Button } from '../atoms'
 import { Dropdown } from '../molecules/dropdown'
+import { ChevronDown, Plus } from 'lucide-react'
 import { cn } from '../../lib/utils'
 import type { Workspace } from '@taia/types'
 
@@ -12,6 +14,7 @@ interface WorkspaceSwitcherProps {
 }
 
 export function WorkspaceSwitcher({ onCreateWorkspace }: WorkspaceSwitcherProps) {
+  const t = useTranslations('shell.workspace')
   const workspaces = useWorkspaces()
   const activeWorkspace = useActiveWorkspace()
   const setActiveWorkspace = useSetActiveWorkspace()
@@ -35,16 +38,19 @@ export function WorkspaceSwitcher({ onCreateWorkspace }: WorkspaceSwitcherProps)
 
   return (
     <div className="relative" ref={ref}>
-      <Button
-        variant="ghost"
-        size="sm"
+      {/* Sits on the graphite bar, so it draws its own chrome. */}
+      {/* eslint-disable-next-line no-restricted-syntax -- control on the dark rack, not a page button */}
+      <button
+        type="button"
         onClick={() => setOpen(!open)}
-        className="flex items-center gap-1.5 px-2 py-1 text-xs font-medium"
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        className="flex items-center gap-2 rounded border border-rack-line px-2.5 py-1 text-sm font-medium text-[#e6eaed] hover:border-on-rack-muted focus-visible:outline-2 focus-visible:outline-white"
       >
-        <span>{activeWorkspace?.icon || '📋'}</span>
-        <span className="max-w-[120px] truncate">{activeWorkspace?.name || 'Default'}</span>
-        <span className="text-muted">▾</span>
-      </Button>
+        <span aria-hidden="true" className="w-2 h-2 rounded-[2px] bg-agent" />
+        <span className="max-w-[140px] truncate">{activeWorkspace?.name || 'Default'}</span>
+        <ChevronDown size={14} className="text-on-rack-muted" aria-hidden="true" />
+      </button>
 
       <Dropdown open={open} className="w-56 py-1">
         {workspaces.map((ws) => (
@@ -54,14 +60,15 @@ export function WorkspaceSwitcher({ onCreateWorkspace }: WorkspaceSwitcherProps)
             size="sm"
             onClick={() => handleSelect(ws)}
             className={cn(
-              'w-full px-3 py-2 text-left text-sm flex items-center gap-2 hover:bg-background transition-colors rounded-none justify-start',
-              ws.id === activeWorkspace?.id && 'bg-accent/10 text-accent',
+              'w-full px-3 py-2 text-left text-sm flex items-center gap-2 hover:bg-strip transition-colors rounded-none justify-start',
+              ws.id === activeWorkspace?.id && 'font-semibold bg-strip',
             )}
           >
-            <span>{ws.icon}</span>
             <span className="flex-1 truncate">{ws.name}</span>
             {ws.is_default && (
-              <span className="text-2xs text-muted px-1 bg-background rounded-sm">default</span>
+              <span className="text-xxs text-muted px-1 bg-background rounded-sm">
+                {t('default')}
+              </span>
             )}
           </Button>
         ))}
@@ -73,10 +80,10 @@ export function WorkspaceSwitcher({ onCreateWorkspace }: WorkspaceSwitcherProps)
               setOpen(false)
               onCreateWorkspace?.()
             }}
-            className="w-full px-3 py-2 text-left text-sm text-accent hover:bg-background transition-colors flex items-center gap-2 rounded-none justify-start"
+            className="w-full px-3 py-2 text-left text-sm text-accent hover:bg-strip transition-colors flex items-center gap-2 rounded-none justify-start"
           >
-            <span>+</span>
-            <span>Nuevo Workspace</span>
+            <Plus size={14} aria-hidden="true" />
+            <span>{t('newWorkspace')}</span>
           </Button>
         </div>
       </Dropdown>

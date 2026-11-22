@@ -403,9 +403,9 @@ export default function AgentsPage() {
   const agents = data?.agents ?? []
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-full bg-background">
       <PageHeader title={t('config')} />
-      <div className="p-6 pt-8 max-w-[1000px] mx-auto space-y-4">
+      <div className="px-4 md:px-6 pt-5 pb-10 max-w-[1000px] mx-auto space-y-4">
         {loading ? (
           <div className="text-muted p-10 text-center">{t('loadingAgents')}</div>
         ) : (

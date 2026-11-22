@@ -1,5 +1,6 @@
 'use client'
 
+import { useTranslations } from 'next-intl'
 // /settings/profile — typed editor for the UserProfile bundle layer.
 //
 // Single-user TAIA today (singleton id='default'); the route therefore
@@ -129,6 +130,7 @@ function ProfileVersionDrawer({
 }
 
 export default function UserProfilePage() {
+  const tp = useTranslations('pageTitles')
   const [profile, setProfile] = useState<UserProfile | null>(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -268,9 +270,14 @@ export default function UserProfilePage() {
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      <PageHeader title="User profile" />
-      <div className="p-6 pt-8 max-w-2xl mx-auto space-y-6">
+    <div className="min-h-full bg-background">
+      <PageHeader
+        width="form"
+        title={tp('profile')}
+        backHref="/settings"
+        backLabel={tp('settings')}
+      />
+      <div className="px-4 md:px-6 pt-5 pb-10 max-w-2xl mx-auto space-y-6">
         <p className="text-muted text-sm">
           What every agent knows about you. Edited fields are versioned — restore any past state via
           History.

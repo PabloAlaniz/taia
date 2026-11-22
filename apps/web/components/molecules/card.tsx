@@ -20,14 +20,6 @@ const paddings = {
 
 export function Card({ variant = 'default', padding = 'sm', className, ...props }: CardProps) {
   return (
-    <div
-      className={cn(
-        'rounded-lg shadow-xs shadow-black/10',
-        variants[variant],
-        paddings[padding],
-        className,
-      )}
-      {...props}
-    />
+    <div className={cn('rounded-md', variants[variant], paddings[padding], className)} {...props} />
   )
 }

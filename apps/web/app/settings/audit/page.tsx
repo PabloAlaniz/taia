@@ -1,5 +1,6 @@
 'use client'
 
+import { useTranslations } from 'next-intl'
 import { useCallback, useEffect, useState } from 'react'
 import { Button } from '@/components/atoms/button'
 import { Input } from '@/components/atoms/input'
@@ -22,6 +23,7 @@ type AuditEvent = {
 const DEFAULT_WORKSPACE_ID = 'ws-default'
 
 export default function SettingsAuditPage() {
+  const tp = useTranslations('pageTitles')
   const [workspaceId, setWorkspaceId] = useState(DEFAULT_WORKSPACE_ID)
   const [events, setEvents] = useState<AuditEvent[]>([])
   const [status, setStatus] = useState('Loading audit trail…')
@@ -47,9 +49,9 @@ export default function SettingsAuditPage() {
   }, [load])
 
   return (
-    <div className="min-h-screen bg-background">
-      <PageHeader title="Settings audit" />
-      <div className="p-6 pt-8 max-w-5xl mx-auto space-y-4">
+    <div className="min-h-full bg-background">
+      <PageHeader title={tp('audit')} backHref="/settings" backLabel={tp('settings')} />
+      <div className="px-4 md:px-6 pt-5 pb-10 max-w-5xl mx-auto space-y-4">
         <Card padding="md" className="rounded-lg space-y-3">
           <p className="text-sm text-muted">
             Workspace-aware diagnostic trail for Settings and API key mutations. Secret values are

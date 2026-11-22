@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo } from 'react'
 import { html as diff2html } from 'diff2html'
 import type { DiffResult } from '@taia/types'
 import { Badge, Button } from '../atoms'
-import { Modal } from './modal'
+import { Modal } from '../molecules/modal'
 
 interface DiffViewerProps {
   diff: DiffResult

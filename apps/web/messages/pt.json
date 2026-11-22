@@ -23,7 +23,8 @@
     "settingsShort": "Config",
     "mainNav": "Navegação principal",
     "mobileNav": "Navegação móvel",
-    "projects": "Projetos"
+    "projects": "Projetos",
+    "agents": "Agentes"
   },
   "header": {
     "planWizard": "Assistente de planejamento IA",
@@ -50,13 +51,34 @@
     "unassigned": "Sem atribuição",
     "noProject": "Sem projeto",
     "columnAria": "Coluna {name}, {count} {count, plural, one {tarefa} other {tarefas}}{hasLimit, select, true {, limite WIP {limit}} other {}}. Clique para configurar limite WIP",
-    "noColumns": "Sem colunas configuradas. Execute o wizard de setup em Configurações."
+    "noColumns": "Sem colunas configuradas. Execute o wizard de setup em Configurações.",
+    "editWipLimit": "Limite WIP de {name}",
+    "emptyBay": "Sem tarefas."
   },
   "taskCard": {
     "aria": "Tarefa: {title}, prioridade {priority}",
     "openRepo": "Abrir repositório",
     "blockers": "{count} {count, plural, one {bloqueio} other {bloqueios}}",
-    "assign": "🎯 Atribuir"
+    "assign": "Atribuir",
+    "assigning": "Atribuindo…",
+    "unassigned": "Sem responsável",
+    "running": "executando",
+    "runningSince": "executando · desde {time}",
+    "agentBlocked": "bloqueado",
+    "blocked": "bloqueada",
+    "waitingTag": "Espera você",
+    "waitingApproval": "aprovação · {time}",
+    "waitingMerge": "pronto para merge",
+    "waitingClarify": "precisa de uma resposta",
+    "approvalAsk": "<b>{agent}</b> quer usar <b>{tool}</b>",
+    "approve": "Aprovar",
+    "reject": "Rejeitar",
+    "reviewAndMerge": "Revisar e fazer merge",
+    "answer": "Responder",
+    "alreadyDecided": "Alguém já respondeu esta aprovação.",
+    "decideFailed": "Não foi possível enviar a resposta. Tente de novo.",
+    "agent": "agente",
+    "person": "pessoa"
   },
   "addTask": {
     "title": "Nova Tarefa",
@@ -82,17 +104,17 @@
     "ariaLabel": "Buscar tarefas por título, ID, projeto ou tag",
     "placeholder": "Buscar tarefas… (por título, ID, projeto ou tag)",
     "noResults": "Nenhuma tarefa encontrada",
-    "navigate": "↑↓ navegar",
-    "select": "↵ selecionar",
+    "navigate": "navegar",
+    "select": "selecionar",
     "close": "esc fechar"
   },
   "agents": {
-    "heading": "🤖 Agentes",
-    "team": "👥 Equipe",
+    "heading": "Agentes",
+    "team": "Equipe",
     "filtering": "Filtrando: {name}",
-    "config": "🤖 Configuração de agentes",
+    "config": "Configuração de agentes",
     "loadingAgents": "Carregando agentes...",
-    "quickGuide": "📝 Guia rápido",
+    "quickGuide": "Guia rápido",
     "soulDesc": "Personalidade, capacidades e restrições do agente",
     "heartbeatDesc": "Instruções para cada heartbeat",
     "scheduleDesc": "Expressão cron (ex: {example} = a cada 15 min)",
@@ -108,13 +130,17 @@
     "triggering": "Executando {name}",
     "viewTranscript": "Ver transcrição completa",
     "deleteSubtask": "Excluir subtarefa",
-    "selectAgent": "Selecionar agente {name}"
+    "selectAgent": "Selecionar agente {name}",
+    "openTasks": "Tareas abiertas",
+    "triggered": "lanzado",
+    "triggerFailed": "falló"
   },
   "activity": {
-    "heading": "📊 Atividade",
+    "heading": "Atividade",
     "help": "Clique em uma tarefa para ver detalhes",
     "empty": "Sem atividade ainda",
-    "openTask": "→ ver tarefa"
+    "openTask": "ver tarefa",
+    "openTaskAria": "Abrir a tarefa: {message}"
   },
   "wipLimit": {
     "title": "Limite WIP",
@@ -150,13 +176,13 @@
   "taskDetail": {
     "status": "Status:",
     "assigned": "Atribuído:",
-    "comments": "💬 Comentários",
+    "comments": "Comentários",
     "noComments": "Sem comentários ainda",
     "addComment": "Escreva um comentário…"
   },
   "dashboard": {
-    "title": "📊 Dashboard",
-    "refresh": "🔄 Atualizar",
+    "title": "Dashboard",
+    "refresh": "Atualizar",
     "totalTasks": "Total de tarefas",
     "completedToday": "Concluídas hoje",
     "thisWeek": "Esta semana",
@@ -169,27 +195,29 @@
     "totalTokens": "Tokens totais",
     "sessionCount": "Sessões",
     "models": "Modelos",
-    "chartTitle": "📊 Tarefas concluídas por dia (últimos 30 dias)",
+    "chartTitle": "Tarefas concluídas por dia (últimos 30 dias)",
     "noCompletions": "Não há tarefas concluídas nos últimos 30 dias",
-    "byAgent": "🤖 Por agente",
+    "byAgent": "Por agente",
     "offlineMode": "(modo offline)",
     "noAgentData": "Sem dados de agentes",
     "tracked": "{time} registrado",
     "doneVsPending": "concluídas / pendentes",
-    "byProject": "📁 Por projeto",
+    "byProject": "Por projeto",
     "noProjects": "Sem projetos",
-    "staleTasks": "⚠️ Tarefas paradas (>24h atribuídas)",
-    "recentActivity": "📜 Atividade recente",
-    "costByAgent": "💰 Custo por agente",
+    "staleTasks": "Tarefas paradas (>24h atribuídas)",
+    "recentActivity": "Atividade recente",
+    "costByAgent": "Custo por agente",
     "sessions": "{count} sessões · {models}",
-    "dailyCostTrend": "📈 Tendência diária de custo",
+    "dailyCostTrend": "Tendência diária de custo",
     "last24h": "Últimas 24h",
     "lastWeek": "Última semana",
     "lastMonth": "Último mês",
-    "allTime": "Tudo"
+    "allTime": "Tudo",
+    "statusSection": "Status",
+    "costSection": "Custo"
   },
   "settingsPage": {
-    "title": "⚙️ Configurações",
+    "title": "Configurações",
     "generalDesc": "WebSocket, fuso horário e configuração geral.",
     "agentsTitle": "Agentes",
     "agentsDesc": "Configurar agentes, funções, avatares e estados.",
@@ -206,7 +234,10 @@
     "modelsDesc": "Modelos usados pelos agentes no runtime ativo."
   },
   "home": {
-    "shortcutHint": "Pressione <key>?</key> para atalhos"
+    "shortcutHint": "Pressione <key>?</key> para atalhos",
+    "wipExceeded": "O limite WIP de {column} foi ultrapassado.",
+    "moveBlocked": "Não é possível mover: a tarefa tem dependências não resolvidas.",
+    "assignFailed": "Não foi possível atribuir a tarefa. {error}"
   },
   "onboarding": {
     "subtitle": "Quadro de Agentes IA",
@@ -370,6 +401,233 @@
     "repositories": "Repositórios",
     "glossaryTerms": "{count, plural, one {# termo no glossário} other {# termos no glossário}}",
     "taskCount": "{count, plural, one {# tarefa} other {# tarefas}}",
-    "noTasks": "Este projeto ainda não tem tarefas. Atribua o projeto a uma tarefa em qualquer workspace."
+    "noTasks": "Este projeto ainda não tem tarefas. Atribua o projeto a uma tarefa em qualquer workspace.",
+    "emptyHint": "Crie um para agrupar tarefas de vários workspaces e dar contexto aos agentes.",
+    "createFailed": "Não foi possível criar o projeto.",
+    "noDescription": "Sem descrição",
+    "openTasks": "{count, plural, one {# aberta} other {# abertas}}",
+    "doneTasks": "{count, plural, one {# concluída} other {# concluídas}}",
+    "progressAria": "{done} de {total} tarefas concluídas",
+    "noTasksShort": "Ainda sem tarefas",
+    "workspaces": "{count, plural, one {# workspace} other {# workspaces}}",
+    "tasksLabel": "Tarefas",
+    "costLabel": "Custo",
+    "glossaryLabel": "Glossário"
+  },
+  "worktree": {
+    "title": "Worktree do git",
+    "create": "Criar worktree",
+    "creating": "Criando…",
+    "review": "Enviar para revisão",
+    "merge": "Fazer merge…",
+    "merging": "Fazendo merge…",
+    "discard": "Descartar…",
+    "discarding": "Descartando…",
+    "cancel": "Cancelar",
+    "mergeNeedsReview": "Envie para revisão para poder fazer o merge.",
+    "filesChanged": "{count, plural, one {# arquivo} other {# arquivos}}",
+    "moreFiles": "{count, plural, one {e mais # arquivo} other {e mais # arquivos}}",
+    "loadingDiff": "Carregando alterações…",
+    "viewDiff": "Ver diff completo",
+    "merged": "Merge feito em {base}.",
+    "discarded": "Worktree descartado.",
+    "confirmMerge": {
+      "title": "Fazer merge em {base}?",
+      "body": "Os commits de <code>{branch}</code> serão integrados em <code>{base}</code>. Isso não pode ser desfeito pelo TAIA.",
+      "action": "Fazer merge em {base}"
+    },
+    "confirmDiscard": {
+      "title": "Descartar o worktree?",
+      "body": "O diretório de trabalho de <code>{branch}</code> será apagado. As alterações sem merge serão perdidas.",
+      "action": "Descartar worktree"
+    },
+    "errors": {
+      "create": "Não foi possível criar o worktree.",
+      "review": "Não foi possível enviar para revisão.",
+      "merge": "O merge falhou. Verifique conflitos na branch e tente de novo.",
+      "abort": "Não foi possível descartar o worktree.",
+      "diff": "Não foi possível carregar as alterações. Você pode fazer o merge mesmo assim, mas sem ver o que entra.",
+      "network": "Sem conexão com o TAIA. Tente de novo."
+    }
+  },
+  "boardHeader": {
+    "title": "Quadro",
+    "summary": "{tasks, plural, one {# tarefa} other {# tarefas}} · {agents, plural, one {# agente ativo} other {# agentes ativos}}",
+    "live": "ao vivo",
+    "polling": "sem tempo real, atualizando a cada 30 s",
+    "syncing": "atualizando…",
+    "viewLabel": "Visualização",
+    "viewAll": "Tudo",
+    "viewWaiting": "Esperando por você",
+    "legendAgent": "Agente",
+    "legendPerson": "Pessoa",
+    "planWizard": "Assistente de planejamento",
+    "calendar": "Calendário",
+    "showActivity": "Mostrar atividade",
+    "hideActivity": "Ocultar atividade",
+    "showAgents": "Mostrar agentes",
+    "hideAgents": "Ocultar agentes",
+    "newTask": "Nova tarefa"
+  },
+  "shell": {
+    "waiting": "{count, plural, one {espera você} other {esperam você}}",
+    "last24h": "24 h",
+    "runtime": {
+      "standalone": "Standalone",
+      "standaloneHint": "Sem runtime: quadro, MCP e CLI. Sem sessões nem transcrições.",
+      "runtime": "Runtime",
+      "state": {
+        "connected": "Conectado",
+        "connecting": "Conectando…",
+        "degraded": "Algumas instâncias não respondem",
+        "disconnected": "Desconectado",
+        "unknown": "Verificando conexão…"
+      }
+    },
+    "workspace": {
+      "newWorkspace": "Novo workspace",
+      "default": "padrão"
+    },
+    "user": {
+      "addTeam": "Adicionar pessoas à equipe",
+      "switch": "Usuário atual: {name}. Trocar",
+      "manageTeam": "Gerenciar equipe"
+    },
+    "theme": {
+      "toLight": "Mudar para tema claro",
+      "toDark": "Mudar para tema escuro"
+    }
+  },
+  "pageTitles": {
+    "settings": "Configurações",
+    "general": "Geral",
+    "projects": "Projetos",
+    "worktrees": "Worktrees do git",
+    "team": "Equipe",
+    "audit": "Auditoria de configuração",
+    "profile": "Perfil",
+    "calendar": "Calendário",
+    "board": "Quadro",
+    "sessions": "Sessões",
+    "agents": "Agentes"
+  },
+  "runtimeNotice": {
+    "choose": "Escolher runtime",
+    "sessions": {
+      "title": "Standalone não tem sessões",
+      "body": "Sem runtime, o TAIA funciona como quadro, servidor MCP e CLI. Sessões, transcrições e custos aparecem quando você conecta um (Claude Code, OpenClaw, a API da Anthropic…)."
+    },
+    "cron": {
+      "title": "Os horários precisam de um runtime",
+      "body": "Você pode adicionar agentes e atribuir tarefas, mas para rodarem sozinhos com um horário (cron) é preciso um runtime conectado."
+    }
+  },
+  "sessionsPage": {
+    "views": "Visualizações de sessões",
+    "tabActive": "Em andamento",
+    "tabHistory": "Histórico",
+    "tabTimeline": "Linha do tempo",
+    "intro": "Cada vez que um agente trabalha numa tarefa ele abre uma sessão: aqui você vê o que está rodando, o que fez e quanto custou.",
+    "running": "Em andamento",
+    "history": "Histórico",
+    "timeline": "Linha do tempo",
+    "unavailable": "Não foi possível carregar as sessões do runtime.",
+    "noneRunning": "Nenhum agente está trabalhando agora",
+    "noneRunningHint": "Quando um agente pegar uma tarefa, a sessão aparece aqui ao vivo.",
+    "noneFound": "Nenhuma sessão com esses filtros",
+    "noneFoundHint": "Tente outro agente ou «Todos».",
+    "noActivity": "Sem atividade recente",
+    "openTranscript": "Abrir transcrição",
+    "agent": "Agente",
+    "state": "Estado",
+    "all": "Todos",
+    "filterActive": "Ativas",
+    "filterRecent": "Recentes",
+    "colSession": "Agente e sessão",
+    "colModel": "Modelo",
+    "colTokens": "Tokens",
+    "colCost": "Custo",
+    "colActivity": "Atividade",
+    "status": {
+      "live": "trabalhando",
+      "idle": "em pausa",
+      "offline": "encerrada"
+    },
+    "noneYet": "Ainda não há sessões"
+  },
+  "squad": {
+    "add": "Adicionar agente",
+    "intro": "Agentes e pessoas pegam tarefas do mesmo quadro. Abra uma linha para ver o horário, as execuções e o contexto.",
+    "agentsSection": "Agentes",
+    "peopleSection": "Pessoas",
+    "working": "{count, plural, =0 {ninguém trabalhando} one {# trabalhando} other {# trabalhando}}",
+    "noAgents": "Ainda não há agentes",
+    "noAgentsHint": "Adicione um agente para que ele pegue tarefas do quadro ou via MCP.",
+    "noPeople": "Ainda não há pessoas na equipe",
+    "noPeopleHint": "Adicione em Configurações → Equipe para atribuir tarefas.",
+    "loadFailed": "Não foi possível carregar a equipe.",
+    "deleteFailed": "Não foi possível excluir. Tente de novo.",
+    "cancel": "Cancelar",
+    "disabled": "Desativado",
+    "cronOn": "Com horário",
+    "cronPaused": "Horário pausado",
+    "lastRunFailed": "A última execução falhou",
+    "schedule": "horário",
+    "lastRun": "última",
+    "nextRun": "próxima",
+    "person": "pessoa",
+    "assigned": "atribuídas",
+    "inProgress": "em andamento",
+    "inReview": "revisão",
+    "enable": "Ativar",
+    "disable": "Desativar",
+    "pauseCron": "Pausar horário",
+    "resumeCron": "Retomar horário",
+    "runNow": "Rodar agora",
+    "edit": "Editar",
+    "viewTasks": "Ver tarefas ({count})",
+    "deleteCron": "Remover horário",
+    "deleteAgent": "Excluir agente",
+    "removePerson": "Remover da equipe",
+    "scheduleLabel": "Horário (cron)",
+    "createSchedule": "Criar um horário (cron)",
+    "cronHelp": "Formato cron de 5 campos. «0 */6 * * *» roda a cada 6 horas.",
+    "save": "Salvar",
+    "create": "Criar",
+    "runHistory": "Execuções",
+    "noRuns": "Ainda não rodou.",
+    "runStatus": {
+      "ok": "ok",
+      "error": "erro",
+      "other": "outro"
+    },
+    "deniedTools": "Ferramentas bloqueadas",
+    "confirmCronDelete": {
+      "title": "Remover o horário de {name}?",
+      "body": "O agente deixa de rodar sozinho. As tarefas e o contexto não mudam.",
+      "action": "Remover horário"
+    },
+    "confirmDelete": {
+      "title": "Excluir {name}?",
+      "bodyAgent": "O agente, o horário e o contexto são apagados. As tarefas ficam sem responsável. Não pode ser desfeito.",
+      "bodyPerson": "A pessoa sai da equipe. As tarefas ficam sem responsável. Não pode ser desfeito.",
+      "action": "Excluir"
+    },
+    "msg": {
+      "cronEnabled": "Horário retomado.",
+      "cronPaused": "Horário pausado.",
+      "cronToggleFailed": "Não foi possível mudar o horário.",
+      "enabled": "Agente ativado.",
+      "disabled": "Agente desativado.",
+      "toggleFailed": "Não foi possível mudar o estado.",
+      "scheduleUpdated": "Horário salvo.",
+      "scheduleFailed": "Não foi possível salvar o horário.",
+      "runStarted": "Execução iniciada.",
+      "runFailed": "Não foi possível iniciar a execução.",
+      "cronDeleted": "Horário removido.",
+      "cronDeleteFailed": "Não foi possível remover o horário.",
+      "cronCreated": "Horário criado.",
+      "cronCreateFailed": "Não foi possível criar o horário."
+    }
   }
 }

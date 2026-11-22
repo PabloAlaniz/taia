@@ -7,6 +7,7 @@ import { SectionCard } from '@/components/molecules/section-card'
 import { RuntimeProviderForm } from '@/components/organisms/runtime-provider-form'
 
 export default function RuntimeSettingsPage() {
+  const tp = useTranslations('pageTitles')
   const t = useTranslations('runtime')
   const [settings, setSettings] = useState<Record<string, string> | null>(null)
 
@@ -23,10 +24,10 @@ export default function RuntimeSettingsPage() {
   }, [])
 
   return (
-    <div className="min-h-screen bg-background">
-      <PageHeader title={t('title')} icon="🔌" backHref="/settings" />
+    <div className="min-h-full bg-background">
+      <PageHeader width="form" title={t('title')} backHref="/settings" backLabel={tp('settings')} />
 
-      <div className="p-6 pt-8 max-w-2xl mx-auto">
+      <div className="px-4 md:px-6 pt-5 pb-10 max-w-2xl mx-auto">
         <SectionCard title={t('title')} description={t('pageDesc')}>
           {settings === null ? (
             <span className="text-2xl animate-pulse" aria-busy="true">

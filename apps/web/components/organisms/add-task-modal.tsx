@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { useTranslations } from 'next-intl'
 import { TaskPriority, TaskStatus, TaskTemplate, Project } from '@taia/types'
 import { Button, Input, Textarea, Select, Label } from '../atoms'
-import { Modal, ModalHeader, ModalBody, ModalFooter } from './modal'
+import { Modal, ModalHeader, ModalBody, ModalFooter } from '../molecules/modal'
 import { api } from '../../lib/api'
 import { useStore } from '../../lib/store'
 

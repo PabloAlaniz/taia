@@ -1,5 +1,6 @@
 'use client'
 
+import { useTranslations } from 'next-intl'
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { Button, Input } from '@/components/atoms'
@@ -8,6 +9,7 @@ import { fetchJson } from '@/lib/use-resource'
 import { SectionCard } from '@/components/molecules/section-card'
 
 export default function GeneralSettingsPage() {
+  const tp = useTranslations('pageTitles')
   const [wsUrl, setWsUrl] = useState('ws://localhost:13334')
   const [defaultTz, setDefaultTz] = useState('UTC')
 
@@ -59,17 +61,22 @@ export default function GeneralSettingsPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
+      <div className="min-h-full bg-background flex items-center justify-center">
         <span className="text-muted text-sm">Cargando...</span>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      <PageHeader title="General" backHref="/settings" />
+    <div className="min-h-full bg-background">
+      <PageHeader
+        width="form"
+        title={tp('general')}
+        backHref="/settings"
+        backLabel={tp('settings')}
+      />
 
-      <div className="p-6 pt-8 max-w-2xl mx-auto space-y-8">
+      <div className="px-4 md:px-6 pt-5 pb-10 max-w-2xl mx-auto space-y-8">
         {/* WebSocket Section */}
         <SectionCard
           title="WebSocket"

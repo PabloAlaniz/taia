@@ -1,5 +1,6 @@
 'use client'
 
+import { useTranslations } from 'next-intl'
 import { useState, useEffect } from 'react'
 import { Button, Input } from '@/components/atoms'
 import { Card } from '@/components/molecules/card'
@@ -15,6 +16,7 @@ interface HumanAgent {
 }
 
 export default function TeamSettingsPage() {
+  const tp = useTranslations('pageTitles')
   const [members, setMembers] = useState<HumanAgent[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -145,17 +147,17 @@ export default function TeamSettingsPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
+      <div className="min-h-full bg-background flex items-center justify-center">
         <span className="text-2xl">⏳</span>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      <PageHeader title="Team Members" icon="👥" backHref="/settings" />
+    <div className="min-h-full bg-background">
+      <PageHeader width="form" title={tp('team')} backHref="/settings" backLabel={tp('settings')} />
 
-      <div className="p-6 pt-8 max-w-2xl mx-auto space-y-8">
+      <div className="px-4 md:px-6 pt-5 pb-10 max-w-2xl mx-auto space-y-8">
         {/* Member List */}
         <Card padding="none" className="rounded-lg">
           <div className="p-4 border-b border-border flex items-center justify-between">
