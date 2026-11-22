@@ -8,7 +8,7 @@ const WORKSPACE = 'Equipo E2E'
 const TASK = 'Publicar el repositorio'
 
 function column(page: Page, name: string) {
-  return page.getByRole('button', { name: new RegExp(`^Columna ${name}, \\d+ tareas?\\b`) })
+  return page.getByRole('region', { name: new RegExp(`^Columna ${name}, \\d+ tareas?\\b`) })
 }
 
 function taskCard(page: Page) {
@@ -19,7 +19,7 @@ test('first run: onboarding, create a task and move it', async ({ page, browser 
   await test.step('onboarding without a runtime ends on an empty board', async () => {
     await page.goto('/')
 
-    await page.getByRole('button', { name: 'Configurar TAIA' }).click()
+    await page.getByRole('button', { name: 'Empezar' }).click()
     await page.getByRole('button', { name: 'Omitir conexión' }).click()
 
     // The first project comes before the first workspace.
@@ -37,7 +37,7 @@ test('first run: onboarding, create a task and move it', async ({ page, browser 
   })
 
   await test.step('a new task appears once, in the first column', async () => {
-    await page.getByRole('button', { name: '+ Tarea' }).click()
+    await page.getByRole('button', { name: 'Nueva tarea' }).click()
     await page.locator('#task-title').fill(TASK)
     await page.getByRole('button', { name: 'Crear', exact: true }).click()
 
@@ -99,7 +99,7 @@ test('first run: onboarding, create a task and move it', async ({ page, browser 
       .locator('select')
       .filter({ hasText: 'In Progress' })
       .selectOption({ label: '🔨 In Progress' })
-    await page.getByRole('button', { name: /Back/ }).click()
+    await page.getByRole('button', { name: /Volver al tablero/ }).click()
 
     await expect(column(page, 'In Progress')).toHaveAccessibleName(/In Progress, 1 tarea\b/)
     await expect(column(page, 'To Do')).toHaveAccessibleName(/To Do, 0 tareas\b/)

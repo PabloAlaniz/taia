@@ -59,7 +59,7 @@ export const Column = memo(function Column({
 
   return (
     <section
-      aria-labelledby={headingId}
+      aria-label={t('bayAria', { name: column.label, count })}
       className={cn(
         'flex flex-col flex-1 min-w-[220px] min-h-0 bg-rack rounded-md',
         compact && 'min-w-[200px]',

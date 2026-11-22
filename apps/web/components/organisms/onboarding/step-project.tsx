@@ -59,7 +59,7 @@ export function StepProject({ onDone }: StepProjectProps) {
   return (
     <form onSubmit={submit} className="space-y-6">
       <div>
-        <h2 className="text-xl font-bold mb-2">{t('projectTitle')}</h2>
+        <h2 className="text-2xl font-semibold mb-2 text-balance">{t('projectTitle')}</h2>
         <p className="text-sm text-muted">{t('projectDesc')}</p>
       </div>
       <div className="space-y-3">
@@ -82,7 +82,7 @@ export function StepProject({ onDone }: StepProjectProps) {
           value={repoUrl}
           onChange={(e) => setRepoUrl(e.target.value)}
         />
-        {error && <p className="text-sm text-red-500">{error}</p>}
+        {error && <p className="text-sm text-alert">{error}</p>}
       </div>
       <div className="flex justify-between">
         <Button type="button" variant="ghost" size="sm" onClick={onDone}>

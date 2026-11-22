@@ -12,6 +12,7 @@ import { useKeyboardShortcuts } from '@/lib/use-keyboard-shortcuts'
 import { useFontScale } from '@/lib/use-font-scale'
 import { applyAllFilters } from '../lib/filter-utils'
 import { CreateWorkspaceModal } from '../components/organisms/create-workspace-modal'
+import { OnboardingShell } from '../components/templates/onboarding-shell'
 import { StepConnection } from '../components/organisms/onboarding/step-connection'
 import { StepProject } from '../components/organisms/onboarding/step-project'
 import { Button, Kbd, MateMark } from '../components/atoms'
@@ -20,6 +21,7 @@ import { Button, Kbd, MateMark } from '../components/atoms'
 import { WipLimitModal } from '../components/molecules/wip-limit-modal'
 import { Toast } from '../components/molecules/toast'
 import { ActiveFiltersPanel } from '../components/molecules/active-filters-panel'
+import { EmptyState } from '../components/molecules/empty-state'
 
 // Organisms
 import { BoardHeader, type BoardView } from '../components/organisms/board-header'
@@ -44,6 +46,8 @@ export default function BoardPage() {
 function Home() {
   const t = useTranslations('home')
   const to = useTranslations('onboarding')
+  const tos = useTranslations('onboardingShell')
+  const te = useTranslations('emptyBoard')
   const {
     agents,
     tasks,
@@ -284,45 +288,43 @@ function Home() {
   if (onboardingCompleted === false && !runtimeConfigured && !showFirstWorkspace) {
     if (!showConnectionStep) {
       return (
-        <div className="min-h-screen bg-background flex items-center justify-center">
-          <div className="text-center space-y-6">
-            <MateMark size={64} className="mx-auto [&_rect]:stroke-person" />
-            <div>
-              <h1 className="text-4xl font-bold tracking-[0.14em]">TAIA</h1>
-              <p className="text-muted text-sm mt-1">{to('subtitle')}</p>
-            </div>
-            <p className="text-muted text-sm max-w-sm">{to('welcomeText')}</p>
-            <Button variant="primary" size="lg" onClick={() => setShowConnectionStep(true)}>
-              {to('setupButton')}
-            </Button>
-          </div>
-        </div>
+        <OnboardingShell>
+          <h1 className="text-3xl font-semibold leading-tight text-balance">
+            {tos('welcomeTitle')}
+          </h1>
+          <p className="text-muted mt-3 max-w-prose">{to('welcomeText')}</p>
+          <Button
+            variant="primary"
+            size="lg"
+            className="mt-8"
+            onClick={() => setShowConnectionStep(true)}
+          >
+            {tos('start')}
+          </Button>
+        </OnboardingShell>
       )
     }
 
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center p-4">
-        <div className="w-full max-w-lg bg-card border border-border rounded-lg p-6">
-          <StepConnection
-            onConnected={() => {
-              setShowConnectionStep(false)
-              setShowFirstWorkspace(true)
-            }}
-          />
-          <div className="flex justify-between mt-4">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => {
-                setShowConnectionStep(false)
-                setShowFirstWorkspace(true)
-              }}
-            >
-              {to('skipConnection')}
-            </Button>
-          </div>
-        </div>
-      </div>
+      <OnboardingShell step="runtime">
+        <StepConnection
+          onConnected={() => {
+            setShowConnectionStep(false)
+            setShowFirstWorkspace(true)
+          }}
+        />
+        <Button
+          variant="ghost"
+          size="sm"
+          className="mt-4"
+          onClick={() => {
+            setShowConnectionStep(false)
+            setShowFirstWorkspace(true)
+          }}
+        >
+          {to('skipConnection')}
+        </Button>
+      </OnboardingShell>
     )
   }
 
@@ -333,11 +335,9 @@ function Home() {
     !projectStepDone
   ) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center p-4">
-        <div className="w-full max-w-lg bg-card border border-border rounded-lg p-6">
-          <StepProject onDone={() => setProjectStepDone(true)} />
-        </div>
-      </div>
+      <OnboardingShell step="project">
+        <StepProject onDone={() => setProjectStepDone(true)} />
+      </OnboardingShell>
     )
   }
 
@@ -397,6 +397,30 @@ function Home() {
         fontScale={fontScale}
         hint={t.rich('shortcutHint', { key: (chunks) => <Kbd>{chunks}</Kbd> })}
       />
+
+      {tasks.length === 0 && !loading && (
+        <div className="mx-4 md:mx-6 mb-3 rounded-md border border-border bg-card">
+          <EmptyState
+            title={te('title')}
+            description={te('body')}
+            action={
+              <div className="flex flex-wrap gap-2">
+                <Button variant="primary" size="md" onClick={() => setShowModal(true)}>
+                  {te('newTask')}
+                </Button>
+                <a
+                  href="https://pabloalaniz.github.io/taia/guias/cliente-mcp/"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="rounded border border-border bg-background px-3 py-1.5 text-sm font-semibold no-underline text-foreground hover:bg-strip"
+                >
+                  {te('mcp')}
+                </a>
+              </div>
+            }
+          />
+        </div>
+      )}
 
       {/* Active filters panel (MercadoLibre-style chips) */}
       <ActiveFiltersPanel
