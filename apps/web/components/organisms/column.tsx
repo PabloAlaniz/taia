@@ -8,7 +8,7 @@ import { TaskCard } from './task-card'
 import { Task, Agent, BoardColumn } from '@taia/types'
 import { cn } from '../../lib/utils'
 import { formatUsd } from '../../lib/format'
-import type { WaitingReason } from '../../lib/use-board-signals'
+import type { ApprovalControls, WaitingReason } from '../../lib/use-board-signals'
 
 interface ColumnProps {
   column: BoardColumn
@@ -25,7 +25,7 @@ interface ColumnProps {
   costs?: Record<string, number>
   waiting?: Record<string, WaitingReason>
   running?: Set<string>
-  onDecide?: (approvalId: string, decision: 'approved' | 'rejected') => Promise<string | null>
+  approvals?: ApprovalControls
 }
 
 /** A column as a graphite bay: strips sit in the rack, waiting ones stick out. */
@@ -44,7 +44,7 @@ export const Column = memo(function Column({
   costs = {},
   waiting = {},
   running,
-  onDecide,
+  approvals,
 }: ColumnProps) {
   const t = useTranslations('board')
   const locale = useLocale()
@@ -132,7 +132,7 @@ export const Column = memo(function Column({
                       cost={costs[task.id]}
                       waiting={waiting[task.id]}
                       running={running?.has(task.id) ?? false}
-                      onDecide={onDecide}
+                      approvals={approvals}
                     />
                   </div>
                 )}

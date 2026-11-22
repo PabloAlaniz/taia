@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { Task } from '@taia/types'
 import { api } from './api'
 import { announceWaitingChanged, useLiveStore, useWaiting } from './use-shell-signals'
@@ -27,7 +27,33 @@ export interface BoardSignals {
     decision: 'approved' | 'rejected',
     decidedBy?: string,
   ) => Promise<string | null>
+  /** Decisions queued for UNDO_MS before they are sent, by approval id. */
+  pending: Record<string, PendingDecision>
+  /** Queue a decision; it is sent after UNDO_MS unless undone. */
+  queueDecision: (approvalId: string, decision: 'approved' | 'rejected', decidedBy: string) => void
+  undoDecision: (approvalId: string) => void
+  /** Errors from decisions already sent, by approval id. */
+  decisionErrors: Record<string, string>
 }
+
+export interface PendingDecision {
+  decision: 'approved' | 'rejected'
+  /** epoch ms when it will be sent */
+  sendAt: number
+}
+
+/** What a waiting strip needs to approve or reject in place. */
+export interface ApprovalControls {
+  pending: Record<string, PendingDecision>
+  errors: Record<string, string>
+  /** False until the person deciding is known (the user switcher). */
+  canDecide: boolean
+  queue: (approvalId: string, decision: 'approved' | 'rejected') => void
+  undo: (approvalId: string) => void
+}
+
+/** How long an approval or rejection can be undone before it reaches the agent. */
+export const UNDO_MS = 5_000
 
 export function useBoardSignals(tasks: Task[]): BoardSignals {
   const [costs, setCosts] = useState<Record<string, number>>({})
@@ -87,7 +113,55 @@ export function useBoardSignals(tasks: Task[]): BoardSignals {
     [dropApproval],
   )
 
+  // Decisions wait UNDO_MS so a slip can be undone; timers live here, not on
+  // the strip, so a re-sorted or unmounted strip never loses a decision.
+  const [pending, setPending] = useState<Record<string, PendingDecision>>({})
+  const [decisionErrors, setDecisionErrors] = useState<Record<string, string>>({})
+  const timers = useRef(
+    new Map<string, { timer: ReturnType<typeof setTimeout>; send: () => void }>(),
+  )
+
+  const queueDecision = useCallback(
+    (approvalId: string, decision: 'approved' | 'rejected', decidedBy: string) => {
+      const send = () => {
+        timers.current.delete(approvalId)
+        setPending(({ [approvalId]: _sent, ...rest }) => rest)
+        decide(approvalId, decision, decidedBy).then((err) =>
+          setDecisionErrors((prev) => {
+            const { [approvalId]: _old, ...rest } = prev
+            return err ? { ...rest, [approvalId]: err } : rest
+          }),
+        )
+      }
+      timers.current.set(approvalId, { timer: setTimeout(send, UNDO_MS), send })
+      setPending((prev) => ({ ...prev, [approvalId]: { decision, sendAt: Date.now() + UNDO_MS } }))
+    },
+    [decide],
+  )
+
+  const undoDecision = useCallback((approvalId: string) => {
+    const entry = timers.current.get(approvalId)
+    if (entry) clearTimeout(entry.timer)
+    timers.current.delete(approvalId)
+    setPending(({ [approvalId]: _undone, ...rest }) => rest)
+  }, [])
+
+  // Leaving the board sends what was queued: the user already decided.
+  useEffect(() => {
+    const queued = timers.current
+    return () => {
+      for (const { timer, send } of queued.values()) {
+        clearTimeout(timer)
+        send()
+      }
+    }
+  }, [])
+
   return {
+    pending,
+    queueDecision,
+    undoDecision,
+    decisionErrors,
     costs,
     waiting,
     waitingCount: Object.keys(waiting).length,

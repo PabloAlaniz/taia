@@ -187,6 +187,15 @@ body {
   }
 }
 
+@keyframes undo-bar {
+  from {
+    width: 100%;
+  }
+  to {
+    width: 0%;
+  }
+}
+
 @keyframes slideInLeft {
   from {
     opacity: 0;

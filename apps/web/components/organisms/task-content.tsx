@@ -6,7 +6,6 @@ import { User } from 'lucide-react'
 import { Task, Agent, Message, Subtask, TaskTrajectory } from '@taia/types'
 import { Button, Input, Textarea, ParticipantMark } from '../atoms'
 import { Card, SubtaskList } from '../molecules'
-import { useCurrentUserAgent } from '@/lib/store-selectors'
 
 /** Parses API timestamps, which may come without a zone (then they are UTC). */
 function parseTimestamp(iso: string): Date {
@@ -54,7 +53,6 @@ export const TaskContent = forwardRef<TaskContentHandle, TaskContentProps>(funct
   const tc = useTranslations('common')
   const format = useFormatter()
   const now = useNow({ updateInterval: 60_000 })
-  const currentUser = useCurrentUserAgent()
   const [editingTitle, setEditingTitle] = useState(false)
   const [editingDescription, setEditingDescription] = useState(false)
   const [title, setTitle] = useState(task.title)
@@ -265,13 +263,14 @@ export const TaskContent = forwardRef<TaskContentHandle, TaskContentProps>(funct
         {/* New Comment Input */}
         <div className="flex gap-3">
           <div className="w-8 h-8 rounded-full bg-background flex items-center justify-center shrink-0">
-            {currentUser?.avatar || <User size={14} aria-hidden />}
+            <User size={14} aria-hidden />
           </div>
           <div className="flex-1 flex gap-2">
             <Input
               value={newMessage}
               onChange={(e) => setNewMessage(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && handleSendMessage()}
+              id="task-comment"
               placeholder={t('commentPlaceholder')}
               aria-label={t('commentPlaceholder')}
               className="flex-1"

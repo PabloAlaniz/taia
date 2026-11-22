@@ -79,7 +79,12 @@
     "alreadyDecided": "Alguien ya respondió esta aprobación.",
     "decideFailed": "No se pudo enviar la respuesta. Probá de nuevo.",
     "agent": "agente",
-    "person": "persona"
+    "person": "persona",
+    "approvedPending": "Aprobado",
+    "rejectedPending": "Rechazado",
+    "sendsIn": "se envía en {seconds} s",
+    "undo": "Deshacer",
+    "pickUserToDecide": "Elegí quién sos (arriba a la derecha) para aprobar o rechazar."
   },
   "addTask": {
     "title": "Nueva Tarea",
@@ -463,8 +468,8 @@
   "boardHeader": {
     "title": "Tablero",
     "summary": "{tasks, plural, one {# tarea} other {# tareas}} · {agents, plural, =0 {ningún agente trabajando} one {# agente trabajando} other {# agentes trabajando}}",
-    "live": "en vivo",
-    "polling": "sin tiempo real, actualizando cada 30 s",
+    "live": "actualización en tiempo real",
+    "polling": "se actualiza cada 30 s",
     "syncing": "actualizando…",
     "viewLabel": "Vista",
     "viewAll": "Todo",
@@ -1247,5 +1252,8 @@
     "body": "Creá la primera tarea, o conectá un agente por MCP para que tome y mueva tareas solo.",
     "newTask": "Crear la primera tarea",
     "mcp": "Cómo conectar un agente"
+  },
+  "waitingBand": {
+    "mergeInto": "Integra {branch} en {base}: {files, plural, one {# archivo} other {# archivos}}"
   }
 }

@@ -107,10 +107,17 @@ function Home() {
     window.history.replaceState(null, '', url)
   }
   const currentUserId = useStore((s) => s.currentUserId)
-  const decide = useCallback(
-    (approvalId: string, decision: 'approved' | 'rejected') =>
-      signals.decide(approvalId, decision, currentUserId ?? undefined),
-    [signals, currentUserId],
+  const { pending, decisionErrors, queueDecision, undoDecision } = signals
+  const approvals = useMemo(
+    () => ({
+      pending,
+      errors: decisionErrors,
+      canDecide: !!currentUserId,
+      queue: (approvalId: string, decision: 'approved' | 'rejected') =>
+        currentUserId && queueDecision(approvalId, decision, currentUserId),
+      undo: undoDecision,
+    }),
+    [pending, decisionErrors, queueDecision, undoDecision, currentUserId],
   )
 
   // Compute available tags from all tasks
@@ -462,7 +469,7 @@ function Home() {
           costs={signals.costs}
           waiting={signals.waiting}
           running={signals.running}
-          onDecide={decide}
+          approvals={approvals}
         />
 
         {/* Right Sidebar: Activity Feed - hidden on mobile/tablet */}

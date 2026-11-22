@@ -9,7 +9,7 @@ import { cn } from '../../lib/utils'
 import { ChevronDown, ChevronRight } from 'lucide-react'
 import { Badge, Button } from '../atoms'
 import type { GroupBy } from '../../lib/store'
-import type { WaitingReason } from '../../lib/use-board-signals'
+import type { ApprovalControls, WaitingReason } from '../../lib/use-board-signals'
 
 const PRIORITIES = ['URGENT', 'HIGH', 'MEDIUM', 'LOW'] as const
 
@@ -37,7 +37,7 @@ interface KanbanBoardProps {
   costs?: Record<string, number>
   waiting?: Record<string, WaitingReason>
   running?: Set<string>
-  onDecide?: (approvalId: string, decision: 'approved' | 'rejected') => Promise<string | null>
+  approvals?: ApprovalControls
 }
 
 interface LaneLabels {
@@ -151,7 +151,7 @@ export function KanbanBoard({
   costs,
   waiting,
   running,
-  onDecide,
+  approvals,
 }: KanbanBoardProps) {
   const t = useTranslations('board')
   const columns = columnsProp || []
@@ -227,7 +227,7 @@ export function KanbanBoard({
                 costs={costs}
                 waiting={waiting}
                 running={running}
-                onDecide={onDecide}
+                approvals={approvals}
               />
             ))
           }
@@ -282,7 +282,7 @@ export function KanbanBoard({
                       costs={costs}
                       waiting={waiting}
                       running={running}
-                      onDecide={onDecide}
+                      approvals={approvals}
                       compact={isSwimlane}
                     />
                   ))}

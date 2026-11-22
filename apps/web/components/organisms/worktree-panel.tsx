@@ -97,7 +97,7 @@ export function WorktreePanel({ taskId }: { taskId: string }) {
   const stats = diff?.stats ?? worktree?.diff_stats
 
   return (
-    <div>
+    <div id="worktree" className="scroll-mt-4">
       <h3 className="text-xs font-medium text-muted mb-2">{t('title')}</h3>
 
       {!worktree ? (

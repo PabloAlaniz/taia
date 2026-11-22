@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation'
 import { Task, Agent } from '@taia/types'
 import { cn } from '../../lib/utils'
 import { formatUsd, participantKind } from '../../lib/format'
-import type { WaitingReason } from '../../lib/use-board-signals'
+import { UNDO_MS, type ApprovalControls, type WaitingReason } from '../../lib/use-board-signals'
 import { useStore } from '../../lib/store'
 import { Button, Badge, GitHubIcon, BlockerIcon } from '../atoms'
 import { Card } from '../molecules'
@@ -27,7 +27,7 @@ interface TaskCardProps {
   waiting?: WaitingReason
   /** A live runtime session is working on it right now. */
   running?: boolean
-  onDecide?: (approvalId: string, decision: 'approved' | 'rejected') => Promise<string | null>
+  approvals?: ApprovalControls
 }
 
 const SYSTEM_TAGS = ['blocked', 'needs-clarification']
@@ -57,7 +57,7 @@ export const TaskCard = memo(function TaskCard({
   cost,
   waiting,
   running = false,
-  onDecide,
+  approvals,
 }: TaskCardProps) {
   const t = useTranslations('taskCard')
   const format = useFormatter()
@@ -67,8 +67,6 @@ export const TaskCard = memo(function TaskCard({
   const router = useRouter()
   const tagColors = useStore((s) => s.tagColors)
   const [showAssign, setShowAssign] = useState(false)
-  const [deciding, setDeciding] = useState(false)
-  const [decideError, setDecideError] = useState<string | null>(null)
 
   const assignee = agents.find((a) => a.id === task.assigned_to)
   const kind = participantKind(assignee)
@@ -89,14 +87,9 @@ export const TaskCard = memo(function TaskCard({
 
   const stop = (e: React.SyntheticEvent) => e.stopPropagation()
 
-  const decide = async (decision: 'approved' | 'rejected') => {
-    if (waiting?.kind !== 'approval' || !onDecide) return
-    setDeciding(true)
-    setDecideError(null)
-    const err = await onDecide(waiting.approval.id, decision)
-    if (err) setDecideError(err === 'already_decided' ? t('alreadyDecided') : t('decideFailed'))
-    setDeciding(false)
-  }
+  const approvalId = waiting?.kind === 'approval' ? waiting.approval.id : null
+  const pendingDecision = approvalId ? approvals?.pending[approvalId] : undefined
+  const decisionError = approvalId ? approvals?.errors[approvalId] : undefined
 
   let stateLabel: string | null = null
   if (running) {
@@ -190,7 +183,7 @@ export const TaskCard = memo(function TaskCard({
             b: (chunk) => <b className="font-semibold">{chunk}</b>,
           })}
           {approvalSubject(waiting.approval.tool_input) && (
-            <code className="block mt-1 font-mono text-xs bg-strip px-1.5 py-0.5 rounded-[2px] truncate">
+            <code className="block mt-1 font-mono text-xs bg-strip px-1.5 py-1 rounded-[2px] whitespace-pre-wrap break-all max-h-32 overflow-y-auto">
               {approvalSubject(waiting.approval.tool_input)}
             </code>
           )}
@@ -247,25 +240,57 @@ export const TaskCard = memo(function TaskCard({
       {waiting && (
         // biome-ignore lint/a11y/noStaticElementInteractions: stops the strip's own click
         <div className="flex flex-wrap gap-1.5 mt-2" onClick={stop} onKeyDown={stop}>
-          {waiting.kind === 'approval' && (
+          {waiting.kind === 'approval' && approvalId && !pendingDecision && (
             <>
               <Button
                 variant="primary"
                 size="xs"
-                disabled={deciding}
-                onClick={() => decide('approved')}
+                disabled={!approvals?.canDecide}
+                onClick={() => approvals?.queue(approvalId, 'approved')}
               >
                 {t('approve')}
               </Button>
               <Button
                 variant="danger"
                 size="xs"
-                disabled={deciding}
-                onClick={() => decide('rejected')}
+                disabled={!approvals?.canDecide}
+                onClick={() => approvals?.queue(approvalId, 'rejected')}
               >
                 {t('reject')}
               </Button>
+              {!approvals?.canDecide && (
+                <p className="basis-full text-xs text-muted">{t('pickUserToDecide')}</p>
+              )}
             </>
+          )}
+          {waiting.kind === 'approval' && approvalId && pendingDecision && (
+            <div role="status" className="basis-full flex items-center gap-2">
+              <span
+                className={cn(
+                  'text-sm font-semibold',
+                  pendingDecision.decision === 'approved' ? 'text-ok' : 'text-alert',
+                )}
+              >
+                {pendingDecision.decision === 'approved'
+                  ? t('approvedPending')
+                  : t('rejectedPending')}
+              </span>
+              <span className="text-xs text-muted">
+                {t('sendsIn', { seconds: UNDO_MS / 1000 })}
+              </span>
+              <Button
+                variant="secondary"
+                size="xs"
+                className="ml-auto"
+                onClick={() => approvals?.undo(approvalId)}
+              >
+                {t('undo')}
+              </Button>
+              <span
+                aria-hidden="true"
+                className="absolute left-0 bottom-0 h-0.5 bg-person motion-safe:animate-[undo-bar_5s_linear_forwards]"
+              />
+            </div>
           )}
           {waiting.kind === 'merge' && (
             <Button variant="primary" size="xs" onClick={open}>
@@ -277,9 +302,9 @@ export const TaskCard = memo(function TaskCard({
               {t('answer')}
             </Button>
           )}
-          {decideError && (
+          {decisionError && (
             <p role="alert" className="basis-full text-xs text-alert">
-              {decideError}
+              {decisionError === 'already_decided' ? t('alreadyDecided') : t('decideFailed')}
             </p>
           )}
         </div>

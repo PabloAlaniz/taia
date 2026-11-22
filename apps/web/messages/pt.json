@@ -79,7 +79,12 @@
     "alreadyDecided": "Alguém já respondeu esta aprovação.",
     "decideFailed": "Não foi possível enviar a resposta. Tente de novo.",
     "agent": "agente",
-    "person": "pessoa"
+    "person": "pessoa",
+    "approvedPending": "Aprovado",
+    "rejectedPending": "Rejeitado",
+    "sendsIn": "enviado em {seconds} s",
+    "undo": "Desfazer",
+    "pickUserToDecide": "Escolha quem você é (no canto superior direito) para aprovar ou rejeitar."
   },
   "addTask": {
     "title": "Nova Tarefa",
@@ -463,8 +468,8 @@
   "boardHeader": {
     "title": "Quadro",
     "summary": "{tasks, plural, one {# tarefa} other {# tarefas}} · {agents, plural, =0 {nenhum agente trabalhando} one {# agente trabalhando} other {# agentes trabalhando}}",
-    "live": "ao vivo",
-    "polling": "sem tempo real, atualizando a cada 30 s",
+    "live": "atualização em tempo real",
+    "polling": "atualiza a cada 30 s",
     "syncing": "atualizando…",
     "viewLabel": "Visualização",
     "viewAll": "Tudo",
@@ -1247,5 +1252,8 @@
     "body": "Crie a primeira tarefa, ou conecte um agente via MCP para ele pegar e mover tarefas sozinho.",
     "newTask": "Criar a primeira tarefa",
     "mcp": "Como conectar um agente"
+  },
+  "waitingBand": {
+    "mergeInto": "Integra {branch} em {base}: {files, plural, one {# arquivo} other {# arquivos}}"
   }
 }
