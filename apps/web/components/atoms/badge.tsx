@@ -12,9 +12,11 @@ const variants = {
   accent: 'bg-agent-ink text-white dark:text-rack-deep',
   muted: 'bg-card text-muted',
   secondary: 'bg-card border border-border text-foreground',
-  success: 'bg-ok/15 text-ok',
-  warning: 'bg-person/20 text-person-ink',
-  danger: 'bg-alert/15 text-alert',
+  // State badges: ink-strength text with a ring, no fill, so they read on any
+  // surface (page, card, strip) in both themes.
+  success: 'text-ok ring-1 ring-inset ring-ok/50',
+  warning: 'text-person-ink ring-1 ring-inset ring-person/60',
+  danger: 'text-alert ring-1 ring-inset ring-alert/50',
 }
 
 const sizes = {

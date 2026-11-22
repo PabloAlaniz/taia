@@ -73,7 +73,9 @@ export function AssignedToDropdown({
       >
         {hasFilter && <span className="mr-1">👤</span>}
         {label}
-        <span className="ml-1 text-2xs opacity-60">▾</span>
+        <span className="ml-1 text-xxs text-muted" aria-hidden="true">
+          ▾
+        </span>
       </Button>
 
       <Dropdown open={open} align="left" className="min-w-[200px] max-h-80 overflow-y-auto">

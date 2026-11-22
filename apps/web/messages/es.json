@@ -746,7 +746,8 @@
     "mdUser": "Usuario",
     "mdAssistant": "Asistente",
     "mdTool": "Herramienta: {name}",
-    "mdThinking": "Razonamiento: {text}"
+    "mdThinking": "Razonamiento: {text}",
+    "thinking": "Razonamiento"
   },
   "diffViewer": {
     "title": "Cambios del worktree",

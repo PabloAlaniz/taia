@@ -19,6 +19,7 @@
   --color-strip: var(--strip);
   --color-strip-done: var(--strip-done);
   --color-border: var(--border);
+  --color-field: var(--field);
   --color-foreground: var(--foreground);
   --color-muted: var(--muted);
   --color-accent: var(--accent);
@@ -77,6 +78,8 @@
   --strip: #dde3e8;
   --strip-done: #cdd3d8;
   --border: #c3cbd2;
+  /* Form field edges: 3:1 against the surfaces they sit on. */
+  --field: #7f8a95;
   --foreground: #15191d;
   --muted: #4f5a63;
   --accent: #176087;
@@ -108,15 +111,16 @@
   --strip: #343d46;
   --strip-done: #2a323a;
   --border: #46515c;
+  --field: #67737f;
   --foreground: #e6ebef;
-  --muted: #a7b2bc;
+  --muted: #b4bfc8;
   --accent: #6cc0ea;
   --rack: #1d2329;
   --rack-deep: #161b20;
   --rack-line: #2e363e;
   --on-rack: #c5cdd4;
   --rack-heading: #eef1f3;
-  --on-rack-muted: #8f9aa4;
+  --on-rack-muted: #a3aeb8;
   --agent: #2f9bd0;
   --agent-ink: #6cc0ea;
   --person: #e07b2e;
@@ -148,12 +152,8 @@ body {
 }
 
 ::placeholder {
-  color: #636c75;
-  opacity: 1;
-}
-
-.dark ::placeholder {
   color: var(--muted);
+  opacity: 1;
 }
 
 ::selection {
@@ -234,12 +234,12 @@ body {
 /* Native selects get the world's chevron instead of the browser's. */
 select:not([multiple]):not([size]) {
   appearance: none;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2356616b' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%234f5a63' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
   background-repeat: no-repeat;
   background-position: right 0.6rem center;
   background-size: 0.75rem;
   padding-right: 2rem;
 }
 .dark select:not([multiple]):not([size]) {
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23a7b2bc' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23b4bfc8' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
 }

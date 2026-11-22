@@ -86,7 +86,7 @@ export function TopBar({ onCreateWorkspace }: { onCreateWorkspace?: () => void }
               href={item.href}
               aria-current={active ? 'page' : undefined}
               className={cn(
-                'flex items-center px-3 text-[0.95rem] font-medium no-underline border-b-2 transition-colors',
+                'flex items-center px-3 text-sm font-medium no-underline border-b-2 transition-colors',
                 'focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-white',
                 active
                   ? 'text-white border-white'

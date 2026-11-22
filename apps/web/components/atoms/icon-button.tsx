@@ -32,7 +32,8 @@ export const IconButton = forwardRef<HTMLButtonElement, IconButtonProps>(
           // Invisible touch target expansion for mobile (44x44 min)
           'before:absolute before:inset-0 before:-m-1.5 before:content-[""] md:before:hidden',
           'focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-1 focus-visible:ring-offset-background focus-visible:outline-hidden',
-          'disabled:opacity-50 disabled:cursor-not-allowed',
+          // Disabled reads as a flat strip with muted ink, not a 50% ghost.
+          'disabled:cursor-not-allowed disabled:bg-strip disabled:text-muted disabled:border-border disabled:opacity-100',
           variants[variant],
           sizes[size],
           className,
