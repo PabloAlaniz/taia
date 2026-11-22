@@ -105,12 +105,12 @@ export function TopBar({ onCreateWorkspace }: { onCreateWorkspace?: () => void }
         <Link
           href="/?view=waiting"
           aria-label={t('waitingAria', { count: waitingCount })}
-          className="flex items-center gap-2 whitespace-nowrap rounded bg-person text-on-person font-bold text-sm px-1.5 sm:pr-2.5 py-1 no-underline hover:brightness-105 focus-visible:outline-2 focus-visible:outline-white"
+          className="flex items-center gap-2 whitespace-nowrap rounded bg-person text-on-person font-bold text-sm pl-1 pr-2 sm:pl-1.5 sm:pr-2.5 py-1 no-underline hover:brightness-105 focus-visible:outline-2 focus-visible:outline-white"
         >
           <span className="rounded-[3px] bg-on-person text-person px-1.5 tabular-nums text-mid">
             {waitingCount}
           </span>
-          <span className="hidden sm:inline">{t('waiting', { count: waitingCount })}</span>
+          <span className="text-xs sm:text-sm">{t('waiting', { count: waitingCount })}</span>
         </Link>
       )}
 

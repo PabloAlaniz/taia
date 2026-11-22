@@ -18,7 +18,7 @@ const variants = {
 }
 
 const sizes = {
-  xs: 'text-2xs px-2 py-1 leading-none',
+  xs: 'text-xxs px-1.5 py-0.5 leading-tight',
   sm: 'text-xs px-2.5 py-1 leading-none',
 }
 
@@ -30,24 +30,29 @@ export function Badge({
   style,
   ...props
 }: BadgeProps) {
-  const colorStyle = color
-    ? {
-        backgroundColor: `${color}25`,
-        color: color,
-        ...style,
-      }
-    : style
+  // A tag colour tints the chip and marks it with a dot; the text stays ink so
+  // it reads on any strip, whatever colour the user picked.
+  const colorStyle = color ? { backgroundColor: `${color}26`, ...style } : style
 
   return (
     <span
       className={cn(
         'rounded-sm font-semibold inline-flex items-center',
-        !color && variants[variant],
+        color ? 'text-foreground gap-1.5' : variants[variant],
         sizes[size],
         className,
       )}
       style={colorStyle}
       {...props}
-    />
+    >
+      {color && (
+        <span
+          aria-hidden="true"
+          className="w-1.5 h-1.5 rounded-full"
+          style={{ backgroundColor: color }}
+        />
+      )}
+      {props.children}
+    </span>
   )
 }

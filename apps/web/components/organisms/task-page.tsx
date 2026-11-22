@@ -103,7 +103,7 @@ export function TaskPage({
         </div>
 
         {/* Sidebar - stacks below on mobile, side panel on desktop */}
-        <aside className="w-full lg:w-80 border-t lg:border-t-0 lg:border-l border-border bg-card overflow-y-auto shrink-0">
+        <aside className="w-full lg:w-80 border-t lg:border-t-0 lg:border-l border-border bg-strip overflow-y-auto shrink-0">
           <TaskSidebar
             ref={sidebarRef}
             task={task}

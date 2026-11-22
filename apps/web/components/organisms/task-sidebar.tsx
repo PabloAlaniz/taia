@@ -179,7 +179,8 @@ export const TaskSidebar = forwardRef<TaskSidebarHandle, TaskSidebarProps>(funct
   }
 
   return (
-    <div className="p-4 space-y-6">
+    // Fields as ruled rows, like the boxes of a flight strip.
+    <div className="px-4 divide-y divide-border [&>*]:py-3.5 [&_label]:uppercase [&_label]:tracking-[0.08em] [&_label]:font-semibold [&_h3]:uppercase [&_h3]:tracking-[0.08em] [&_h3]:font-semibold">
       {/* Status */}
       <div>
         <label htmlFor="task-status" className="text-xs font-medium text-muted block mb-2">
@@ -255,7 +256,7 @@ export const TaskSidebar = forwardRef<TaskSidebarHandle, TaskSidebarProps>(funct
       {/* Created By */}
       {task.created_by && (
         <div>
-          <p className="text-xs font-medium text-muted mb-2">{t('createdBy')}</p>
+          <h3 className="text-xs text-muted mb-2">{t('createdBy')}</h3>
           {(() => {
             const creatorAgent = agents.find((a) => a.id === task.created_by)
             return creatorAgent ? (
@@ -324,7 +325,7 @@ export const TaskSidebar = forwardRef<TaskSidebarHandle, TaskSidebarProps>(funct
 
       {/* Dependencies */}
       <div>
-        <p className="text-xs font-medium text-muted mb-2">{t('dependencies')}</p>
+        <h3 className="text-xs text-muted mb-2">{t('dependencies')}</h3>
         {/* Blockers (this task is blocked by) */}
         {blockers.length > 0 && (
           <div className="mb-2">
