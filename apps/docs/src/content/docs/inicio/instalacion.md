@@ -18,10 +18,13 @@ docker compose up -d --build
 
 Abrí <http://localhost:13333>. El primer arranque crea la base y aplica las migraciones.
 
-El asistente inicial (**Configurar TAIA**) te pide dos cosas:
+El asistente inicial (**Configurar TAIA**) te pide tres cosas:
 
 1. **Un runtime**, el que va a ejecutar tus agentes. Podés elegir **Omitir conexión** y usar TAIA sin runtime ([modo standalone](/taia/inicio/elegir-setup/#sin-runtime-standalone)).
-2. **Tu primer workspace**, a partir de un preset de columnas (Software Dev, Marketing, Escritura, Ventas o Personalizado).
+2. **Tu primer proyecto** (opcional): para quién o sobre qué trabajás, por ejemplo un cliente o un producto, con un repositorio si tiene. Le da contexto a los agentes en cualquier workspace.
+3. **Tu primer workspace**: cómo trabajás, a partir de un preset de columnas (Software Dev, Marketing, Escritura, Ventas o Personalizado).
+
+Ver [Workspaces, columnas y proyectos](/taia/conceptos/workspaces-y-columnas/).
 
 :::caution
 Por defecto TAIA no pide credenciales. `docker-compose.yml` publica todos los puertos solo en `127.0.0.1`, así que nadie más en la red puede entrar. Si querés usarlo desde otra máquina, definí un [token de acceso](/taia/guias/deploy/#token-de-acceso) y seguí [Deploy](/taia/guias/deploy/).
