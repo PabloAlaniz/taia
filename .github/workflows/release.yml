@@ -302,7 +302,6 @@ jobs:
         uses: softprops/action-gh-release@8a0cd651e5b2365bd640854a3fa5dfc70e4875f3 # v3.0.4
         with:
           tag_name: ${{ needs.verify-tag.outputs.tag }}
-          target_commitish: ${{ needs.verify-tag.outputs.tag }}
           name: TAIA ${{ needs.verify-tag.outputs.version }}
           body_path: release-notes.md
           draft: false
