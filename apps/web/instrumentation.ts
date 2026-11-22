@@ -9,7 +9,8 @@
  * in the Activity feed).
  *
  * It also encrypts the credentials in the settings table when a key is
- * configured (see @taia/core/secret-box).
+ * configured (see @taia/core/secret-box), and deletes expired rate limit rows
+ * every hour (see @taia/core/rate-limit).
  */
 export async function register() {
   // Only the Node.js server runtime runs the listeners; the Edge runtime has
@@ -26,5 +27,8 @@ export async function register() {
     } catch (error) {
       console.error('[TAIA] Could not encrypt stored credentials:', error)
     }
+
+    const { startRateLimitCleanup } = await import('@taia/core/rate-limit')
+    startRateLimitCleanup()
   }
 }

@@ -48,7 +48,7 @@ El `status` tiene que ser una columna del workspace de la tarea; si no, la API r
 | `/api/agents/[id]/context` | `GET`, `PATCH` | Identidad y contexto (con versiones en `/versions`) |
 | `/api/agents/[id]/runtime-settings` | `GET`, `PATCH` | Modelo y tools del agente en su runtime |
 | `/api/agents/[id]/transcript`, `/live`, `/stream` | `GET` | Transcripción y eventos en vivo |
-| `/api/agents/[id]/trigger` | `POST` | Despertar al agente ahora |
+| `/api/agents/[id]/trigger` | `POST` | Despertar al agente ahora. Si ya corre, devuelve esa sesión con `coalesced: true` (con `TAIA_AGENT_RUN_LOCK=enforce`); `?force=1` lanza otra igual. Ver [Cron y heartbeats](/taia/guias/cron-y-heartbeats/#una-corrida-a-la-vez) |
 | `/api/agents/[id]/cron` | `GET`, `POST`, `PATCH`, `DELETE` | Heartbeat ([Cron](/taia/guias/cron-y-heartbeats/)) |
 | `/api/agents/[id]/memory`, `/working-state` | `GET`, `PUT` | Memoria y estado de trabajo |
 | `/api/agents/[id]/cost` | `GET` | Costo del agente |

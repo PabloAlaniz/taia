@@ -7,7 +7,8 @@ import {
   listPlanningRuns,
   normalizePlanningError,
 } from '@taia/core/services/planning-run.service'
-import { apiOk, ValidationError } from '@taia/core/errors'
+import { apiOk, type AppError, ValidationError } from '@taia/core/errors'
+import { SpendLimitError } from '@taia/core/spend-limit'
 import { withErrorBoundary } from '@taia/core/api-handler'
 import { z } from 'zod'
 import { validate } from '@taia/core/validation/validate'
@@ -42,7 +43,8 @@ function getWorkspaceId(req: NextRequest, bodyWorkspaceId?: string | null) {
   return bodyWorkspaceId || req.headers.get('x-workspace-id') || DEFAULT_WORKSPACE_ID
 }
 
-function mapPlanningError(error: unknown, provider: string): ValidationError {
+function mapPlanningError(error: unknown, provider: string): AppError {
+  if (error instanceof SpendLimitError) return error
   const normalized = normalizePlanningError(error, provider)
   return new ValidationError(normalized.actionable)
 }

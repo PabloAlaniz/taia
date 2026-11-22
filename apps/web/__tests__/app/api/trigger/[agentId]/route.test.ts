@@ -26,6 +26,36 @@ describe('POST /api/trigger/[agentId]', () => {
     expect(data.ok).toBe(true)
   })
 
+  it('answers 429 with Retry-After when a spend limit refused the run', async () => {
+    vi.mocked(triggerService.triggerAgentHeartbeat).mockResolvedValue({
+      ok: false,
+      agentId: 'agent-1',
+      error: 'Too many agent-run requests; try again in 120s',
+      retryAfterSeconds: 120,
+    })
+
+    const req = new NextRequest('http://localhost/api/trigger/agent-1', { method: 'POST' })
+    const res = await POST(req, makeParams('agent-1'))
+
+    expect(res.status).toBe(429)
+    expect(res.headers.get('retry-after')).toBe('120')
+  })
+
+  it('answers 200 with the running session when the trigger is coalesced', async () => {
+    vi.mocked(triggerService.triggerAgentHeartbeat).mockResolvedValue({
+      ok: true,
+      agentId: 'agent-1',
+      coalesced: true,
+      sessionKey: 'sess-1',
+    })
+
+    const req = new NextRequest('http://localhost/api/trigger/agent-1', { method: 'POST' })
+    const res = await POST(req, makeParams('agent-1'))
+
+    expect(res.status).toBe(200)
+    expect(await res.json()).toMatchObject({ coalesced: true, sessionKey: 'sess-1' })
+  })
+
   it('returns 404 when no heartbeat configured', async () => {
     vi.mocked(triggerService.triggerAgentHeartbeat).mockResolvedValue({
       ok: false,
@@ -57,6 +87,15 @@ describe('GET /api/trigger/[agentId]', () => {
     const data = await res.json()
 
     expect(data.ok).toBe(true)
-    expect(triggerService.triggerAgentHeartbeat).toHaveBeenCalledWith('agent-1')
+    expect(triggerService.triggerAgentHeartbeat).toHaveBeenCalledWith('agent-1', { force: false })
+  })
+
+  it('passes force=1 through', async () => {
+    vi.mocked(triggerService.triggerAgentHeartbeat).mockResolvedValue({ ok: true })
+
+    const req = new NextRequest('http://localhost/api/trigger/agent-1?run=true&force=1')
+    await GET(req, makeParams('agent-1'))
+
+    expect(triggerService.triggerAgentHeartbeat).toHaveBeenCalledWith('agent-1', { force: true })
   })
 })

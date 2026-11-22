@@ -14,7 +14,8 @@ export const dynamic = 'force-dynamic'
  * POST /api/auth/login  { token }
  * Exchanges the access token for the session cookie the browser uses.
  * After too many wrong tokens it answers 429 until the budget recovers, even
- * to the right one (see lib/login-limit).
+ * to the right one, and 503 when the attempt cannot be counted (see
+ * lib/login-limit).
  */
 export async function POST(request: NextRequest) {
   const token = apiToken()
@@ -27,6 +28,12 @@ export async function POST(request: NextRequest) {
     const presented = typeof body?.token === 'string' ? body.token.trim() : ''
     return presented !== '' && safeEqual(presented, token)
   })
+  if (!attempt.allowed && attempt.decision.reason === 'store_error') {
+    return NextResponse.json(
+      { ok: false, code: 'LOGIN_UNAVAILABLE', error: 'Sign-in is unavailable, try again shortly' },
+      { status: 503, headers: { 'Retry-After': String(retryAfterSeconds(attempt)) } },
+    )
+  }
   if (!attempt.allowed) {
     return NextResponse.json(
       { ok: false, code: 'TOO_MANY_ATTEMPTS', error: 'Too many failed attempts, try again later' },

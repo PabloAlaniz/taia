@@ -29,6 +29,20 @@ Lo demás está en la API, bajo `/api/agents/<id>/cron`:
 | `POST` | `/api/agents/<id>/cron/run` | Correrlo ahora |
 | `GET` | `/api/agents/<id>/cron/history` | Las últimas corridas |
 
+## Una corrida a la vez
+
+`POST /api/agents/<id>/trigger` despierta al agente ahora. Si el agente ya tiene una corrida de ese tipo en curso, no se lanza otra: la respuesta trae `coalesced: true` y la sesión que está corriendo. Dos "revisá tus tareas" seguidos son la misma orden, y así no se paga dos veces el LLM. Con `?force=1` se lanza igual; la corrida anterior sigue hasta terminar.
+
+TAIA libera el turno cuando el runtime avisa que la corrida terminó. Si nunca avisa (el proceso murió, el runtime no lo reporta), el turno vence solo a los 6 minutos: el timeout de la corrida más uno de margen.
+
+`TAIA_AGENT_RUN_LOCK` elige cómo se aplica:
+
+- `shadow` (default): toma los turnos y deja en el log del servidor cada disparo que habría fusionado (`[agent-run-lease] shadow: would coalesce...`), pero lanza todas las corridas. Sirve para ver el efecto antes de activarlo.
+- `enforce`: fusiona los disparos como se describe arriba.
+- `off`: sin turnos.
+
+Los heartbeats que programa el runtime (`/cron/run` y el cron mismo) corren por su cuenta y no pasan por este control.
+
 ## Qué recibe el agente
 
 El mensaje del heartbeat apunta al contexto del agente en TAIA. Con `context_sync: push` (default en OpenClaw), TAIA escribe los archivos de contexto en el workspace del agente. Con `pull`, el agente los pide a la API de TAIA al despertar. Ver [Modelo de contexto](/taia/arquitectura/modelo-de-contexto/).

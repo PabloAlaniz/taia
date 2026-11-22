@@ -44,7 +44,11 @@ export function apiError(error: unknown, fallbackStatus = 500) {
     if (error instanceof ValidationError && error.details) {
       body.details = error.details
     }
-    return NextResponse.json(body, { status: error.statusCode })
+    // An error that knows when to come back (a spent rate limit) says so.
+    const retryAfter = (error as { retryAfterSeconds?: unknown }).retryAfterSeconds
+    const headers =
+      typeof retryAfter === 'number' ? { 'Retry-After': String(retryAfter) } : undefined
+    return NextResponse.json(body, { status: error.statusCode, headers })
   }
 
   const message = error instanceof Error ? error.message : 'Internal server error'

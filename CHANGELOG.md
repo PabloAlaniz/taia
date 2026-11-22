@@ -6,6 +6,16 @@ El formato se basa en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/
 
 ## [Sin publicar]
 
+### Agentes
+
+- Disparar a mano un agente que ya está corriendo no lanza otra corrida: devuelve la que está en curso (`coalesced: true`), y `?force=1` lanza otra igual. Arranca en modo sombra (`TAIA_AGENT_RUN_LOCK=shadow`, sólo loguea); `enforce` lo activa.
+- Las operaciones que gastan en el modelo tienen límites: 20 corridas por hora por agente, 30 planes y 10 setups de onboarding por hora (`TAIA_AGENT_RUN_LIMIT`, `TAIA_PLANNING_LIMIT`, `TAIA_ONBOARDING_SETUP_LIMIT`). Frenan a un script o a un agente en bucle, no a una persona. Arrancan en modo sombra (`TAIA_SPEND_LIMITS=shadow`, sólo loguean lo que rechazarían); `enforce` responde `429`.
+
+### Seguridad
+
+- El freno de la pantalla de ingreso guarda la cuenta en Postgres, así que un reinicio no da intentos nuevos, y nunca verifica más tokens a la vez que los que quedan en el cupo. Si la base no puede contar, responde `503`.
+- `POST /api/webhooks/incoming`, abierto sin token, admite 120 entregas por minuto por cliente (`TAIA_WEBHOOK_RATE_LIMIT`) y responde `429` antes de leer el cuerpo o tocar la base.
+
 ## [v1.0.0-alpha.3] - 2026-11-21
 
 Primera versión pública.

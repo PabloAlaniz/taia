@@ -98,7 +98,7 @@ No hay usuarios ni permisos: quien tiene el token tiene acceso completo. Para ca
 
 `docker-compose.yml` lo deja opcional, pensado para tu máquina. `deploy/docker-compose.prod.yml` no arranca sin él.
 
-La pantalla de ingreso frena los intentos con un token equivocado: admite 10 seguidos y después devuelve uno cada 90 segundos. Mientras tanto responde `429`, también al token correcto. Sólo cuentan los intentos fallidos. El freno cubre la pantalla de ingreso, no los pedidos con `Authorization: Bearer`, así que la protección real sigue siendo un token largo y al azar. Con el compose de producción cuenta por IP (`TAIA_TRUSTED_PROXIES=1`, por Caddy); sin un proxy propio delante, cuenta a todos los clientes juntos. Ver [configuración](/taia/referencia/configuracion/).
+La pantalla de ingreso frena los intentos con un token equivocado: admite 10 seguidos y después devuelve uno cada 90 segundos. Mientras tanto responde `429`, también al token correcto. Sólo cuentan los intentos fallidos. La cuenta vive en Postgres: sobrevive a un reinicio, y si la base no responde el ingreso contesta `503` en vez de dejar pasar intentos sin contar. El freno cubre la pantalla de ingreso, no los pedidos con `Authorization: Bearer`, así que la protección real sigue siendo un token largo y al azar. Con el compose de producción cuenta por IP (`TAIA_TRUSTED_PROXIES=1`, por Caddy); sin un proxy propio delante, cuenta a todos los clientes juntos. Ver [configuración](/taia/referencia/configuracion/).
 
 ## Proteger con basic auth
 

@@ -33,8 +33,8 @@ Es un token compartido, no un sistema de usuarios:
 - Quien lo tiene, tiene acceso completo. No hay roles, permisos ni registro de quién hizo qué.
 - Viaja en cada request: usalo solo sobre TLS.
 - La cookie del navegador y el ticket del WebSocket se derivan del token y no sirven como token. Cambiar la variable y reiniciar invalida las sesiones.
-- La pantalla de ingreso frena los intentos fallidos (10 seguidos, después uno cada 90 segundos, con `429`), pero no cubre los pedidos con `Authorization: Bearer`: usá un token largo y aleatorio (`openssl rand -hex 32`); el servidor rechaza los de menos de 16 caracteres.
-- Quedan abiertos `GET /api/health` (sonda de vida) y `POST /api/webhooks/incoming` (valida la firma de cada workspace).
+- La pantalla de ingreso frena los tokens equivocados (10 seguidos, después uno cada 90 segundos, con `429`), contando en la base, así que un reinicio no da intentos nuevos. El freno no cubre los pedidos con `Authorization: Bearer`: usá igual un token largo y aleatorio (`openssl rand -hex 32`); el servidor rechaza los de menos de 16 caracteres.
+- Quedan abiertos `GET /api/health` (sonda de vida) y `POST /api/webhooks/incoming` (valida la firma de cada workspace y limita las entregas por cliente, `TAIA_WEBHOOK_RATE_LIMIT`).
 
 Lo que viene cerrado por default, con o sin token:
 
