@@ -210,11 +210,19 @@
   },
   "onboarding": {
     "subtitle": "Quadro de Agentes IA",
-    "welcomeText": "Configure seu quadro de agentes em poucos passos: escolha um runtime (ou siga sem um) e crie seu primeiro workspace.",
+    "welcomeText": "Configure seu quadro de agentes em poucos passos: escolha um runtime (ou siga sem um), conte para quem você trabalha e crie seu primeiro workspace.",
     "setupButton": "Configurar TAIA",
     "skipConnection": "Pular conexão",
     "connectTitle": "Conecte seu runtime",
-    "connectDesc": "Escolha o provedor de IA que vai executar seus agentes e configure o acesso dele."
+    "connectDesc": "Escolha o provedor de IA que vai executar seus agentes e configure o acesso dele.",
+    "projectTitle": "Para quem ou sobre o que você trabalha?",
+    "projectDesc": "Um projeto é um cliente, um produto ou um tema. Ele dá contexto aos agentes (descrição, glossário, repositórios) em qualquer workspace. Depois você vai criar workspaces: como você trabalha, cada um com suas colunas.",
+    "projectName": "Nome do projeto",
+    "projectDescription": "Descrição (opcional)",
+    "projectRepo": "URL do repositório (opcional)",
+    "createProject": "Criar e continuar",
+    "skipProject": "Pular por enquanto",
+    "projectError": "Não foi possível criar o projeto."
   },
   "appearance": {
     "title": "Aparência",

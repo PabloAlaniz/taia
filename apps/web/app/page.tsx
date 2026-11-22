@@ -12,6 +12,7 @@ import { useFontScale } from '@/lib/use-font-scale'
 import { applyAllFilters } from '../lib/filter-utils'
 import { CreateWorkspaceModal } from '../components/organisms/create-workspace-modal'
 import { StepConnection } from '../components/organisms/onboarding/step-connection'
+import { StepProject } from '../components/organisms/onboarding/step-project'
 import { Button, Kbd } from '../components/atoms'
 
 // Molecules
@@ -125,6 +126,9 @@ export default function Home() {
   const [onboardingCompleted, setOnboardingCompleted] = useState<boolean | null>(null)
   const [showConnectionStep, setShowConnectionStep] = useState(false)
   const [showFirstWorkspace, setShowFirstWorkspace] = useState(false)
+  // Onboarding: the first project (who the work is for) comes before the
+  // first workspace (how the work flows).
+  const [projectStepDone, setProjectStepDone] = useState(false)
   const [runtimeConfigured, setRuntimeConfigured] = useState(false)
 
   // Prevent hydration mismatch from DragDropContext (generates different IDs on server vs client)
@@ -276,6 +280,21 @@ export default function Home() {
               {to('skipConnection')}
             </Button>
           </div>
+        </div>
+      </div>
+    )
+  }
+
+  // First time: the first project (optional)
+  if (
+    onboardingCompleted === false &&
+    (showFirstWorkspace || runtimeConfigured) &&
+    !projectStepDone
+  ) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center p-4">
+        <div className="w-full max-w-lg bg-card border border-border rounded-lg p-6">
+          <StepProject onDone={() => setProjectStepDone(true)} />
         </div>
       </div>
     )

@@ -210,11 +210,19 @@
   },
   "onboarding": {
     "subtitle": "Tablero de Agentes IA",
-    "welcomeText": "Configurá tu tablero de agentes en pocos pasos: elegí un runtime (o seguí sin uno) y creá tu primer workspace.",
+    "welcomeText": "Configurá tu tablero de agentes en pocos pasos: elegí un runtime (o seguí sin uno), contá para quién trabajás y creá tu primer workspace.",
     "setupButton": "Configurar TAIA",
     "skipConnection": "Omitir conexión",
     "connectTitle": "Conectá tu runtime",
-    "connectDesc": "Elegí el proveedor de IA que va a ejecutar tus agentes y configurá su acceso."
+    "connectDesc": "Elegí el proveedor de IA que va a ejecutar tus agentes y configurá su acceso.",
+    "projectTitle": "¿Para quién o sobre qué trabajás?",
+    "projectDesc": "Un proyecto es un cliente, un producto o un tema. Le da contexto a los agentes (descripción, glosario, repos) en cualquier workspace. Después vas a crear workspaces: cómo trabajás, cada uno con sus columnas.",
+    "projectName": "Nombre del proyecto",
+    "projectDescription": "Descripción (opcional)",
+    "projectRepo": "URL del repositorio (opcional)",
+    "createProject": "Crear y seguir",
+    "skipProject": "Omitir por ahora",
+    "projectError": "No se pudo crear el proyecto."
   },
   "appearance": {
     "title": "Apariencia",
