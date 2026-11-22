@@ -27,6 +27,27 @@ import type {
   WorkspacePreset,
 } from '@taia/types'
 
+/** Per-project roll-up for the projects list. */
+export interface ProjectSummary {
+  project_id: string
+  total_tasks: number
+  done_tasks: number
+  workspaces: number
+  cost_usd: number
+  last_activity: string | null
+}
+
+/** A tool call an agent paused on, waiting for a person to allow it. */
+export interface ApprovalRequest {
+  id: string
+  session_key: string
+  agent_id: string
+  tool_name: string
+  tool_input: Record<string, unknown> | null
+  status: 'pending' | 'approved' | 'rejected' | 'timed_out'
+  created_at: string
+}
+
 function getActiveWorkspaceId(): string {
   if (typeof window !== 'undefined') {
     return localStorage.getItem('taia-workspace') || 'ws-default'
@@ -214,6 +235,20 @@ export const api = {
       const qs = period ? `?period=${period}` : ''
       return request<{ ok: boolean; cost: AgentCostSummary }>(`/api/agents/${agentId}/cost${qs}`)
     },
+    forTasks: (taskIds: string[]) =>
+      request<{ ok: boolean; costs: Record<string, number> }>(
+        `/api/cost/tasks?ids=${encodeURIComponent(taskIds.join(','))}`,
+      ),
+  },
+
+  approvals: {
+    pending: () =>
+      request<{ ok: boolean; approvals: ApprovalRequest[] }>('/api/approvals?status=pending'),
+    decide: (id: string, decision: 'approved' | 'rejected', decidedBy?: string) =>
+      post<{ ok: boolean; error?: string }>(`/api/approvals/${id}/decide`, {
+        decision,
+        decided_by: decidedBy,
+      }),
   },
 
   worktrees: {
@@ -350,6 +385,7 @@ export const api = {
 
   projects: {
     list: () => request<{ ok: boolean; projects: Project[] }>('/api/projects'),
+    summary: () => request<{ ok: boolean; summaries: ProjectSummary[] }>('/api/projects/summary'),
     get: (id: string) => request<{ ok: boolean; project: Project }>(`/api/projects/${id}`),
     overview: (id: string) =>
       request<{ ok: boolean } & ProjectOverview>(`/api/projects/${id}/overview`),

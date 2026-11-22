@@ -106,3 +106,50 @@ export async function updateProjectKnowledge(
   values.push(id)
   await pool.query(`UPDATE projects SET ${fields.join(', ')} WHERE id = $${idx}`, values)
 }
+
+/** What the projects list shows per project, across every workspace. */
+export interface ProjectSummary {
+  project_id: string
+  total_tasks: number
+  done_tasks: number
+  workspaces: number
+  cost_usd: number
+  last_activity: string | null
+}
+
+/**
+ * Task counts, workspaces, spend and last activity for every project, in two
+ * queries. "Done" follows each workspace's own done column.
+ */
+export async function getProjectSummaries(): Promise<ProjectSummary[]> {
+  const [tasks, costs] = await Promise.all([
+    pool.query(
+      `SELECT p.id AS project_id,
+              COUNT(t.id) AS total_tasks,
+              COUNT(t.id) FILTER (WHERE bc.is_done_state) AS done_tasks,
+              COUNT(DISTINCT t.workspace_id) AS workspaces,
+              MAX(t.updated_at) AS last_activity
+       FROM projects p
+       LEFT JOIN tasks t ON t.project_id = p.id
+       LEFT JOIN board_columns bc ON bc.workspace_id = t.workspace_id AND bc.slug = t.status
+       GROUP BY p.id`,
+    ),
+    pool.query(
+      `SELECT t.project_id, COALESCE(SUM(sc.estimated_cost_usd), 0) AS cost_usd
+       FROM session_costs sc JOIN tasks t ON t.id = sc.task_id
+       WHERE t.project_id IS NOT NULL
+       GROUP BY t.project_id`,
+    ),
+  ])
+  const costByProject = new Map<string, number>(
+    costs.rows.map((r) => [r.project_id as string, Number(r.cost_usd)]),
+  )
+  return tasks.rows.map((r) => ({
+    project_id: r.project_id,
+    total_tasks: Number(r.total_tasks),
+    done_tasks: Number(r.done_tasks),
+    workspaces: Number(r.workspaces),
+    cost_usd: costByProject.get(r.project_id) ?? 0,
+    last_activity: r.last_activity ? new Date(r.last_activity).toISOString() : null,
+  }))
+}
