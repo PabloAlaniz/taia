@@ -6,6 +6,7 @@
 import express from 'express'
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js'
 import { isAuthorized } from '@taia/core/auth'
+import { mcpRateLimit } from './rate-limit'
 import { createTaiaMcpServer } from './server'
 
 /**
@@ -29,13 +30,20 @@ export function allowedHosts(
   ]
 }
 
-export function createHttpApp(hosts: string[]): express.Express {
+export function createHttpApp(
+  hosts: string[],
+  env: Record<string, string | undefined> = process.env,
+): express.Express {
   const app = express()
   app.use(express.json())
 
   app.get('/health', (_req, res) => {
     res.status(200).send('ok')
   })
+
+  // Before the token check, so a flood of bad tokens is braked too.
+  const limit = mcpRateLimit(env)
+  if (limit) app.use('/mcp', limit)
 
   // With TAIA_API_TOKEN set, MCP clients send it as a bearer token
   // (`claude mcp add --header "Authorization: Bearer …"`).

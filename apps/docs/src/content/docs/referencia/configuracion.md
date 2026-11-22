@@ -61,6 +61,8 @@ Dentro de los contenedores, los puertos son siempre los mismos. Fuera de Docker,
 | `TAIA_AGENT_RUN_LIMIT` | `20/hour` | Corridas por agente (disparos que fusionan con una corrida en curso no cuentan) |
 | `TAIA_PLANNING_LIMIT` | `30/hour` | Planes generados en total, desde la web o con `taia_generate_plan` |
 | `TAIA_ONBOARDING_SETUP_LIMIT` | `10/hour` | Setups del onboarding generados en total |
+| `TAIA_MCP_RATE_LIMIT` | `600/minute` | Pedidos a `POST /mcp` por cliente (por dirección; detrás del mismo host, todos juntos), contados antes de chequear el token |
+| `TAIA_MCP_RATE_LIMIT_MODE` | `shadow` | `shadow` deja pasar todo y loguea lo que rechazaría, `enforce` responde `429` con un error JSON-RPC, `off` lo desactiva |
 | `TAIA_AGENT_RUN_LOCK` | `shadow` | Una corrida a la vez por agente al dispararlo a mano: `enforce` fusiona un disparo en la corrida en curso, `shadow` sólo lo deja en el log, `off` lo desactiva. Ver [Cron y heartbeats](/taia/guias/cron-y-heartbeats/#una-corrida-a-la-vez) |
 | `TAIA_WEBHOOK_RATE_LIMIT` | `120/minute` | Cuántas entregas acepta `POST /api/webhooks/incoming` por cliente (por IP con `TAIA_TRUSTED_PROXIES`, si no todas juntas) antes de responder `429`. Formato `<cantidad>/<unidad>`, como `30/minute` o `1000/hour` |
 | `TAIA_WEBHOOK_ALLOW_PRIVATE` | desactivado | Con `1`, los webhooks salientes pueden ir a `localhost` y a redes privadas |

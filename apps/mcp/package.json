@@ -15,7 +15,8 @@
     "@modelcontextprotocol/sdk": "^1.32.2",
     "@taia/core": "workspace:*",
     "@taia/types": "workspace:*",
-    "express": "^5.3.0"
+    "express": "^5.3.0",
+    "omnilimit": "^0.5.0"
   },
   "devDependencies": {
     "@types/express": "^5.0.6",
