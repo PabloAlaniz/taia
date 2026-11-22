@@ -15,6 +15,7 @@ El formato se basa en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/
 
 - El freno de la pantalla de ingreso guarda la cuenta en Postgres, así que un reinicio no da intentos nuevos, y nunca verifica más tokens a la vez que los que quedan en el cupo. Si la base no puede contar, responde `503`.
 - `POST /api/webhooks/incoming`, abierto sin token, admite 120 entregas por minuto por cliente (`TAIA_WEBHOOK_RATE_LIMIT`) y responde `429` antes de leer el cuerpo o tocar la base.
+- `POST /mcp` tiene un límite por cliente (600 por minuto, `TAIA_MCP_RATE_LIMIT`), contado antes del token para frenar también una ráfaga de tokens equivocados. Arranca en modo sombra (`TAIA_MCP_RATE_LIMIT_MODE=shadow`); `enforce` responde `429`.
 
 ## [v1.0.0-alpha.3] - 2026-11-21
 
