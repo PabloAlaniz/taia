@@ -14,8 +14,8 @@ colors:
   border-dark: "#46515c"
   foreground: "#15191d"
   foreground-dark: "#e6ebef"
-  muted: "#56616b"
-  muted-dark: "#a7b2bc"
+  muted: "#4f5a63"
+  muted-dark: "#b4bfc8"
   accent: "#176087"
   accent-dark: "#6cc0ea"
   rack: "#2b3138"
@@ -26,7 +26,7 @@ colors:
   rack-line-dark: "#2e363e"
   on-rack: "#c5cdd4"
   on-rack-muted: "#9aa5af"
-  on-rack-muted-dark: "#8f9aa4"
+  on-rack-muted-dark: "#a3aeb8"
   rack-heading: "#eef1f3"
   agent: "#2f9bd0"
   agent-ink: "#176087"
@@ -37,7 +37,9 @@ colors:
   on-person: "#1a0f05"
   alert: "#b02f31"
   alert-dark: "#ff8a89"
-  ok: "#23824f"
+  ok: "#1c6b40"
+  field: "#7f8a95"
+  field-dark: "#67737f"
   ok-dark: "#4cc38a"
 typography:
   display:
@@ -301,12 +303,12 @@ Ink-solid and squared off; no brand colour on actions.
 - **Internal Padding:** 8 / 16 / 24px.
 
 ### Inputs / Fields
-- **Style:** card fill, hairline border, 4px radius, 8x12 padding, 14px type. Native selects use the world's own 12px chevron (muted stroke) instead of the browser's.
+- **Style:** card fill, `field` border (3:1 against its surface), 4px radius, 8x12 padding, 14px type; placeholders in muted ink. Native selects use the world's own 12px chevron (muted stroke) instead of the browser's.
 - **Focus:** border turns accent plus a 2px 30% accent ring.
 - **Error:** red border.
 
 ### Navigation
-The graphite top bar (52px): mate mark and TAIA wordmark, workspace picker, nav tabs (15px medium, muted on-rack; active is white with a 2px white underline flush to the bar's bottom), then the waiting counter, today's cost (meta, figure in on-rack semibold), the runtime chip (hairline-bordered, a 7px state dot plus the provider name in words), theme switch, settings, user. Below md, the nav collapses into the app shell's mobile menu.
+The graphite top bar (52px): mate mark and TAIA wordmark, workspace picker, nav tabs (14px medium, muted on-rack; active is white with a 2px white underline flush to the bar's bottom), then the waiting counter, today's cost (meta, figure in on-rack semibold), the runtime chip (hairline-bordered, a 7px state dot plus the provider name in words), theme switch, settings, user. Below md, the nav collapses into the app shell's mobile menu.
 
 ### The Flight Strip (signature)
 One component grammar for board cards, roster rows, sessions, projects and onboarding steps.
@@ -360,3 +362,13 @@ Spanish is Rioplatense with voseo ("Presioná", "te esperan", "Vos"); Portuguese
 - **Don't** use Tailwind's default palette (green-600, red-500, yellow-500 and the like); use `ok`, `alert`, `person` and their inks.
 - **Don't** float surfaces at rest; lift is reserved for waiting and dragged strips.
 - **Don't** remove, recolour beyond white-and-orange-rim, or replace the mate mark.
+
+## Contrast floor (measured)
+
+Every text in every page, in both themes, clears WCAG AA 4.5:1 (3:1 for large type), checked with an automated sweep that also renders alerts and toasts. The rules that keep it there:
+
+- **State text is ink-strength, never a pastel.** Alerts: state ink (`alert`, `ok`, `person-ink`, `agent-ink`) on an 8-10% tint of the same state, with a 5px edge tab. Toasts: foreground ink on card, the state carried only by the edge tab.
+- **State badges are rings, not fills.** Text in state ink with a 1px inset ring, so they read on page, card or strip.
+- **Disabled is a flat strip with muted ink,** not a 50% opacity ghost.
+- **No opacity on text.** Quieter text uses `muted`, never `/alpha` or `opacity-*`.
+- **Done strips** keep red off: alert ink on `strip-done` would fall below 4.5:1.

@@ -119,9 +119,6 @@
     "heading": "Agentes",
     "team": "Equipo",
     "filtering": "Filtrando: {name}",
-    "config": "Configuración de agentes",
-    "loadingAgents": "Cargando agentes...",
-    "quickGuide": "Guía rápida",
     "soulDesc": "Personalidad, capacidades y restricciones del agente",
     "heartbeatDesc": "Instrucciones para cada heartbeat",
     "scheduleDesc": "Expresión cron (ej: {example} = cada 15 min)",
@@ -768,12 +765,17 @@
     "today": "Hoy",
     "urgent": "Urgente",
     "high": "Alta",
-    "inProgress": "En curso",
-    "done": "Hecha",
     "dayAria": "{date}, {count, plural, =0 {sin vencimientos} one {# tarea vence} other {# tareas vencen}}",
     "closeDay": "Cerrar el detalle del día",
     "dayEmpty": "Ninguna tarea vence este día.",
-    "pickDay": "Elegí un día para ver qué tareas vencen."
+    "pickDay": "Elegí un día para ver qué tareas vencen.",
+    "dueCount": "{count, plural, =0 {ninguna tarea con vencimiento} one {# tarea con vencimiento} other {# tareas con vencimiento}}",
+    "refresh": "Actualizar el calendario",
+    "legend": "Quién tiene cada tarea",
+    "legendAgent": "agente",
+    "legendPerson": "persona",
+    "todayTag": "hoy",
+    "moreTasks": "+{count} más"
   },
   "workspaceForm": {
     "title": "Nuevo workspace",
@@ -850,8 +852,7 @@
     "projectsDesc": "Proyectos, sus repositorios y el contexto que reciben los agentes.",
     "profileDesc": "Lo que todos los agentes saben de vos: nombre, datos, preferencias y límites.",
     "worktreesDesc": "Dónde se crean los worktrees de cada tarea, cuándo se limpian y qué corre al crearlos.",
-    "auditDesc": "Quién cambió qué ajuste o API key, y cuándo.",
-    "redirectingAgents": "Abriendo Agentes…"
+    "auditDesc": "Quién cambió qué ajuste o API key, y cuándo."
   },
   "settingsGeneral": {
     "websocketTitle": "Conexión en vivo",
@@ -901,7 +902,9 @@
       "required": "Completá el ID y el nombre.",
       "save": "No se pudo guardar la persona: {error}",
       "delete": "No se pudo eliminar a {name}: {error}"
-    }
+    },
+    "emptyTitle": "Todavía no hay personas en el equipo",
+    "emptyHint": "Agregá una para poder asignarle tareas, igual que a un agente."
   },
   "settingsWorktrees": {
     "pathsTitle": "Carpetas",
@@ -969,7 +972,9 @@
       "repoSave": "No se pudo guardar el repositorio: {error}",
       "repoDelete": "No se pudo quitar el repositorio: {error}",
       "unknown": "error desconocido"
-    }
+    },
+    "emptyTitle": "Todavía no hay proyectos",
+    "emptyHint": "Creá uno para agrupar tareas de varios workspaces y darles contexto a los agentes."
   },
   "settingsProjectContext": {
     "loading": "Cargando contexto…",
@@ -1045,11 +1050,10 @@
   },
   "settingsAudit": {
     "intro": "Registro de los cambios en ajustes y API keys de un workspace. Los valores secretos nunca se guardan acá: una clave se marca como API key solo por su nombre.",
-    "workspaceLabel": "ID del workspace",
     "refresh": "Actualizar",
     "loading": "Cargando registro…",
     "count": "{count, plural, =0 {Sin eventos registrados} one {# evento registrado} other {# eventos registrados}}",
-    "loadFailed": "No se pudo cargar el registro. Revisá el ID del workspace y probá de nuevo.",
+    "loadFailed": "No se pudo cargar la auditoría. Probá de nuevo.",
     "columns": {
       "time": "Cuándo",
       "key": "Ajuste",
@@ -1060,7 +1064,9 @@
       "result": "Resultado",
       "message": "Mensaje"
     },
-    "empty": "Este workspace todavía no tiene cambios registrados."
+    "empty": "Este workspace todavía no tiene cambios registrados.",
+    "workspaceSelectLabel": "Workspace",
+    "rackTitle": "Cambios registrados"
   },
   "appearanceUi": {
     "light": "Tema claro",
@@ -1122,26 +1128,12 @@
     "saving": "Guardando…"
   },
   "agentsConfig": {
-    "loadFailed": "No se pudo cargar la configuración de los agentes. Recargá la página para reintentar.",
-    "noAgents": "Todavía no hay agentes para configurar",
-    "noAgentsHint": "Sumá uno desde Equipo y vas a poder editar acá su horario y su contexto.",
-    "cronActive": "Horario activo",
-    "cronPaused": "Horario en pausa",
-    "scheduleLabel": "Horario (cron)",
-    "saveSchedule": "Guardar horario",
-    "nextRun": "Próxima corrida {when}",
     "identityTab": "Identidad",
     "openHistory": "Historial de versiones",
     "guide": {
-      "persona": "quién es el agente, qué sabe y en qué tono habla.",
-      "instructions": "cómo encara cada tarea y cuándo pide ayuda.",
-      "schedule": "Horario",
-      "scheduleDesc": "expresión cron de 5 campos. {example} corre cada 15 minutos.",
       "changes": "Cada vez que guardás se crea una versión nueva, y el agente la usa desde su próxima corrida. Podés volver atrás desde el historial de versiones."
     },
     "history": {
-      "title": "Historial de versiones",
-      "close": "Cerrar historial",
       "loading": "Cargando versiones…",
       "empty": "Todavía no hay versiones. Se crea una cada vez que guardás la identidad, la persona o las instrucciones.",
       "loadFailed": "No se pudo cargar el historial: {error}",
@@ -1287,5 +1279,10 @@
     "subtaskCompleted": "Completó la subtarea «{subtask}»",
     "subtaskReopened": "Reabrió la subtarea «{subtask}»",
     "projectCreated": "Creó el proyecto «{name}»"
+  },
+  "settingsHub": {
+    "groupWork": "Trabajo",
+    "groupPeople": "Personas y contexto",
+    "groupSystem": "Sistema"
   }
 }
