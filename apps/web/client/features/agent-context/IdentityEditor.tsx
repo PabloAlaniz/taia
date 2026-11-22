@@ -7,6 +7,8 @@
 // version with createdBy='ui:context'. Persona and instructions have their
 // own tabs in AgentContextEditor.
 //
+// Rendered as the first tab of AgentContextEditor in the expanded squad row.
+//
 // Reference: ADR-003, apps/docs/src/content/docs/arquitectura/modelo-de-contexto.md.
 
 import { useEffect, useState } from 'react'
@@ -24,7 +26,14 @@ const CAPABILITY_OPTIONS: AgentCapability[] = [
   'memory',
 ]
 
-export function IdentityEditor({ agentId }: { agentId: string }) {
+export function IdentityEditor({
+  agentId,
+  onSaved,
+}: {
+  agentId: string
+  /** Called after a successful save, e.g. to refresh the version history. */
+  onSaved?: () => void
+}) {
   const t = useTranslations('agentsConfig.identity')
   const format = useFormatter()
   const [identity, setIdentity] = useState<AgentIdentity | null>(null)
@@ -137,6 +146,7 @@ export function IdentityEditor({ agentId }: { agentId: string }) {
       setVersionMeta({ versionId: data.versionId })
       setMessage({ type: 'success', text: t('saved') })
       setTimeout(() => setMessage(null), 3000)
+      onSaved?.()
     } catch (err) {
       setMessage({
         type: 'error',

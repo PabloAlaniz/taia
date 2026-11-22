@@ -191,7 +191,8 @@ async function toEnrichedAgent(
   const agent: EnrichedAgent = {
     id,
     name: name || id,
-    role: dbData?.role || getDefaultRole(id),
+    // People carry their own role or none; "Agent" is only an agent's fallback.
+    role: dbData?.role || (type === 'human' ? '' : getDefaultRole(id)),
     avatar: dbData?.avatar || getDefaultAvatar(id),
     status,
     type,

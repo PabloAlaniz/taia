@@ -189,7 +189,7 @@ export function AgentContextEditor({ agentId, extraTabs = [], onSaved }: AgentCo
             aria-selected={active === tab.key}
             onClick={() => setActive(tab.key)}
             className={cn(
-              'rounded-none rounded-t-lg border-b-2',
+              'rounded-none rounded-t-[4px] border-b-2',
               active === tab.key ? 'border-accent bg-background' : 'border-transparent text-muted',
             )}
           >

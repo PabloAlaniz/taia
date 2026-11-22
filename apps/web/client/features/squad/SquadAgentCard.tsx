@@ -6,6 +6,8 @@ import { useFormatter, useNow, useTranslations } from 'next-intl'
 import { ChevronDown, ChevronRight, Pause, Pencil, Play, Power, Trash2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { AgentContextEditor } from '../agent-context/AgentContextEditor'
+import { IdentityEditor } from '../agent-context/IdentityEditor'
+import { IdentityHistory } from '../agent-context/IdentityHistory'
 import { Alert, Button, Input, Strip } from '@/components/atoms'
 import { ConfirmDialog } from '@/components/molecules'
 import type { SquadMember } from './types'
@@ -22,6 +24,7 @@ export function SquadAgentCard({
   onDelete: (id: string) => void
 }) {
   const t = useTranslations('squad')
+  const tc = useTranslations('agentsConfig')
   const format = useFormatter()
   const now = useNow({ updateInterval: 60_000 })
   const [expanded, setExpanded] = useState(false)
@@ -36,6 +39,11 @@ export function SquadAgentCard({
     Array<{ runId?: string; status?: string; startedAt?: string; durationMs?: number }>
   >([])
   const [historyLoading, setHistoryLoading] = useState(false)
+  const [versionsOpen, setVersionsOpen] = useState(false)
+  // Bumped after a restore so the editors reload the restored identity.
+  const [editorKey, setEditorKey] = useState(0)
+  // Bumped after a save so an open version list picks up the new version.
+  const [versionsKey, setVersionsKey] = useState(0)
 
   const toggleCron = async () => {
     try {
@@ -431,7 +439,58 @@ export function SquadAgentCard({
             </div>
           )}
 
-          {!isPerson && <AgentContextEditor agentId={member.id} />}
+          {!isPerson && (
+            <AgentContextEditor
+              key={editorKey}
+              agentId={member.id}
+              onSaved={() => setVersionsKey((k) => k + 1)}
+              extraTabs={[
+                {
+                  key: 'identity',
+                  label: tc('identityTab'),
+                  content: (
+                    <IdentityEditor
+                      agentId={member.id}
+                      onSaved={() => setVersionsKey((k) => k + 1)}
+                    />
+                  ),
+                },
+              ]}
+            />
+          )}
+
+          {!isPerson && (
+            <div className="border-t border-border/70 pt-3">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setVersionsOpen((open) => !open)}
+                aria-expanded={versionsOpen}
+                aria-controls={`versions-${member.id}`}
+                className="flex items-center gap-1"
+              >
+                {versionsOpen ? (
+                  <ChevronDown size={14} aria-hidden="true" />
+                ) : (
+                  <ChevronRight size={14} aria-hidden="true" />
+                )}
+                {tc('openHistory')}
+              </Button>
+              {versionsOpen && (
+                <div id={`versions-${member.id}`}>
+                  <IdentityHistory
+                    key={versionsKey}
+                    agentId={member.id}
+                    onRestored={() => {
+                      setMessage({ type: 'success', text: tc('history.restored') })
+                      setTimeout(() => setMessage(null), 3000)
+                      setEditorKey((k) => k + 1)
+                    }}
+                  />
+                </div>
+              )}
+            </div>
+          )}
         </div>
       )}
 

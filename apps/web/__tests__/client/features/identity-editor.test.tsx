@@ -4,7 +4,7 @@ import '@testing-library/jest-dom/vitest'
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 
-import { IdentityEditor } from '@/app/agents/_components/identity-editor'
+import { IdentityEditor } from '@/client/features/agent-context/IdentityEditor'
 
 vi.mock('next-intl', () => {
   // Stable references, so effects don't re-run on every render.
@@ -144,7 +144,8 @@ describe('IdentityEditor', () => {
       capabilities: ['read_tasks', 'comment_tasks', 'memory'],
     })
 
-    render(<IdentityEditor agentId="alex" />)
+    const onSaved = vi.fn()
+    render(<IdentityEditor agentId="alex" onSaved={onSaved} />)
 
     await waitFor(() => {
       expect(checkboxByLabel('caps.read_tasks.label')).toBeChecked()
@@ -167,6 +168,7 @@ describe('IdentityEditor', () => {
     expect(body.identity.capabilities).toContain('comment_tasks')
     expect(body.identity.constraints).toEqual(['never approve without tests'])
     expect(body.note).toBeTruthy()
+    await waitFor(() => expect(onSaved).toHaveBeenCalledTimes(1))
   })
 
   it('Add constraint via the input + button appends to the list', async () => {

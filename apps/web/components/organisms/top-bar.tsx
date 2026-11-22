@@ -23,7 +23,7 @@ const NAV = [
   {
     href: '/squad',
     key: 'agents',
-    match: (p: string) => p.startsWith('/squad') || p.startsWith('/agents'),
+    match: (p: string) => p.startsWith('/squad'),
   },
   { href: '/dashboard', key: 'dashboard', match: (p: string) => p.startsWith('/dashboard') },
 ] as const
