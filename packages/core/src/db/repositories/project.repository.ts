@@ -21,12 +21,19 @@ class ProjectRepository extends CrudRepository<Project> {
     })
   }
 
-  /** Every project, or only the ones of `workspaceId`. */
+  /**
+   * Every project, or the ones used in `workspaceId`: its home workspace is
+   * that one, or it has tasks there. Projects cut across workspaces.
+   */
   async getAll(workspaceId?: string): Promise<Project[]> {
     const res = workspaceId
-      ? await pool.query('SELECT * FROM projects WHERE workspace_id = $1 ORDER BY name ASC', [
-          workspaceId,
-        ])
+      ? await pool.query(
+          `SELECT * FROM projects p
+           WHERE p.workspace_id = $1
+              OR EXISTS (SELECT 1 FROM tasks t WHERE t.project_id = p.id AND t.workspace_id = $1)
+           ORDER BY p.name ASC`,
+          [workspaceId],
+        )
       : await pool.query('SELECT * FROM projects ORDER BY name ASC')
     return res.rows
   }
@@ -39,7 +46,7 @@ class ProjectRepository extends CrudRepository<Project> {
     const id = generateId()
     await pool.query(
       'INSERT INTO projects (id, name, description, workspace_id) VALUES ($1, $2, $3, $4)',
-      [id, data.name, data.description || null, data.workspace_id || 'ws-default'],
+      [id, data.name, data.description || null, data.workspace_id || null],
     )
     return (await this.getById(id))!
   }

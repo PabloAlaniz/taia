@@ -12,7 +12,7 @@ import * as projectService from '@taia/core/services/project.service'
 beforeEach(() => vi.clearAllMocks())
 
 describe('GET /api/projects', () => {
-  it('lists every workspace when none is given', async () => {
+  it('lists every project when no workspace is given', async () => {
     vi.mocked(projectService.listProjects).mockResolvedValue([])
 
     await GET(new NextRequest('http://localhost/api/projects'), { params: Promise.resolve({}) })
@@ -20,7 +20,7 @@ describe('GET /api/projects', () => {
     expect(vi.mocked(projectService.listProjects)).toHaveBeenLastCalledWith(undefined)
   })
 
-  it('scopes the list to the x-workspace-id header', async () => {
+  it('ignores the x-workspace-id header: projects cut across workspaces', async () => {
     vi.mocked(projectService.listProjects).mockResolvedValue([])
 
     await GET(
@@ -28,10 +28,10 @@ describe('GET /api/projects', () => {
       { params: Promise.resolve({}) },
     )
 
-    expect(vi.mocked(projectService.listProjects)).toHaveBeenLastCalledWith('ws-a')
+    expect(vi.mocked(projectService.listProjects)).toHaveBeenLastCalledWith(undefined)
   })
 
-  it('prefers the workspace_id query parameter over the header', async () => {
+  it('filters by the workspace_id query parameter', async () => {
     vi.mocked(projectService.listProjects).mockResolvedValue([])
 
     await GET(

@@ -7,10 +7,10 @@ import { requestWorkspaceId, withErrorBoundary } from '@taia/core/api-handler'
 
 export const dynamic = 'force-dynamic'
 
+// Projects cut across workspaces, so the list ignores the X-Workspace-Id
+// header: every project, unless `?workspace_id=` asks for the ones used there.
 export const GET = withErrorBoundary(async (req: NextRequest) => {
-  const projects = await listProjects(
-    requestWorkspaceId(req, req.nextUrl.searchParams.get('workspace_id')),
-  )
+  const projects = await listProjects(req.nextUrl.searchParams.get('workspace_id') || undefined)
   return apiOk({ projects })
 })
 
