@@ -31,6 +31,15 @@ docker compose up -d --build
 
 Más opciones en [Instalación](https://pabloalaniz.github.io/taia/inicio/instalacion/) y [Deploy](https://pabloalaniz.github.io/taia/guias/deploy/).
 
+### Mover la base a otra máquina
+
+```bash
+pnpm db:export                      # en el origen: escribe backups/taia-<host>-<fecha>.dump
+pnpm db:import backups/<archivo>    # en el destino: reemplaza su base (antes guarda un respaldo)
+```
+
+Es una copia en un solo sentido, no una sincronización: si trabajás en las dos máquinas entre una importación y otra, se pierden los cambios de la que se sobrescribe. Usá la misma `TAIA_SECRET_KEY` en las dos, o los secretos guardados no se van a poder leer.
+
 ## Conectar tus agentes
 
 El servidor MCP queda en `http://localhost:13336/mcp`. En Claude Code:

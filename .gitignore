@@ -12,6 +12,9 @@ build/
 *.vsix
 *.tsbuildinfo
 
+# Database dumps (pnpm db:export): data and encrypted secrets
+backups/
+
 # Environment
 .env
 .env.local
