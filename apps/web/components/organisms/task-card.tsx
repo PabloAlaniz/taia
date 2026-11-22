@@ -2,6 +2,7 @@
 
 import { useState, memo } from 'react'
 import { useFormatter, useNow, useLocale, useTranslations } from 'next-intl'
+import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { Task, Agent } from '@taia/types'
 import { cn } from '../../lib/utils'
@@ -77,14 +78,6 @@ export const TaskCard = memo(function TaskCard({
 
   const open = () => router.push(`/task/${task.id}`)
 
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.target !== e.currentTarget) return
-    if (e.key === 'Enter' || e.key === ' ') {
-      e.preventDefault()
-      open()
-    }
-  }
-
   const stop = (e: React.SyntheticEvent) => e.stopPropagation()
 
   const approvalId = waiting?.kind === 'approval' ? waiting.approval.id : null
@@ -99,16 +92,18 @@ export const TaskCard = memo(function TaskCard({
   }
 
   return (
+    // The strip is not one big link: its title is the link, and its actions
+    // stay real buttons, so a screen reader hears what's on it. A mouse
+    // click anywhere on the strip still opens the task.
+    // biome-ignore lint/a11y/useKeyWithClickEvents: the title link is the keyboard path
     <div
-      role="link"
-      tabIndex={0}
       onClick={open}
-      onKeyDown={handleKeyDown}
-      aria-label={t('aria', { title: task.title, priority: task.priority })}
+      data-strip
+      data-waiting={waiting ? 'true' : undefined}
       className={cn(
         'group relative rounded-[2px] cursor-pointer transition-[box-shadow,transform,background-color]',
         'pl-3.5 pr-2.5 py-1.5',
-        'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent',
+        'has-[a[data-strip-link]:focus-visible]:outline-2 has-[a[data-strip-link]:focus-visible]:outline-offset-2 has-[a[data-strip-link]:focus-visible]:outline-accent',
         waiting
           ? '-ml-4 bg-card pb-2.5 shadow-[0_0_0_1px_var(--person),0_6px_14px_rgba(0,0,0,0.35)]'
           : done
@@ -151,15 +146,26 @@ export const TaskCard = memo(function TaskCard({
       )}
 
       <div className="flex items-baseline gap-2 min-w-0">
-        <h4
+        <h3
           className={cn(
             'text-sm leading-snug line-clamp-2 break-words',
             done ? 'font-medium text-muted line-through decoration-muted/60' : 'font-semibold',
           )}
           title={task.title}
         >
-          {task.title}
-        </h4>
+          <Link
+            href={`/task/${task.id}`}
+            data-strip-link
+            onClick={stop}
+            className="text-inherit no-underline focus-visible:outline-none"
+          >
+            {task.title}
+            <span className="sr-only">
+              {', '}
+              {t('priority', { priority: task.priority })}
+            </span>
+          </Link>
+        </h3>
         {(task.repo_url || task.primary_repo_url) && (
           <a
             href={task.repo_url || task.primary_repo_url}

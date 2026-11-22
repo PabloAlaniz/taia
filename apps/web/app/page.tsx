@@ -9,7 +9,8 @@ import { useRealtimeUpdates } from '../lib/use-websocket'
 import { useBoardSignals } from '../lib/use-board-signals'
 import { useRuntimeStatus } from '../lib/use-runtime-status'
 import { useHideChrome } from '../lib/chrome'
-import { useKeyboardShortcuts } from '@/lib/use-keyboard-shortcuts'
+import { focusNextWaitingStrip, useKeyboardShortcuts } from '@/lib/use-keyboard-shortcuts'
+import { ShortcutsDialog } from '../components/organisms/shortcuts-dialog'
 import { useFontScale } from '@/lib/use-font-scale'
 import { applyAllFilters } from '../lib/filter-utils'
 import { CreateWorkspaceModal } from '../components/organisms/create-workspace-modal'
@@ -166,6 +167,7 @@ function Home() {
   const [showModal, setShowModal] = useState(false)
   const [showPlanWizard, setShowPlanWizard] = useState(false)
   const [showSearch, setShowSearch] = useState(false)
+  const [showShortcuts, setShowShortcuts] = useState(false)
   const [assigning, setAssigning] = useState<string | null>(null)
   // The activity rail only opens by default where the bays still fit beside it.
   const [showActivity, setShowActivity] = useState(
@@ -211,7 +213,13 @@ function Home() {
     onEscape: () => {
       setShowSearch(false)
       setShowModal(false)
+      setShowShortcuts(false)
     },
+    onHelp: () => setShowShortcuts(true),
+    onNextWaiting: () => {
+      if (!focusNextWaitingStrip() && view !== 'waiting') changeView('waiting')
+    },
+    onToggleWaiting: () => changeView(view === 'waiting' ? 'all' : 'waiting'),
   })
 
   // Sync filter from URL on mount
@@ -531,6 +539,8 @@ function Home() {
         onClose={() => setWipModalStatus(null)}
         onSave={(status, limit) => setColumnWipLimit(status, limit)}
       />
+
+      <ShortcutsDialog open={showShortcuts} onClose={() => setShowShortcuts(false)} />
 
       {/* WIP Warning Toast */}
       {wipWarning && <Toast variant="warning">{wipWarning}</Toast>}

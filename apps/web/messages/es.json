@@ -84,7 +84,8 @@
     "rejectedPending": "Rechazado",
     "sendsIn": "se envía en {seconds} s",
     "undo": "Deshacer",
-    "pickUserToDecide": "Elegí quién sos (arriba a la derecha) para aprobar o rechazar."
+    "pickUserToDecide": "Elegí quién sos (arriba a la derecha) para aprobar o rechazar.",
+    "priority": "prioridad {priority, select, LOW {baja} MEDIUM {media} HIGH {alta} URGENT {urgente} other {{priority}}}"
   },
   "addTask": {
     "title": "Nueva Tarea",
@@ -1255,5 +1256,19 @@
   },
   "waitingBand": {
     "mergeInto": "Integra {branch} en {base}: {files, plural, one {# archivo} other {# archivos}}"
+  },
+  "costBadge": {
+    "withTokens": "{cost} · {tokens} tokens"
+  },
+  "shortcuts": {
+    "title": "Atajos de teclado",
+    "newTask": "Nueva tarea",
+    "search": "Buscar tareas",
+    "refresh": "Actualizar el tablero",
+    "nextWaiting": "Ir a la próxima tarea que te espera",
+    "toggleWaiting": "Mostrar solo lo que te espera / todo",
+    "help": "Mostrar estos atajos",
+    "close": "Cerrar",
+    "taskPage": "En una tarea: E edita el título, D la descripción, S el estado; Esc vuelve al tablero."
   }
 }

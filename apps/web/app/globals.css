@@ -78,7 +78,7 @@
   --strip-done: #cdd3d8;
   --border: #c3cbd2;
   --foreground: #15191d;
-  --muted: #56616b;
+  --muted: #4f5a63;
   --accent: #176087;
   --rack: #2b3138;
   --rack-deep: #232930;
@@ -92,8 +92,8 @@
   --person-ink: #8f4514;
   --on-person: #1a0f05;
   --alert: #b02f31;
-  --ok: #23824f;
-  --green: #23824f;
+  --ok: #1c6b40;
+  --green: #1c6b40;
   --orange: #e07b2e;
   --red: #b02f31;
   --ui-scale: 1.1;
@@ -145,6 +145,15 @@ body {
 }
 ::-webkit-scrollbar-thumb {
   @apply bg-border rounded-sm;
+}
+
+::placeholder {
+  color: #636c75;
+  opacity: 1;
+}
+
+.dark ::placeholder {
+  color: var(--muted);
 }
 
 ::selection {

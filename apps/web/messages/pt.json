@@ -84,7 +84,8 @@
     "rejectedPending": "Rejeitado",
     "sendsIn": "enviado em {seconds} s",
     "undo": "Desfazer",
-    "pickUserToDecide": "Escolha quem você é (no canto superior direito) para aprovar ou rejeitar."
+    "pickUserToDecide": "Escolha quem você é (no canto superior direito) para aprovar ou rejeitar.",
+    "priority": "prioridade {priority, select, LOW {baixa} MEDIUM {média} HIGH {alta} URGENT {urgente} other {{priority}}}"
   },
   "addTask": {
     "title": "Nova Tarefa",
@@ -1255,5 +1256,19 @@
   },
   "waitingBand": {
     "mergeInto": "Integra {branch} em {base}: {files, plural, one {# arquivo} other {# arquivos}}"
+  },
+  "costBadge": {
+    "withTokens": "{cost} · {tokens} tokens"
+  },
+  "shortcuts": {
+    "title": "Atalhos de teclado",
+    "newTask": "Nova tarefa",
+    "search": "Buscar tarefas",
+    "refresh": "Atualizar o quadro",
+    "nextWaiting": "Ir para a próxima tarefa que espera você",
+    "toggleWaiting": "Mostrar só o que espera você / tudo",
+    "help": "Mostrar estes atalhos",
+    "close": "Fechar",
+    "taskPage": "Numa tarefa: E edita o título, D a descrição, S o estado; Esc volta ao quadro."
   }
 }
