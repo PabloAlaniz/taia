@@ -1,6 +1,6 @@
 // PostgreSQL connection pool singleton + shared helpers
 
-import { Pool } from 'pg'
+import pg, { Pool } from 'pg'
 import { createHash } from 'crypto'
 import { config } from '../config'
 
@@ -16,6 +16,15 @@ const poolConfig = config.db.connectionString
       database: config.db.database,
       max: config.db.maxConnections,
     }
+
+// Timestamps are stored as UTC wall-clock in `timestamp without time zone`
+// columns (DEFAULT now() runs in the UTC session). node-pg would read them,
+// and serialise Date parameters, in the server's local zone, so any machine
+// not set to UTC saw times shifted by its offset ("created in 5 hours").
+// Read and write them as UTC.
+const TIMESTAMP_WITHOUT_TZ = 1114
+pg.types.setTypeParser(TIMESTAMP_WITHOUT_TZ, (value) => new Date(`${value.replace(' ', 'T')}Z`))
+pg.defaults.parseInputDatesAsUTC = true
 
 export const pool = new Pool(poolConfig)
 
