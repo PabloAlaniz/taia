@@ -163,17 +163,18 @@ describe('project.repository', () => {
   })
 
   describe('workspace scope', () => {
-    it('lists only the projects of a workspace when one is given', async () => {
+    it('lists the projects used in a workspace: home workspace or tasks there', async () => {
       mockQuery.mockResolvedValueOnce({ rows: [{ id: 'p1' }] })
 
       await getAllProjects('ws-a')
 
       const [sql, params] = mockQuery.mock.calls[0]
-      expect(sql).toContain('WHERE workspace_id = $1')
+      expect(sql).toContain('p.workspace_id = $1')
+      expect(sql).toContain('t.workspace_id = $1')
       expect(params).toEqual(['ws-a'])
     })
 
-    it('creates the project in the given workspace, or in the default one', async () => {
+    it('creates the project with the given home workspace, or none', async () => {
       mockQuery.mockResolvedValue({ rows: [{ id: 'p1' }] })
 
       await createProject({ name: 'A', workspace_id: 'ws-a' })
@@ -181,7 +182,7 @@ describe('project.repository', () => {
 
       mockQuery.mockClear()
       await createProject({ name: 'B' })
-      expect(mockQuery.mock.calls[0][1].at(-1)).toBe('ws-default')
+      expect(mockQuery.mock.calls[0][1].at(-1)).toBeNull()
     })
   })
 })

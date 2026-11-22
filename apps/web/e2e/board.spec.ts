@@ -22,6 +22,10 @@ test('first run: onboarding, create a task and move it', async ({ page, browser 
     await page.getByRole('button', { name: 'Configurar TAIA' }).click()
     await page.getByRole('button', { name: 'Omitir conexión' }).click()
 
+    // The first project comes before the first workspace.
+    await page.getByPlaceholder('Nombre del proyecto').fill('Proyecto E2E')
+    await page.getByRole('button', { name: 'Crear y seguir' }).click()
+
     await page.getByPlaceholder('ej: Marketing, Escritura…').fill(WORKSPACE)
     await page.getByRole('button', { name: /Personalizado/ }).click()
     await page.getByRole('button', { name: 'Crear Workspace' }).click()
@@ -39,6 +43,11 @@ test('first run: onboarding, create a task and move it', async ({ page, browser 
 
     await expect(column(page, 'To Do')).toHaveAccessibleName(/To Do, 1 tarea\b/)
     await expect(taskCard(page)).toHaveCount(1)
+  })
+
+  await test.step('the onboarding project exists, outside any workspace scope', async () => {
+    const projects = (await (await page.request.get('/api/projects')).json()).projects
+    expect(projects.map((p: { name: string }) => p.name)).toEqual(['Proyecto E2E'])
   })
 
   await test.step('the first workspace is the default one, with the task in it', async () => {

@@ -59,7 +59,7 @@ El `status` tiene que ser una columna del workspace de la tarea; si no, la API r
 
 ## Otros
 
-- **Proyectos:** `/api/projects` y `/api/projects/[id]`, con `/context` y `/repositories`.
+- **Proyectos:** `/api/projects` y `/api/projects/[id]`, con `/context`, `/repositories` y `/overview` (las tareas del proyecto agrupadas por workspace). Los proyectos cruzan workspaces: `GET /api/projects` ignora `x-workspace-id` y lista todos; `?workspace_id=` devuelve los que tienen tareas en ese workspace (o lo tienen como workspace de origen).
 - **Filtros, templates y tags:** `/api/filters`, `/api/templates`, `/api/tag-colors`.
 - **Planificación, QA, webhooks e importación:** ver las [guías](/taia/guias/planificacion/).
 - **Aprobaciones y costos:** `/api/approvals`, `/api/cost/dashboard` y `/api/cost/sync`.

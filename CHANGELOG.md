@@ -6,6 +6,13 @@ El formato se basa en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/
 
 ## [Sin publicar]
 
+### Proyectos
+
+- Los proyectos cruzan workspaces: un workspace es cómo se trabaja (sus columnas) y un proyecto es para quién o sobre qué (su contexto). Las tareas de un proyecto pueden estar en cualquier workspace, y borrar el workspace de origen ya no borra el proyecto (migración `0004`).
+- La capa de proyecto del contexto de un agente sale del proyecto de la tarea en curso. Si la tarea no tiene proyecto, se usa la versión fijada o el proyecto del agente, como antes.
+- Sección **Proyectos** con la vista de cada proyecto, sus tareas agrupadas por workspace (`GET /api/projects/[id]/overview`). `GET /api/projects` lista todos los proyectos sin importar `x-workspace-id`.
+- El asistente inicial pide el primer proyecto (opcional) antes del primer workspace.
+
 ### Webhooks
 
 - Los webhooks salientes no reintentan los errores que no van a cambiar (`4xx` salvo `408`, `425` y `429`) y respetan el `Retry-After` del receptor. Si pide esperar más de 10 segundos, la entrega pasa a *dead letter* con la hora en que se puede reenviar.

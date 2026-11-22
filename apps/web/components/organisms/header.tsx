@@ -69,6 +69,9 @@ export function Header({
         <RuntimeStatusDot status={runtimeStatus} />
         <Divider orientation="vertical" size="lg" className="mx-1 hidden md:block" />
         <nav aria-label={tn('mainNav')} className="hidden md:flex items-center gap-2">
+          <NavLink href="/projects" title={tn('projects')}>
+            🗂️
+          </NavLink>
           <NavLink href="/dashboard" title={tn('dashboard')}>
             📊
           </NavLink>
@@ -150,6 +153,9 @@ export function MobileNav() {
     >
       <MobileNavLink href="/" title={t('board')}>
         🧉
+      </MobileNavLink>
+      <MobileNavLink href="/projects" title={t('projects')}>
+        🗂️
       </MobileNavLink>
       <MobileNavLink href="/dashboard" title={t('dashboard')}>
         📊

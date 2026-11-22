@@ -74,6 +74,21 @@ export interface Project {
   updated_at: string
 }
 
+/** A project's tasks in one workspace, with that workspace's columns. */
+export interface ProjectWorkspaceGroup {
+  workspace: Pick<Workspace, 'id' | 'name' | 'icon' | 'color'>
+  columns: BoardColumn[]
+  tasks: Task[]
+}
+
+/** Everything a project spans: projects cut across workspaces. */
+export interface ProjectOverview {
+  project: Project
+  repositories: Repository[]
+  /** One group per workspace that has tasks of the project, by workspace name. */
+  workspaces: ProjectWorkspaceGroup[]
+}
+
 // === Repository ===
 
 export interface Repository {

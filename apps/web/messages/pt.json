@@ -22,7 +22,8 @@
     "settings": "Configurações",
     "settingsShort": "Config",
     "mainNav": "Navegação principal",
-    "mobileNav": "Navegação móvel"
+    "mobileNav": "Navegação móvel",
+    "projects": "Projetos"
   },
   "header": {
     "planWizard": "Assistente de planejamento IA",
@@ -209,11 +210,19 @@
   },
   "onboarding": {
     "subtitle": "Quadro de Agentes IA",
-    "welcomeText": "Configure seu quadro de agentes em poucos passos: escolha um runtime (ou siga sem um) e crie seu primeiro workspace.",
+    "welcomeText": "Configure seu quadro de agentes em poucos passos: escolha um runtime (ou siga sem um), conte para quem você trabalha e crie seu primeiro workspace.",
     "setupButton": "Configurar TAIA",
     "skipConnection": "Pular conexão",
     "connectTitle": "Conecte seu runtime",
-    "connectDesc": "Escolha o provedor de IA que vai executar seus agentes e configure o acesso dele."
+    "connectDesc": "Escolha o provedor de IA que vai executar seus agentes e configure o acesso dele.",
+    "projectTitle": "Para quem ou sobre o que você trabalha?",
+    "projectDesc": "Um projeto é um cliente, um produto ou um tema. Ele dá contexto aos agentes (descrição, glossário, repositórios) em qualquer workspace. Depois você vai criar workspaces: como você trabalha, cada um com suas colunas.",
+    "projectName": "Nome do projeto",
+    "projectDescription": "Descrição (opcional)",
+    "projectRepo": "URL do repositório (opcional)",
+    "createProject": "Criar e continuar",
+    "skipProject": "Pular por enquanto",
+    "projectError": "Não foi possível criar o projeto."
   },
   "appearance": {
     "title": "Aparência",
@@ -346,5 +355,21 @@
     "invalid": "O token não está correto.",
     "throttled": "Muitas tentativas falhas. Espere alguns minutos e tente de novo.",
     "failed": "Não foi possível verificar o token. Tente novamente."
+  },
+  "projectsPage": {
+    "title": "Projetos",
+    "intro": "Um projeto agrupa o trabalho para um cliente ou produto e dá contexto aos agentes. Suas tarefas podem estar em qualquer workspace.",
+    "empty": "Ainda não há projetos.",
+    "new": "Novo projeto",
+    "name": "Nome",
+    "description": "Descrição",
+    "create": "Criar",
+    "cancel": "Cancelar",
+    "manage": "Editar contexto e repositórios",
+    "notFound": "Projeto não encontrado.",
+    "repositories": "Repositórios",
+    "glossaryTerms": "{count, plural, one {# termo no glossário} other {# termos no glossário}}",
+    "taskCount": "{count, plural, one {# tarefa} other {# tarefas}}",
+    "noTasks": "Este projeto ainda não tem tarefas. Atribua o projeto a uma tarefa em qualquer workspace."
   }
 }
