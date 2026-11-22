@@ -1,9 +1,10 @@
 'use client'
 
 import Link from 'next/link'
-import { useTranslations } from 'next-intl'
+import { useFormatter, useNow, useTranslations } from 'next-intl'
 import { Activity, Agent, Task } from '@taia/types'
-import { ACTIVITY_ICONS, formatRelativeTime } from '../../lib/utils'
+import { cn } from '../../lib/utils'
+import { participantKind } from '../../lib/format'
 
 interface ActivityFeedProps {
   activities: Activity[]
@@ -13,6 +14,9 @@ interface ActivityFeedProps {
 
 export function ActivityFeed({ activities, agents }: ActivityFeedProps) {
   const t = useTranslations('activity')
+  const format = useFormatter()
+  // One clock per minute, so relative times stay current without re-rendering per second.
+  const now = useNow({ updateInterval: 60_000 })
 
   const getAgent = (agentId?: string) => {
     if (!agentId) return null
@@ -21,70 +25,57 @@ export function ActivityFeed({ activities, agents }: ActivityFeedProps) {
 
   return (
     <div className="flex flex-col h-full">
-      <div className="p-4 border-b border-border">
-        <h3 className="text-base font-medium">{t('heading')}</h3>
-        <p className="text-xs text-muted mt-1">{t('help')}</p>
+      <div className="px-4 pt-4 pb-3 border-b border-border">
+        <h2 className="text-xs font-semibold tracking-[0.08em] uppercase text-muted">
+          {t('heading')}
+        </h2>
       </div>
 
-      <div className="flex-1 overflow-y-auto p-4">
+      <ol className="flex-1 overflow-y-auto px-2 py-2">
         {activities.length === 0 ? (
-          <p className="text-muted text-center mt-8">{t('empty')}</p>
+          <li className="text-muted text-sm px-2 py-6">{t('empty')}</li>
         ) : (
           activities.map((activity) => {
             const agent = getAgent(activity.agent_id)
-            const hasLink = !!activity.task_id
-
-            const content = (
-              <div
-                className={`flex gap-3 mb-4 pb-4 border-b border-border last:border-0 ${
-                  hasLink
-                    ? 'cursor-pointer hover:bg-muted/30 -mx-2 px-2 py-1 rounded-sm transition-colors'
-                    : ''
-                }`}
-              >
-                {/* Activity type icon */}
-                <span className="text-xl shrink-0">
-                  {ACTIVITY_ICONS[activity.type as keyof typeof ACTIVITY_ICONS] || '📌'}
-                </span>
-
-                <div className="flex-1 min-w-0">
-                  {/* Agent info */}
+            const kind = participantKind(agent)
+            const body = (
+              <>
+                <div className="flex items-baseline gap-2 text-xs">
                   {agent && (
-                    <div className="flex items-center gap-1.5 mb-1">
-                      <span className="text-sm">{agent.avatar}</span>
-                      <span className="text-xs font-medium text-foreground">{agent.name}</span>
-                    </div>
-                  )}
-
-                  {/* Message */}
-                  <div className="text-sm leading-relaxed text-foreground/90">
-                    {activity.message}
-                  </div>
-
-                  {/* Timestamp + link indicator */}
-                  <div className="flex items-center gap-2 mt-1">
-                    <span className="text-xxs text-muted">
-                      {formatRelativeTime(activity.created_at)}
+                    <span
+                      className={cn(
+                        'font-semibold truncate',
+                        kind === 'person' ? 'text-person-ink' : 'text-agent-ink',
+                      )}
+                    >
+                      {agent.name}
                     </span>
-                    {hasLink && <span className="text-2xs text-accent">{t('openTask')}</span>}
-                  </div>
+                  )}
+                  <time dateTime={activity.created_at} className="ml-auto shrink-0 text-muted">
+                    {format.relativeTime(new Date(activity.created_at), now)}
+                  </time>
                 </div>
-              </div>
+                <p className="text-sm leading-snug text-foreground/90 mt-0.5">{activity.message}</p>
+              </>
             )
-
-            // Wrap in Link if there's a task_id
-            if (hasLink) {
-              return (
-                <Link key={activity.id} href={`/task/${activity.task_id}`}>
-                  {content}
-                </Link>
-              )
-            }
-
-            return <div key={activity.id}>{content}</div>
+            return (
+              <li key={activity.id}>
+                {activity.task_id ? (
+                  <Link
+                    href={`/task/${activity.task_id}`}
+                    aria-label={t('openTaskAria', { message: activity.message })}
+                    className="block rounded px-2 py-2 no-underline text-foreground hover:bg-strip focus-visible:outline-2 focus-visible:outline-accent"
+                  >
+                    {body}
+                  </Link>
+                ) : (
+                  <div className="px-2 py-2">{body}</div>
+                )}
+              </li>
+            )
           })
         )}
-      </div>
+      </ol>
     </div>
   )
 }

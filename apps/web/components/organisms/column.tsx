@@ -1,12 +1,14 @@
 'use client'
 
 import { memo } from 'react'
-import { useTranslations } from 'next-intl'
+import { useLocale, useTranslations } from 'next-intl'
 import { Droppable, Draggable } from '@hello-pangea/dnd'
+import { SlidersHorizontal } from 'lucide-react'
 import { TaskCard } from './task-card'
 import { Task, Agent, BoardColumn } from '@taia/types'
 import { cn } from '../../lib/utils'
-import { Badge } from '../atoms'
+import { formatUsd } from '../../lib/format'
+import type { WaitingReason } from '../../lib/use-board-signals'
 
 interface ColumnProps {
   column: BoardColumn
@@ -20,8 +22,12 @@ interface ColumnProps {
   onSelectTask: (taskId: string | null) => void
   onAssign: (taskId: string, agentId: string) => void
   onEditWipLimit?: (status: string) => void
+  costs?: Record<string, number>
+  waiting?: Record<string, WaitingReason>
+  onDecide?: (approvalId: string, decision: 'approved' | 'rejected') => Promise<string | null>
 }
 
+/** A column as a graphite bay: strips sit in the rack, waiting ones stick out. */
 export const Column = memo(function Column({
   column,
   droppableId,
@@ -34,60 +40,78 @@ export const Column = memo(function Column({
   onSelectTask,
   onAssign,
   onEditWipLimit,
+  costs = {},
+  waiting = {},
+  onDecide,
 }: ColumnProps) {
   const t = useTranslations('board')
+  const locale = useLocale()
   const count = tasks.length
   const hasLimit = wipLimit != null && wipLimit > 0
   const percentage = hasLimit ? (count / wipLimit) * 100 : 0
   const isWarning = hasLimit && percentage >= 80 && percentage < 100
   const isExceeded = hasLimit && percentage >= 100
+  const total = tasks.reduce((sum, task) => sum + (costs[task.id] ?? 0), 0)
+  const headingId = `bay-${droppableId || column.slug}`
 
-  const badgeVariant = isExceeded ? 'danger' : isWarning ? 'warning' : 'muted'
+  // Waiting strips first: they are the reason to look at the bay.
+  const ordered = [...tasks].sort((a, b) => Number(!!waiting[b.id]) - Number(!!waiting[a.id]))
 
   return (
-    <div
+    <section
+      aria-labelledby={headingId}
       className={cn(
-        'flex flex-col flex-1 min-w-[180px] min-h-0',
-        compact && 'min-w-[150px]',
-        isExceeded && 'ring-2 ring-red-400 rounded-lg',
-        isWarning && !isExceeded && 'ring-2 ring-yellow-400 rounded-lg',
+        'flex flex-col flex-1 min-w-[220px] min-h-0 bg-rack rounded-md',
+        compact && 'min-w-[200px]',
+        isExceeded && 'outline-2 outline-alert',
+        isWarning && !isExceeded && 'outline-2 outline-person',
       )}
     >
-      {/* Header */}
-      {/* eslint-disable-next-line no-restricted-syntax -- column header behaves as a click target with custom layout, not a primary action button */}
-      <button
-        type="button"
-        className="flex justify-between items-center mb-2 px-2 cursor-pointer hover:opacity-80 w-full bg-transparent border-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:outline-hidden rounded-sm"
-        onClick={() => onEditWipLimit?.(column.slug)}
-        aria-label={t('columnAria', {
-          name: column.label,
-          count,
-          hasLimit: hasLimit ? 'true' : 'false',
-          limit: wipLimit ?? 0,
-        })}
-      >
-        <span className="font-medium text-muted text-xs">
-          {column.icon} {column.label}
-        </span>
-        <Badge variant={badgeVariant} size="xs">
+      <header className="flex items-baseline gap-2 pl-5 pr-2 pt-2.5 pb-2 border-b border-rack-line text-on-rack">
+        <h2
+          id={headingId}
+          className="text-sm font-semibold tracking-[0.08em] uppercase text-[#eef1f3] truncate"
+        >
+          {column.label}
+        </h2>
+        <span
+          className={cn(
+            'text-sm font-medium tabular-nums',
+            isExceeded ? 'text-alert' : isWarning ? 'text-person' : 'text-on-rack-muted',
+          )}
+        >
           {count}
           {hasLimit ? `/${wipLimit}` : ''}
-        </Badge>
-      </button>
+        </span>
+        <span className="ml-auto text-mid tabular-nums text-on-rack-muted">
+          {formatUsd(locale, total)}
+        </span>
+        {onEditWipLimit && (
+          // eslint-disable-next-line no-restricted-syntax -- icon control on the dark rack, styled for it
+          <button
+            type="button"
+            onClick={() => onEditWipLimit(column.slug)}
+            aria-label={t('editWipLimit', { name: column.label })}
+            title={t('editWipLimit', { name: column.label })}
+            className="self-center p-1 rounded text-on-rack-muted hover:text-white hover:bg-rack-line focus-visible:outline-2 focus-visible:outline-white"
+          >
+            <SlidersHorizontal size={13} aria-hidden="true" />
+          </button>
+        )}
+      </header>
 
-      {/* Droppable area */}
       <Droppable droppableId={droppableId || column.slug}>
         {(provided, snapshot) => (
           <div
             ref={provided.innerRef}
             {...provided.droppableProps}
             className={cn(
-              'p-2 space-y-1.5 rounded-md transition-all border-2 border-dashed flex-1 overflow-y-auto min-h-0',
-              compact && 'min-h-[200px]',
-              snapshot.isDraggingOver ? 'border-accent bg-accent/5' : 'border-transparent',
+              'flex flex-col gap-1.5 pl-5 pr-2.5 py-2.5 flex-1 overflow-y-auto min-h-0 transition-colors',
+              compact && 'min-h-[160px]',
+              snapshot.isDraggingOver && 'bg-rack-deep',
             )}
           >
-            {tasks.map((task, index) => (
+            {ordered.map((task, index) => (
               <Draggable key={task.id} draggableId={task.id} index={index}>
                 {(provided, snapshot) => (
                   <div
@@ -103,15 +127,21 @@ export const Column = memo(function Column({
                       isAssigning={assigning === task.id}
                       onSelect={() => onSelectTask(task.id)}
                       onAssign={onAssign}
+                      cost={costs[task.id]}
+                      waiting={waiting[task.id]}
+                      onDecide={onDecide}
                     />
                   </div>
                 )}
               </Draggable>
             ))}
             {provided.placeholder}
+            {count === 0 && !snapshot.isDraggingOver && (
+              <p className="text-mid text-on-rack-muted py-3">{t('emptyBay')}</p>
+            )}
           </div>
         )}
       </Droppable>
-    </div>
+    </section>
   )
 })

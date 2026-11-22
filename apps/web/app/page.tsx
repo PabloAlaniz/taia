@@ -1,19 +1,20 @@
 'use client'
 
-import { useState, useEffect, useCallback, useMemo } from 'react'
-import { useRouter } from 'next/navigation'
+import { Suspense, useState, useEffect, useCallback, useMemo } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { useTranslations } from 'next-intl'
 import type { TaskStatus, SavedFilterConfig } from '@taia/types'
 import { useStore } from '../lib/store'
 import { useRealtimeUpdates } from '../lib/use-websocket'
-import { useRuntimeStatus } from '../lib/use-runtime-status'
+import { useBoardSignals } from '../lib/use-board-signals'
+import { useHideChrome } from '../lib/chrome'
 import { useKeyboardShortcuts } from '@/lib/use-keyboard-shortcuts'
 import { useFontScale } from '@/lib/use-font-scale'
 import { applyAllFilters } from '../lib/filter-utils'
 import { CreateWorkspaceModal } from '../components/organisms/create-workspace-modal'
 import { StepConnection } from '../components/organisms/onboarding/step-connection'
 import { StepProject } from '../components/organisms/onboarding/step-project'
-import { Button, Kbd } from '../components/atoms'
+import { Button, Kbd, MateMark } from '../components/atoms'
 
 // Molecules
 import { WipLimitModal } from '../components/molecules/wip-limit-modal'
@@ -21,7 +22,7 @@ import { Toast } from '../components/molecules/toast'
 import { ActiveFiltersPanel } from '../components/molecules/active-filters-panel'
 
 // Organisms
-import { Header, MobileNav } from '../components/organisms/header'
+import { BoardHeader, type BoardView } from '../components/organisms/board-header'
 import { BoardToolbar } from '../components/organisms/board-toolbar'
 import { SearchBar } from '../components/organisms/search-bar'
 import { KanbanBoard } from '../components/organisms/kanban-board'
@@ -31,7 +32,16 @@ import { AddTaskModal } from '../components/organisms/add-task-modal'
 import { useIsClient } from '@/lib/use-is-client'
 import { PlanningWizard } from '../components/organisms/planning-wizard'
 
-export default function Home() {
+export default function BoardPage() {
+  // useSearchParams needs a Suspense boundary to prerender.
+  return (
+    <Suspense>
+      <Home />
+    </Suspense>
+  )
+}
+
+function Home() {
   const t = useTranslations('home')
   const to = useTranslations('onboarding')
   const {
@@ -67,6 +77,34 @@ export default function Home() {
   const filteredTasks = useMemo(
     () => applyAllFilters(tasks, activeFilterConfig, boardColumns, selectedProjectId),
     [tasks, activeFilterConfig, boardColumns, selectedProjectId],
+  )
+
+  const signals = useBoardSignals(tasks, agents)
+  const searchParams = useSearchParams()
+  const urlView: BoardView = searchParams.get('view') === 'waiting' ? 'waiting' : 'all'
+  const [view, setView] = useState<BoardView>(urlView)
+  // The top bar's counter links here; follow it when already on the board.
+  const [seenUrlView, setSeenUrlView] = useState(urlView)
+  if (urlView !== seenUrlView) {
+    setSeenUrlView(urlView)
+    setView(urlView)
+  }
+  const visibleTasks = useMemo(
+    () => (view === 'waiting' ? filteredTasks.filter((t) => signals.waiting[t.id]) : filteredTasks),
+    [view, filteredTasks, signals.waiting],
+  )
+  const changeView = (next: BoardView) => {
+    setView(next)
+    const url = new URL(window.location.href)
+    if (next === 'waiting') url.searchParams.set('view', 'waiting')
+    else url.searchParams.delete('view')
+    window.history.replaceState(null, '', url)
+  }
+  const currentUserId = useStore((s) => s.currentUserId)
+  const decide = useCallback(
+    (approvalId: string, decision: 'approved' | 'rejected') =>
+      signals.decide(approvalId, decision, currentUserId ?? undefined),
+    [signals, currentUserId],
   )
 
   // Compute available tags from all tasks
@@ -115,9 +153,11 @@ export default function Home() {
   const [showModal, setShowModal] = useState(false)
   const [showPlanWizard, setShowPlanWizard] = useState(false)
   const [showSearch, setShowSearch] = useState(false)
-  const [showCreateWorkspace, setShowCreateWorkspace] = useState(false)
   const [assigning, setAssigning] = useState<string | null>(null)
-  const [showActivity, setShowActivity] = useState(true)
+  // The activity rail only opens by default where the bays still fit beside it.
+  const [showActivity, setShowActivity] = useState(
+    () => typeof window !== 'undefined' && window.innerWidth >= 1700,
+  )
   const [showMobileAgents, setShowMobileAgents] = useState(false)
   const [wipModalStatus, setWipModalStatus] = useState<string | null>(null)
   const [wipWarning, setWipWarning] = useState<string | null>(null)
@@ -130,6 +170,8 @@ export default function Home() {
   // first workspace (how the work flows).
   const [projectStepDone, setProjectStepDone] = useState(false)
   const [runtimeConfigured, setRuntimeConfigured] = useState(false)
+  // Onboarding is its own full-screen moment: no top bar until it ends.
+  useHideChrome(onboardingCompleted === false)
 
   // Prevent hydration mismatch from DragDropContext (generates different IDs on server vs client)
   const mounted = useIsClient()
@@ -147,8 +189,6 @@ export default function Home() {
     onActivityUpdate: handleActivityUpdate,
     enabled: onboardingCompleted === true,
   })
-
-  const runtimeStatus = useRuntimeStatus(onboardingCompleted === true)
 
   // Keyboard shortcuts
   useKeyboardShortcuts({
@@ -207,14 +247,14 @@ export default function Home() {
       const currentCount = tasks.filter((t) => t.status === newStatus).length
       if (currentCount >= wipLimit) {
         const col = boardColumns.find((c) => c.slug === newStatus)
-        setWipWarning(`WIP limit exceeded for ${col?.icon || ''} ${col?.label || newStatus}`)
+        setWipWarning(t('wipExceeded', { column: col?.label || newStatus }))
         setTimeout(() => setWipWarning(null), 3000)
       }
     }
     try {
       await moveTask(taskId, newStatus)
     } catch {
-      setWipWarning('Cannot move: task has unresolved dependencies')
+      setWipWarning(t('moveBlocked'))
       setTimeout(() => setWipWarning(null), 4000)
     }
   }
@@ -224,7 +264,8 @@ export default function Home() {
     const result = await assignTask(taskId, agentId)
     setAssigning(null)
     if (!result.ok) {
-      alert(`Error: ${result.error}`)
+      setWipWarning(t('assignFailed', { error: result.error ?? '' }))
+      setTimeout(() => setWipWarning(null), 4000)
     }
   }
 
@@ -233,8 +274,8 @@ export default function Home() {
   // Loading onboarding status
   if (onboardingCompleted === null) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <span className="text-2xl animate-pulse">🧉</span>
+      <div className="h-full min-h-[50vh] flex items-center justify-center">
+        <MateMark size={40} title="TAIA" className="text-muted motion-safe:animate-pulse" />
       </div>
     )
   }
@@ -245,9 +286,9 @@ export default function Home() {
       return (
         <div className="min-h-screen bg-background flex items-center justify-center">
           <div className="text-center space-y-6">
-            <div className="text-6xl">🧉</div>
+            <MateMark size={64} className="mx-auto [&_rect]:stroke-person" />
             <div>
-              <h1 className="text-2xl font-bold">TAIA</h1>
+              <h1 className="text-4xl font-bold tracking-[0.14em]">TAIA</h1>
               <p className="text-muted text-sm mt-1">{to('subtitle')}</p>
             </div>
             <p className="text-muted text-sm max-w-sm">{to('welcomeText')}</p>
@@ -317,19 +358,21 @@ export default function Home() {
   }
 
   return (
-    <div className="flex flex-col h-screen pb-12 md:pb-0">
-      <Header
+    <div className="flex flex-col h-full">
+      <BoardHeader
+        taskCount={tasks.length}
+        activeAgents={agents.filter((a) => a.type !== 'human' && a.status === 'WORKING').length}
+        waitingCount={signals.waitingCount}
+        view={view}
+        onViewChange={changeView}
         isConnected={isConnected}
-        runtimeStatus={runtimeStatus}
         loading={loading}
         showActivity={showActivity}
         showAgents={showMobileAgents}
         onToggleActivity={() => setShowActivity(!showActivity)}
         onToggleAgents={() => setShowMobileAgents(!showMobileAgents)}
-        onRefresh={refresh}
         onAddTask={() => setShowModal(true)}
         onPlanWizard={() => setShowPlanWizard(true)}
-        onCreateWorkspace={() => setShowCreateWorkspace(true)}
       />
 
       <BoardToolbar
@@ -352,6 +395,7 @@ export default function Home() {
         onDeleteFilter={deleteSavedFilter}
         onSearch={() => setShowSearch(true)}
         fontScale={fontScale}
+        hint={t.rich('shortcutHint', { key: (chunks) => <Kbd>{chunks}</Kbd> })}
       />
 
       {/* Active filters panel (MercadoLibre-style chips) */}
@@ -376,7 +420,7 @@ export default function Home() {
 
         {/* Kanban Board */}
         <KanbanBoard
-          tasks={filteredTasks}
+          tasks={visibleTasks}
           agents={agents}
           projects={projects}
           columns={boardColumns}
@@ -388,6 +432,9 @@ export default function Home() {
           onSelectTask={() => {}}
           onAssign={handleAssign}
           onEditWipLimit={setWipModalStatus}
+          costs={signals.costs}
+          waiting={signals.waiting}
+          onDecide={decide}
         />
 
         {/* Right Sidebar: Activity Feed - hidden on mobile/tablet */}
@@ -441,7 +488,7 @@ export default function Home() {
           wipModalStatus
             ? (() => {
                 const col = boardColumns.find((c) => c.slug === wipModalStatus)
-                return col ? `${col.icon} ${col.label}` : wipModalStatus
+                return col ? col.label : wipModalStatus
               })()
             : undefined
         }
@@ -451,21 +498,7 @@ export default function Home() {
       />
 
       {/* WIP Warning Toast */}
-      {wipWarning && <Toast variant="warning">⚠️ {wipWarning}</Toast>}
-
-      {/* Create Workspace Modal */}
-      <CreateWorkspaceModal
-        open={showCreateWorkspace}
-        onClose={() => setShowCreateWorkspace(false)}
-      />
-
-      {/* Keyboard shortcut hint - hidden on mobile where bottom nav is */}
-      <div className="fixed bottom-4 right-4 text-2xs text-muted opacity-50 hover:opacity-100 transition-opacity hidden md:block">
-        {t.rich('shortcutHint', { key: (chunks) => <Kbd>{chunks}</Kbd> })}
-      </div>
-
-      {/* Mobile bottom navigation */}
-      <MobileNav />
+      {wipWarning && <Toast variant="warning">{wipWarning}</Toast>}
     </div>
   )
 }

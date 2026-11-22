@@ -5,17 +5,18 @@ import Link from 'next/link'
 import { useTranslations } from 'next-intl'
 import { Agent, AgentLiveData, AgentLiveStatus } from '@taia/types'
 import { cn } from '../../lib/utils'
-import { Badge, IconButton } from '../atoms'
-import { Card } from '../molecules'
+import { ArrowUpRight, Loader2, Zap } from 'lucide-react'
+import { IconButton } from '../atoms'
 
+// The state in words, with a dot that only repeats it.
 const STATUS_CONFIG: Record<
   AgentLiveStatus | 'starting',
-  { icon: string; color: string; label: string }
+  { dot: string; text: string; label: string }
 > = {
-  live: { icon: '🟢', color: 'text-green-500', label: 'statusLive' },
-  idle: { icon: '🟡', color: 'text-yellow-500', label: 'statusIdle' },
-  offline: { icon: '⚪', color: 'text-muted', label: 'statusOffline' },
-  starting: { icon: '⚡', color: 'text-amber-500', label: 'statusStarting' },
+  live: { dot: 'bg-agent', text: 'text-agent-ink', label: 'statusLive' },
+  idle: { dot: 'bg-ok', text: 'text-muted', label: 'statusIdle' },
+  offline: { dot: 'bg-border', text: 'text-muted', label: 'statusOffline' },
+  starting: { dot: 'bg-person', text: 'text-person-ink', label: 'statusStarting' },
 }
 
 interface AgentCardProps {
@@ -111,16 +112,26 @@ export const AgentCard = memo(function AgentCard({
     : liveData?.status || 'offline'
   const statusConfig = STATUS_CONFIG[displayStatus]
 
+  const isPerson = agent.type === 'human'
+
   return (
-    <Card
-      variant="default"
-      padding="none"
-      className={cn('mb-1.5 overflow-hidden', selected && 'border-l-2 border-l-accent bg-accent/5')}
+    <div
+      className={cn(
+        'relative mb-1.5 rounded-[2px] bg-strip pl-3.5 pr-2 py-1.5 shadow-[0_1px_0_rgba(0,0,0,0.2)]',
+        selected && 'outline-2 outline-accent',
+      )}
     >
-      {/* Header */}
+      <span
+        aria-hidden="true"
+        className={cn(
+          'absolute inset-y-0 left-0 w-[5px] rounded-l-[2px]',
+          isPerson ? 'bg-person' : 'bg-agent',
+        )}
+      />
       <div
         role="button"
         tabIndex={0}
+        aria-pressed={selected}
         onClick={onSelect}
         onKeyDown={(e) => {
           if (e.key === 'Enter' || e.key === ' ') {
@@ -129,66 +140,71 @@ export const AgentCard = memo(function AgentCard({
           }
         }}
         aria-label={t('selectAgent', { name: agent.name })}
-        className={cn(
-          'p-2 transition-colors cursor-pointer hover:bg-card',
-          'focus-visible:ring-2 focus-visible:ring-accent focus-visible:outline-hidden rounded-sm',
-        )}
+        className="cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent rounded-[2px]"
       >
-        <div className="flex items-center gap-2">
-          <span className="text-xl">{agent.avatar}</span>
-          <div className="flex-1 min-w-0">
-            <div className="font-medium text-xs truncate">{agent.name}</div>
-            <div className="text-2xs text-muted truncate">{agent.role}</div>
-          </div>
-          {isMonitorable && liveData?.sessionKey && (
-            <Link
-              href={`/sessions/${encodeURIComponent(liveData.sessionKey)}`}
-              onClick={(e) => e.stopPropagation()}
-              className="text-2xs text-muted hover:text-accent px-0.5 no-underline"
-              title={t('viewTranscript')}
-            >
-              ↗
-            </Link>
+        <div className="flex items-baseline gap-2 min-w-0">
+          <span
+            className={cn(
+              'font-semibold text-sm truncate',
+              isPerson ? 'text-person-ink' : 'text-agent-ink',
+            )}
+          >
+            {agent.name}
+          </span>
+          {agent.role && <span className="text-xs text-muted truncate">{agent.role}</span>}
+          {taskCount > 0 && (
+            <span className="ml-auto text-xs tabular-nums text-muted" title={t('openTasks')}>
+              {taskCount}
+            </span>
           )}
         </div>
 
-        {/* Status row */}
-        <div className="flex justify-between items-center mt-2 text-2xs">
-          <div className="flex items-center gap-1">
-            {isMonitorable ? (
-              <>
-                <span className={displayStatus === 'starting' ? 'animate-pulse' : ''}>
-                  {statusConfig.icon}
-                </span>
-                <span
-                  className={cn(
-                    statusConfig.color,
-                    displayStatus === 'starting' && 'animate-pulse',
-                  )}
-                >
-                  {t(statusConfig.label as never)}
-                </span>
-                {postTriggerPolling && <span className="text-accent animate-spin">🔄</span>}
-                {displayStatus !== 'live' && displayStatus !== 'starting' && agent.nextRunIn && (
-                  <span className="text-muted">· {agent.nextRunIn}</span>
+        <div className="flex items-center gap-1.5 mt-0.5 text-xs min-h-6">
+          {isMonitorable ? (
+            <>
+              <span
+                aria-hidden="true"
+                className={cn(
+                  'w-1.5 h-1.5 rounded-full',
+                  statusConfig.dot,
+                  (displayStatus === 'starting' || displayStatus === 'live') &&
+                    'motion-safe:animate-pulse',
                 )}
-              </>
-            ) : (
-              <span className="text-muted">
-                {agent.type === 'human' ? t('human') : agent.status}
+              />
+              <span className={statusConfig.text}>{t(statusConfig.label as never)}</span>
+              {displayStatus !== 'live' && displayStatus !== 'starting' && agent.nextRunIn && (
+                <span className="text-muted truncate">· {agent.nextRunIn}</span>
+              )}
+            </>
+          ) : (
+            <span className="text-muted">{isPerson ? t('human') : agent.status}</span>
+          )}
+
+          <span className="ml-auto flex items-center gap-1">
+            {triggerResult && (
+              <span
+                className={cn(
+                  'text-xs font-semibold',
+                  triggerResult === '✓' ? 'text-ok' : 'text-alert',
+                )}
+              >
+                {triggerResult === '✓' ? t('triggered') : t('triggerFailed')}
               </span>
             )}
-          </div>
-
-          <div className="flex items-center gap-1.5">
-            {triggerResult && (
-              <span className={triggerResult === '✓' ? 'text-green-500' : 'text-red-500'}>
-                {triggerResult}
-              </span>
+            {isMonitorable && liveData?.sessionKey && (
+              <Link
+                href={`/sessions/${encodeURIComponent(liveData.sessionKey)}`}
+                onClick={(e) => e.stopPropagation()}
+                className="p-1 rounded text-muted hover:text-foreground hover:bg-card"
+                aria-label={t('viewTranscript')}
+                title={t('viewTranscript')}
+              >
+                <ArrowUpRight size={14} aria-hidden="true" />
+              </Link>
             )}
             {isMonitorable && (
               <IconButton
-                variant="primary"
+                variant="ghost"
                 size="xs"
                 disabled={triggering}
                 onClick={handleTrigger}
@@ -199,17 +215,16 @@ export const AgentCard = memo(function AgentCard({
                 }
                 title={t('trigger', { name: agent.name })}
               >
-                {triggering ? '⏳' : <span className={starting ? 'animate-pulse' : ''}>⚡</span>}
+                {triggering ? (
+                  <Loader2 size={13} className="motion-safe:animate-spin" aria-hidden="true" />
+                ) : (
+                  <Zap size={13} aria-hidden="true" />
+                )}
               </IconButton>
             )}
-            {taskCount > 0 && (
-              <Badge variant="muted" size="xs">
-                {taskCount}
-              </Badge>
-            )}
-          </div>
+          </span>
         </div>
       </div>
-    </Card>
+    </div>
   )
 })

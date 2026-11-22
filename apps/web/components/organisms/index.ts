@@ -1,6 +1,4 @@
 // Organisms - Complex UI sections
-export { Modal, ModalHeader, ModalBody, ModalFooter, type ModalProps } from './modal'
-export { Header } from './header'
 export { SearchBar } from './search-bar'
 export { KanbanBoard } from './kanban-board'
 export { Column } from './column'
@@ -14,3 +12,6 @@ export { TaskPage } from './task-page'
 export { TaskHeader } from './task-header'
 export { TaskContent, type TaskContentHandle } from './task-content'
 export { TaskSidebar, type TaskSidebarHandle } from './task-sidebar'
+export { TopBar } from './top-bar'
+export { BoardHeader } from './board-header'
+export { WorktreePanel } from './worktree-panel'

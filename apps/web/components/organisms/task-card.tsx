@@ -1,12 +1,14 @@
 'use client'
 
 import { useState, memo } from 'react'
-import { useTranslations } from 'next-intl'
+import { useFormatter, useNow, useLocale, useTranslations } from 'next-intl'
 import { useRouter } from 'next/navigation'
 import { Task, Agent } from '@taia/types'
-import { cn, PRIORITY_COLORS } from '../../lib/utils'
+import { cn } from '../../lib/utils'
+import { formatUsd, participantKind } from '../../lib/format'
+import type { WaitingReason } from '../../lib/use-board-signals'
 import { useStore } from '../../lib/store'
-import { Button, Badge, Code, GitHubIcon, BlockerIcon } from '../atoms'
+import { Button, Badge, GitHubIcon, BlockerIcon } from '../atoms'
 import { Card } from '../molecules'
 import { shortTaskId } from '@taia/domain/domain/task/task-id'
 
@@ -19,62 +21,160 @@ interface TaskCardProps {
   onSelect?: () => void
   onAssign: (taskId: string, agentId: string) => void
   unresolvedBlockers?: number
+  /** USD spent on this task's sessions; undefined when it has none. */
+  cost?: number
+  /** Set when the strip waits on a person: it is pulled out of the rack. */
+  waiting?: WaitingReason
+  onDecide?: (approvalId: string, decision: 'approved' | 'rejected') => Promise<string | null>
 }
 
+const SYSTEM_TAGS = ['blocked', 'needs-clarification']
+
+/** The command an approval asks about, when the tool input carries one. */
+function approvalSubject(input: Record<string, unknown> | null): string | null {
+  if (!input) return null
+  for (const key of ['command', 'cmd', 'path', 'file_path', 'url']) {
+    const value = input[key]
+    if (typeof value === 'string' && value) return value
+  }
+  return null
+}
+
+/**
+ * A task as a flight strip: one slim line for identity, one for who has it,
+ * what they're doing and what it cost. The edge tab says agent or person.
+ */
 export const TaskCard = memo(function TaskCard({
   task,
   agents,
   isDragging,
   isSelected,
   isAssigning,
-  onSelect: _onSelect,
   onAssign,
   unresolvedBlockers,
+  cost,
+  waiting,
+  onDecide,
 }: TaskCardProps) {
   const t = useTranslations('taskCard')
+  const format = useFormatter()
+  // One clock per minute, so relative times stay current without re-rendering per second.
+  const now = useNow({ updateInterval: 60_000 })
+  const locale = useLocale()
   const router = useRouter()
   const tagColors = useStore((s) => s.tagColors)
   const [showAssign, setShowAssign] = useState(false)
-  const assignedAgent = agents.find((a) => a.id === task.assigned_to)
-  const availableAgents = agents.filter((a) => a.type !== 'orchestrator')
+  const [deciding, setDeciding] = useState(false)
+  const [decideError, setDecideError] = useState<string | null>(null)
 
-  const handleClick = () => {
-    router.push(`/task/${task.id}`)
-  }
+  const assignee = agents.find((a) => a.id === task.assigned_to)
+  const kind = participantKind(assignee)
+  const assignable = agents.filter((a) => a.type !== 'orchestrator')
+  const running =
+    kind === 'agent' && assignee?.status === 'WORKING' && assignee.currentTask === task.id
+  const done = task.status === 'DONE'
+  const tags = Array.from(new Set(task.tags ?? [])).filter((tag) => !SYSTEM_TAGS.includes(tag))
+  const blocked = task.tags?.includes('blocked')
+
+  const open = () => router.push(`/task/${task.id}`)
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.target !== e.currentTarget) return
     if (e.key === 'Enter' || e.key === ' ') {
       e.preventDefault()
-      handleClick()
+      open()
     }
+  }
+
+  const stop = (e: React.SyntheticEvent) => e.stopPropagation()
+
+  const decide = async (decision: 'approved' | 'rejected') => {
+    if (waiting?.kind !== 'approval' || !onDecide) return
+    setDeciding(true)
+    setDecideError(null)
+    const err = await onDecide(waiting.approval.id, decision)
+    if (err) setDecideError(err === 'already_decided' ? t('alreadyDecided') : t('decideFailed'))
+    setDeciding(false)
+  }
+
+  let stateLabel: string | null = null
+  if (running) {
+    stateLabel = task.started_at
+      ? t('runningSince', { time: format.relativeTime(new Date(task.started_at), now) })
+      : t('running')
+  } else if (assignee?.status === 'BLOCKED' && assignee.currentTask === task.id) {
+    stateLabel = t('agentBlocked')
   }
 
   return (
     <div
       role="link"
       tabIndex={0}
-      onClick={handleClick}
+      onClick={open}
       onKeyDown={handleKeyDown}
       aria-label={t('aria', { title: task.title, priority: task.priority })}
       className={cn(
-        'bg-card rounded-md p-2.5 cursor-pointer transition-all border-l-[3px]',
-        'focus-visible:ring-2 focus-visible:ring-accent focus-visible:outline-hidden',
-        isDragging && 'rotate-2 shadow-lg',
-        isSelected && 'ring-2 ring-accent',
+        'group relative rounded-[2px] cursor-pointer transition-[box-shadow,transform,background-color]',
+        'pl-3.5 pr-2.5 py-1.5',
+        'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent',
+        waiting
+          ? '-ml-4 bg-card pb-2.5 shadow-[0_0_0_1px_var(--person),0_6px_14px_rgba(0,0,0,0.35)]'
+          : done
+            ? 'bg-strip-done shadow-[0_1px_0_rgba(0,0,0,0.3)]'
+            : 'bg-strip shadow-[0_1px_0_rgba(0,0,0,0.3)] hover:bg-card',
+        blocked && !waiting && 'shadow-[inset_0_0_0_1px_var(--alert),0_1px_0_rgba(0,0,0,0.3)]',
+        isDragging && 'rotate-1 shadow-[0_8px_18px_rgba(0,0,0,0.4)]',
+        isSelected && 'outline-2 outline-offset-2 outline-accent',
         isAssigning && 'opacity-70',
       )}
-      style={{ borderLeftColor: PRIORITY_COLORS[task.priority] }}
     >
-      {/* Header with ID + repo link */}
-      <div className="flex items-center gap-1.5 mb-1">
-        <Code>{shortTaskId(task.id)}</Code>
+      <span
+        aria-hidden="true"
+        className={cn(
+          'absolute inset-y-0 left-0 w-[5px] rounded-l-[2px]',
+          kind === 'agent' && 'bg-agent',
+          kind === 'person' && 'bg-person',
+          !kind && 'bg-border',
+        )}
+      />
+
+      {waiting && (
+        <div className="flex items-baseline gap-2 mb-1">
+          <span className="shrink-0 whitespace-nowrap text-xxs font-bold tracking-[0.12em] uppercase bg-person text-on-person px-1.5 rounded-[2px]">
+            {t('waitingTag')}
+          </span>
+          <span className="text-xs text-muted truncate">
+            {waiting.kind === 'approval' &&
+              t('waitingApproval', {
+                time: format.relativeTime(new Date(waiting.approval.created_at), now),
+              })}
+            {waiting.kind === 'merge' && t('waitingMerge')}
+            {waiting.kind === 'clarify' && t('waitingClarify')}
+          </span>
+        </div>
+      )}
+
+      <div className="flex items-baseline gap-2 min-w-0">
+        <span className="font-mono text-xxs text-muted shrink-0 tabular-nums">
+          {shortTaskId(task.id)}
+        </span>
+        <h4
+          className={cn(
+            'text-sm leading-snug line-clamp-2 break-words',
+            done ? 'font-medium text-muted line-through decoration-muted/60' : 'font-semibold',
+          )}
+          title={task.title}
+        >
+          {task.title}
+        </h4>
         {(task.repo_url || task.primary_repo_url) && (
           <a
             href={task.repo_url || task.primary_repo_url}
             target="_blank"
             rel="noopener noreferrer"
-            onClick={(e) => e.stopPropagation()}
-            className="text-muted hover:text-foreground transition-colors ml-auto"
+            onClick={stop}
+            className="ml-auto shrink-0 text-muted hover:text-foreground opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity"
+            aria-label={t('openRepo')}
             title={t('openRepo')}
           >
             <GitHubIcon size={12} />
@@ -82,88 +182,154 @@ export const TaskCard = memo(function TaskCard({
         )}
       </div>
 
-      {/* Title */}
-      <h4 className="text-xs font-semibold leading-tight mb-1.5">{task.title}</h4>
+      {waiting?.kind === 'approval' && (
+        <p className="text-mid leading-snug mt-1">
+          {t.rich('approvalAsk', {
+            agent: agents.find((a) => a.id === waiting.approval.agent_id)?.name ?? '—',
+            tool: waiting.approval.tool_name,
+            b: (chunk) => <b className="font-semibold">{chunk}</b>,
+          })}
+          {approvalSubject(waiting.approval.tool_input) && (
+            <code className="block mt-1 font-mono text-xs bg-strip px-1.5 py-0.5 rounded-[2px] truncate">
+              {approvalSubject(waiting.approval.tool_input)}
+            </code>
+          )}
+        </p>
+      )}
 
-      {/* Dependency blocker indicator */}
-      {unresolvedBlockers !== undefined && unresolvedBlockers > 0 && (
-        <div className="flex items-center gap-1 text-2xs text-red-400 mb-1">
-          <BlockerIcon size={10} />
-          <span>
-            {unresolvedBlockers} bloqueo{unresolvedBlockers > 1 ? 's' : ''}
+      <div className="flex items-baseline gap-2 mt-0.5 text-mid text-muted whitespace-nowrap min-w-0">
+        {assignee ? (
+          <span
+            className={cn(
+              'font-semibold truncate',
+              kind === 'agent' ? 'text-agent-ink' : 'text-person-ink',
+            )}
+          >
+            {assignee.name}
           </span>
+        ) : (
+          <span>{t('unassigned')}</span>
+        )}
+        {stateLabel && (
+          <span className={cn('truncate', running ? 'text-agent-ink' : 'text-alert font-semibold')}>
+            {running && (
+              <span
+                aria-hidden="true"
+                className="inline-block w-1.5 h-1.5 rounded-full bg-agent mr-1.5 align-[1px] ring-2 ring-agent/25 motion-safe:animate-pulse"
+              />
+            )}
+            {stateLabel}
+          </span>
+        )}
+        {unresolvedBlockers !== undefined && unresolvedBlockers > 0 && (
+          <span className="flex items-center gap-1 text-alert font-semibold">
+            <BlockerIcon size={10} />
+            {t('blockers', { count: unresolvedBlockers })}
+          </span>
+        )}
+        {blocked && <span className="text-alert font-semibold">{t('blocked')}</span>}
+        <span className="ml-auto tabular-nums text-foreground/75">
+          {cost !== undefined ? formatUsd(locale, cost) : '—'}
+        </span>
+      </div>
+
+      {(task.project || tags.length > 0) && (
+        <div className="flex flex-wrap gap-1 mt-1">
+          {task.project && <Badge variant="secondary">{task.project}</Badge>}
+          {tags.map((tag) => (
+            <Badge key={tag} variant="default" color={tagColors[tag]}>
+              #{tag}
+            </Badge>
+          ))}
         </div>
       )}
 
-      {/* Assigned agent */}
-      {assignedAgent && (
-        <div className="flex items-center gap-1 text-2xs text-muted">
-          <span>{assignedAgent.avatar}</span>
-          <span>{assignedAgent.name}</span>
-        </div>
-      )}
-
-      {/* Blocking tags - shown prominently */}
-      {task.tags?.some((t) => t === 'blocked' || t === 'needs-clarification') && (
-        <div className="flex flex-wrap gap-1 mt-2">
-          {task.tags.includes('blocked') && <Badge variant="danger">🚫 blocked</Badge>}
-          {task.tags.includes('needs-clarification') && (
-            <Badge variant="warning">❓ needs-clarification</Badge>
+      {waiting && (
+        // biome-ignore lint/a11y/noStaticElementInteractions: stops the strip's own click
+        <div className="flex flex-wrap gap-1.5 mt-2" onClick={stop} onKeyDown={stop}>
+          {waiting.kind === 'approval' && (
+            <>
+              <Button
+                variant="primary"
+                size="xs"
+                disabled={deciding}
+                onClick={() => decide('approved')}
+              >
+                {t('approve')}
+              </Button>
+              <Button
+                variant="danger"
+                size="xs"
+                disabled={deciding}
+                onClick={() => decide('rejected')}
+              >
+                {t('reject')}
+              </Button>
+            </>
+          )}
+          {waiting.kind === 'merge' && (
+            <Button variant="primary" size="xs" onClick={open}>
+              {t('reviewAndMerge')}
+            </Button>
+          )}
+          {waiting.kind === 'clarify' && (
+            <Button variant="primary" size="xs" onClick={open}>
+              {t('answer')}
+            </Button>
+          )}
+          {decideError && (
+            <p role="alert" className="basis-full text-xs text-alert">
+              {decideError}
+            </p>
           )}
         </div>
       )}
 
-      {/* Project & other tags */}
-      {(task.project || task.tags?.some((t) => t !== 'blocked' && t !== 'needs-clarification')) && (
-        <div className="flex flex-wrap gap-1 mt-2">
-          {task.project && <Badge variant="accent">{task.project}</Badge>}
-          {Array.from(new Set(task.tags))
-            .filter((t) => t !== 'blocked' && t !== 'needs-clarification')
-            .map((tag) => (
-              <Badge key={tag} variant="default" color={tagColors[tag]}>
-                #{tag}
-              </Badge>
-            ))}
-        </div>
-      )}
-
-      {/* Assign button for INBOX tasks */}
       {task.status === 'INBOX' && !task.assigned_to && (
-        <div className="mt-2 relative">
+        // biome-ignore lint/a11y/noStaticElementInteractions: stops the strip's own click
+        <div className="mt-1.5 relative" onClick={stop} onKeyDown={stop}>
           <Button
-            variant="primary"
+            variant="secondary"
             size="xs"
             disabled={isAssigning}
-            onClick={(e) => {
-              e.stopPropagation()
-              setShowAssign(!showAssign)
-            }}
-            className="w-full"
+            onClick={() => setShowAssign(!showAssign)}
+            aria-expanded={showAssign}
           >
-            {isAssigning ? '⏳...' : t('assign')}
+            {isAssigning ? t('assigning') : t('assign')}
           </Button>
 
           {showAssign && (
             <Card
               padding="none"
-              className="absolute top-full left-0 right-0 mt-1 shadow-lg z-10 overflow-hidden"
+              className="absolute top-full left-0 min-w-48 mt-1 shadow-[0_6px_14px_rgba(0,0,0,0.25)] z-10 overflow-hidden"
             >
-              {availableAgents.map((agent) => (
-                <Button
-                  key={agent.id}
-                  variant="ghost"
-                  size="xs"
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    setShowAssign(false)
-                    onAssign(task.id, agent.id)
-                  }}
-                  className="flex items-center gap-2 w-full px-2 py-1.5 text-xxs text-left rounded-none"
-                >
-                  <span>{agent.avatar}</span>
-                  <span>{agent.name}</span>
-                </Button>
-              ))}
+              {assignable.map((agent) => {
+                const k = participantKind(agent)
+                return (
+                  <Button
+                    key={agent.id}
+                    variant="ghost"
+                    size="xs"
+                    onClick={() => {
+                      setShowAssign(false)
+                      onAssign(task.id, agent.id)
+                    }}
+                    className="flex items-center gap-2 w-full px-2.5 py-1.5 text-xs text-left rounded-none"
+                  >
+                    <span
+                      aria-hidden="true"
+                      className={cn(
+                        'w-1 h-3 rounded-[1px]',
+                        k === 'person' ? 'bg-person' : 'bg-agent',
+                      )}
+                    />
+                    <span className="truncate">{agent.name}</span>
+                    <span className="ml-auto text-muted">
+                      {k === 'person' ? t('person') : t('agent')}
+                    </span>
+                  </Button>
+                )
+              })}
             </Card>
           )}
         </div>
