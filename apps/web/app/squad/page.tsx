@@ -1,56 +1,28 @@
 'use client'
 
+import { useTranslations } from 'next-intl'
 import { useState } from 'react'
+import { Bot, Plus } from 'lucide-react'
 import { Alert, Button } from '@/components/atoms'
+import { ConfirmDialog, EmptyState, RackSection, SkeletonCard } from '@/components/molecules'
 import { PageHeader } from '@/components/molecules/page-header'
+import { RuntimeNotice } from '@/components/organisms/runtime-notice'
 import { AddAgentModal } from '@/client/features/squad/AddAgentModal'
 import { EditAgentModal } from '@/client/features/squad/EditAgentModal'
-import { useResource } from '@/lib/use-resource'
 import { SquadAgentCard } from '@/client/features/squad/SquadAgentCard'
-
-interface SquadMember {
-  id: string
-  name: string
-  role?: string
-  avatar?: string
-  model?: string
-  type: string
-  enabled: boolean
-  cron?: {
-    id: string
-    enabled: boolean
-    schedule: string
-    nextRun?: string
-    lastRun?: string
-    lastStatus?: string
-    lastError?: string
-    lastDurationMs?: number
-  }
-  context?: {
-    persona: boolean
-    instructions: boolean
-    workingNotes: boolean
-    memoryFiles: string[]
-  }
-  tasks: {
-    assigned: number
-    inProgress: number
-    review: number
-    done: number
-  }
-}
+import type { SquadMember } from '@/client/features/squad/types'
+import { useResource } from '@/lib/use-resource'
 
 async function loadSquad(): Promise<SquadMember[]> {
-  try {
-    const res = await fetch('/api/agents?detail=full')
-    const data = (await res.json()) as { agents?: SquadMember[] }
-    return data.agents ?? []
-  } catch {
-    throw new Error('Failed to load squad')
-  }
+  const res = await fetch('/api/agents?detail=full')
+  if (!res.ok) throw new Error('load')
+  const data = (await res.json()) as { agents?: SquadMember[] }
+  return data.agents ?? []
 }
 
 export default function SquadPage() {
+  const tp = useTranslations('pageTitles')
+  const t = useTranslations('squad')
   const {
     data,
     loading,
@@ -58,91 +30,141 @@ export default function SquadPage() {
     reload,
   } = useResource('/api/agents?detail=full', loadSquad, { refreshMs: 30_000 })
   const squad = data ?? []
-  const [deleteError, setDeleteError] = useState<string | null>(null)
-  const error = deleteError ?? loadError
+  const agents = squad.filter((m) => m.type !== 'human')
+  const people = squad.filter((m) => m.type === 'human')
+
   const [showAdd, setShowAdd] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
+  const [deletingId, setDeletingId] = useState<string | null>(null)
+  const [deleteBusy, setDeleteBusy] = useState(false)
+  const [deleteError, setDeleteError] = useState<string | null>(null)
+  const deleting = squad.find((m) => m.id === deletingId)
 
-  const handleDelete = async (id: string) => {
-    const agent = squad.find((a) => a.id === id)
-    if (!confirm(`Delete agent "${agent?.name || id}"? This cannot be undone.`)) return
-
+  const confirmDelete = async () => {
+    if (!deletingId) return
+    setDeleteBusy(true)
+    setDeleteError(null)
     try {
-      const res = await fetch(`/api/agents/${id}`, { method: 'DELETE' })
-      if (res.ok) reload()
+      const res = await fetch(`/api/agents/${deletingId}`, { method: 'DELETE' })
+      if (!res.ok) throw new Error()
+      setDeletingId(null)
+      reload()
     } catch {
-      setDeleteError('Failed to delete agent')
+      setDeleteError(t('deleteFailed'))
+    } finally {
+      setDeleteBusy(false)
     }
   }
 
+  const rows = (members: SquadMember[]) =>
+    members.map((member) => (
+      <SquadAgentCard
+        key={member.id}
+        member={member}
+        onUpdate={reload}
+        onEdit={setEditingId}
+        onDelete={(id) => {
+          setDeleteError(null)
+          setDeletingId(id)
+        }}
+      />
+    ))
+
   return (
-    <div className="min-h-screen bg-background">
-      <PageHeader title="Squad Dashboard" icon="🤖">
-        <Button variant="primary" size="sm" onClick={() => setShowAdd(true)}>
-          + Add Agent
+    <div className="min-h-full">
+      <PageHeader width="medium" title={tp('agents')}>
+        <Button
+          variant="primary"
+          size="md"
+          onClick={() => setShowAdd(true)}
+          className="flex items-center gap-1.5"
+        >
+          <Plus size={15} aria-hidden="true" />
+          {t('add')}
         </Button>
       </PageHeader>
-      <div className="p-6 pt-8 max-w-[900px] mx-auto space-y-4">
-        {error && (
-          <Alert variant="error" className="mb-4">
-            {error}
-          </Alert>
-        )}
 
-        {loading ? (
-          <div className="text-muted p-10 text-center">Loading squad...</div>
-        ) : (
-          <div className="flex flex-col gap-3">
-            {squad.map((member) => (
-              <SquadAgentCard
-                key={member.id}
-                member={member as never}
-                onUpdate={reload}
-                onEdit={setEditingId}
-                onDelete={handleDelete}
-              />
-            ))}
-          </div>
-        )}
+      <div className="px-4 md:px-6 pt-4 pb-10 max-w-4xl mx-auto space-y-4">
+        <p className="text-sm text-muted max-w-prose">{t('intro')}</p>
+        <RuntimeNotice feature="cron" />
+        {loadError && <Alert variant="error">{t('loadFailed')}</Alert>}
 
-        {!loading && squad.length === 0 && (
-          <div className="text-center text-muted py-16 px-5">
-            <div className="text-5xl mb-4">🤖</div>
-            <div className="text-lg mb-2">No agents yet</div>
-            <div className="text-sm mb-6">Add your first agent to get started</div>
-            <Button variant="primary" size="lg" onClick={() => setShowAdd(true)} className="px-5">
-              + Add Agent
-            </Button>
-          </div>
-        )}
+        <RackSection
+          title={t('agentsSection')}
+          count={loading ? undefined : agents.length}
+          aside={
+            agents.length > 0 ? (
+              <span>
+                {t('working', { count: agents.filter((a) => a.tasks.inProgress > 0).length })}
+              </span>
+            ) : undefined
+          }
+        >
+          {loading ? (
+            [1, 2, 3].map((i) => <SkeletonCard key={i} height="h-14" />)
+          ) : agents.length === 0 ? (
+            <EmptyState
+              onRack
+              icon={<Bot size={22} aria-hidden="true" />}
+              title={t('noAgents')}
+              description={t('noAgentsHint')}
+              action={
+                <Button variant="secondary" size="md" onClick={() => setShowAdd(true)}>
+                  {t('add')}
+                </Button>
+              }
+            />
+          ) : (
+            rows(agents)
+          )}
+        </RackSection>
 
-        <div className="mt-8 p-4 bg-card rounded-lg border border-border text-mid text-muted">
-          <strong>Legend:</strong> 📋 Assigned • 🔄 In Progress • 👀 In Review
-        </div>
-
-        {/* Add Agent Modal */}
-        {showAdd && (
-          <AddAgentModal
-            onClose={() => setShowAdd(false)}
-            onAdd={() => {
-              reload()
-              setShowAdd(false)
-            }}
-          />
-        )}
-
-        {/* Edit Agent Modal */}
-        {editingId && (
-          <EditAgentModal
-            agent={squad.find((a) => a.id === editingId) as never}
-            onClose={() => setEditingId(null)}
-            onSave={() => {
-              reload()
-              setEditingId(null)
-            }}
-          />
+        {!loading && (
+          <RackSection title={t('peopleSection')} count={people.length}>
+            {people.length === 0 ? (
+              <EmptyState onRack title={t('noPeople')} description={t('noPeopleHint')} />
+            ) : (
+              rows(people)
+            )}
+          </RackSection>
         )}
       </div>
+
+      {showAdd && (
+        <AddAgentModal
+          onClose={() => setShowAdd(false)}
+          onAdd={() => {
+            reload()
+            setShowAdd(false)
+          }}
+        />
+      )}
+
+      {editingId && (
+        <EditAgentModal
+          agent={squad.find((a) => a.id === editingId) as never}
+          onClose={() => setEditingId(null)}
+          onSave={() => {
+            reload()
+            setEditingId(null)
+          }}
+        />
+      )}
+
+      <ConfirmDialog
+        open={!!deleting}
+        title={t('confirmDelete.title', { name: deleting?.name ?? '' })}
+        body={
+          deleting?.type === 'human' ? t('confirmDelete.bodyPerson') : t('confirmDelete.bodyAgent')
+        }
+        confirmLabel={t('confirmDelete.action')}
+        cancelLabel={t('cancel')}
+        destructive
+        busy={deleteBusy}
+        error={deleteError}
+        onConfirm={confirmDelete}
+        onCancel={() => setDeletingId(null)}
+      />
     </div>
   )
 }

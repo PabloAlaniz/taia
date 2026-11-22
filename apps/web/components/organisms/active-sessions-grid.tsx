@@ -1,20 +1,23 @@
 'use client'
 
-import { useTranslations } from 'next-intl'
+import { useLocale, useTranslations } from 'next-intl'
 import Link from 'next/link'
+import { ArrowUpRight } from 'lucide-react'
 import type { ActiveSession } from '@taia/types'
 import { api } from '@/lib/api'
 import { useResource } from '@/lib/use-resource'
 import { cn, sessionHref } from '../../lib/utils'
-import { Badge } from '../atoms'
-import { Card, SkeletonCard, EmptyState } from '../molecules'
+import { formatTokens, formatUsd } from '../../lib/format'
+import { Strip } from '../atoms'
+import { EmptyState, RackSection, SkeletonCard } from '../molecules'
 
 interface ActiveSessionsGridProps {
   onSessionCount?: (count: number) => void
 }
 
+/** Sessions running now, as strips in one rack: who, on what, doing what, at what cost. */
 export function ActiveSessionsGrid({ onSessionCount }: ActiveSessionsGridProps) {
-  const tr = useTranslations('runtime')
+  const t = useTranslations('sessionsPage')
   const {
     data: sessions = [],
     loading,
@@ -35,120 +38,85 @@ export function ActiveSessionsGrid({ onSessionCount }: ActiveSessionsGridProps) 
     { refreshMs: 5000 },
   )
 
-  if (loading) {
-    return (
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 p-4">
-        {[1, 2, 3].map((i) => (
-          <SkeletonCard key={i} height="h-28" />
-        ))}
-      </div>
-    )
-  }
-
-  if (error) {
-    return <EmptyState icon="⚠️" title={tr('unavailable')} description={error} className="p-8" />
-  }
-
-  if (sessions.length === 0) {
-    return (
-      <EmptyState
-        icon="😴"
-        title="No hay agentes activos"
-        description="Las sesiones activas aparecen aqui automaticamente"
-        className="p-8"
-      />
-    )
-  }
+  const total = sessions.reduce((sum, s) => sum + (s.estimatedCostUsd ?? 0), 0)
+  const locale = useLocale()
 
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 p-4">
-      {sessions.map((session) => (
-        <ActiveSessionCard key={session.key} session={session} />
-      ))}
-    </div>
+    <RackSection
+      title={t('running')}
+      count={loading ? undefined : sessions.length}
+      aside={
+        sessions.length > 0 ? (
+          <span className="tabular-nums">{formatUsd(locale, total)}</span>
+        ) : undefined
+      }
+    >
+      {loading ? (
+        [1, 2].map((i) => <SkeletonCard key={i} height="h-14" />)
+      ) : error ? (
+        <EmptyState onRack title={t('unavailable')} description={error} />
+      ) : sessions.length === 0 ? (
+        <EmptyState onRack title={t('noneRunning')} description={t('noneRunningHint')} />
+      ) : (
+        sessions.map((session) => <ActiveSessionRow key={session.key} session={session} />)
+      )}
+    </RackSection>
   )
 }
 
-function ActiveSessionCard({ session }: { session: ActiveSession }) {
+function ActiveSessionRow({ session }: { session: ActiveSession }) {
+  const t = useTranslations('sessionsPage')
+  const locale = useLocale()
   const isLive = session.status === 'live'
 
   return (
-    <Link href={sessionHref(session.key, session.instanceId)} className="no-underline">
-      <Card variant="interactive" padding="sm" className="h-full">
-        {/* Header */}
-        <div className="flex items-center gap-2 mb-2.5">
-          <span className="text-xl">{session.agentAvatar || '🤖'}</span>
-          <div className="flex-1 min-w-0">
-            <div className="font-medium text-xs truncate text-foreground">
+    <Strip kind="agent" quiet={!isLive}>
+      <Link
+        href={sessionHref(session.key, session.instanceId)}
+        className="grid grid-cols-[minmax(0,1fr)_auto] gap-x-4 no-underline text-foreground group focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-accent rounded-[2px]"
+      >
+        <div className="min-w-0">
+          <div className="flex items-baseline gap-2 min-w-0">
+            <span className="font-semibold text-agent-ink truncate">
               {session.agentName || session.agentId}
-            </div>
-            {session.label && <div className="text-2xs text-muted truncate">{session.label}</div>}
-          </div>
-          <div className="flex items-center gap-1">
-            <span
-              className={cn(
-                'w-2 h-2 rounded-full',
-                isLive ? 'bg-green-500 animate-pulse' : 'bg-yellow-500',
-              )}
-            />
-            <span className={cn('text-2xs', isLive ? 'text-green-400' : 'text-yellow-400')}>
-              {session.status}
             </span>
+            {session.label && <span className="text-sm truncate">{session.label}</span>}
+          </div>
+          <div className="flex items-baseline gap-2 text-mid text-muted min-w-0 mt-0.5">
+            <span className={cn('shrink-0', isLive ? 'text-agent-ink' : 'text-muted')}>
+              <span
+                aria-hidden="true"
+                className={cn(
+                  'inline-block w-1.5 h-1.5 rounded-full mr-1.5 align-[1px]',
+                  isLive ? 'bg-agent motion-safe:animate-pulse' : 'bg-border',
+                )}
+              />
+              {t(`status.${session.status}`)}
+            </span>
+            {session.currentAction && <span className="truncate">{session.currentAction}</span>}
+            {!session.currentAction && session.recentTools.length > 0 && (
+              <span className="truncate font-mono text-xs">{session.recentTools.join(' · ')}</span>
+            )}
           </div>
         </div>
-
-        {/* Model + tokens */}
-        <div className="flex items-center gap-2 mb-2">
+        <div className="flex items-baseline gap-4 text-mid text-muted tabular-nums whitespace-nowrap self-center">
           {session.model && (
-            <Badge variant="secondary" size="xs">
+            <span className="hidden md:inline font-mono text-xs">
               {session.model.split('/').pop()}
-            </Badge>
-          )}
-          {session.totalTokens && (
-            <span className="text-2xs text-muted">
-              {formatTokensShort(session.totalTokens)} tokens
             </span>
           )}
-          {session.estimatedCostUsd !== undefined && session.estimatedCostUsd > 0 && (
-            <span className="text-2xs text-muted">${session.estimatedCostUsd.toFixed(3)}</span>
-          )}
+          {session.totalTokens ? <span>{formatTokens(session.totalTokens)}</span> : null}
+          <span className="text-foreground/80">
+            {session.estimatedCostUsd ? formatUsd(locale, session.estimatedCostUsd) : '—'}
+          </span>
+          <span className="hidden sm:inline">{session.lastActivityAgo}</span>
+          <ArrowUpRight
+            size={15}
+            className="text-muted group-hover:text-foreground self-center"
+            aria-label={t('openTranscript')}
+          />
         </div>
-
-        {/* Current action */}
-        {session.currentAction && (
-          <div className="text-2xs text-orange-300 mb-1 truncate">{session.currentAction}</div>
-        )}
-
-        {/* Recent tools */}
-        {session.recentTools.length > 0 && (
-          <div className="flex flex-wrap gap-1 mb-1">
-            {session.recentTools.map((tool, i) => (
-              <Badge key={i} variant="muted" size="xs">
-                🔧 {tool}
-              </Badge>
-            ))}
-          </div>
-        )}
-
-        {/* Message preview */}
-        {session.messagePreview && (
-          <div className="text-2xs text-muted leading-tight mt-1 truncate">
-            {session.messagePreview}
-          </div>
-        )}
-
-        {/* Footer */}
-        <div className="flex justify-between items-center mt-3 pt-2 border-t border-border text-2xs text-muted">
-          <span>{session.lastActivityAgo}</span>
-          <span className="text-accent">Ver transcript →</span>
-        </div>
-      </Card>
-    </Link>
+      </Link>
+    </Strip>
   )
-}
-
-function formatTokensShort(tokens: number): string {
-  if (tokens >= 1_000_000) return `${(tokens / 1_000_000).toFixed(1)}M`
-  if (tokens >= 1_000) return `${(tokens / 1_000).toFixed(1)}K`
-  return String(tokens)
 }

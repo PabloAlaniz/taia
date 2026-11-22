@@ -4,8 +4,7 @@ import { useTranslations } from 'next-intl'
 import { useState, useEffect } from 'react'
 import type { TranscriptEntry } from '@taia/types'
 import { api } from '@/lib/api'
-import { Badge } from '../atoms'
-import { SkeletonCard } from '../molecules'
+import { EmptyState, RackSection, SkeletonCard } from '../molecules'
 import { TimelineItem } from '../molecules/timeline-item'
 
 interface TimelineSession {
@@ -17,7 +16,7 @@ interface TimelineSession {
 }
 
 export function SessionTimeline() {
-  const tr = useTranslations('runtime')
+  const t = useTranslations('sessionsPage')
   const [sessions, setSessions] = useState<TimelineSession[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -65,36 +64,7 @@ export function SessionTimeline() {
     return () => clearInterval(interval)
   }, [])
 
-  if (loading) {
-    return (
-      <div className="p-4 space-y-4">
-        {[1, 2, 3].map((i) => (
-          <SkeletonCard key={i} height="h-20" />
-        ))}
-      </div>
-    )
-  }
-
-  if (error) {
-    return (
-      <div className="p-8 text-center">
-        <div className="text-2xl mb-2">⚠️</div>
-        <div className="text-sm text-muted">{tr('unavailable')}</div>
-        <div className="text-2xs text-muted mt-1">{error}</div>
-      </div>
-    )
-  }
-
-  if (sessions.length === 0) {
-    return (
-      <div className="p-8 text-center">
-        <div className="text-3xl mb-2">📭</div>
-        <div className="text-sm text-muted">No hay actividad reciente</div>
-      </div>
-    )
-  }
-
-  // Merge all messages into a single timeline, sorted by timestamp
+  // Merge all messages into a single timeline, newest first.
   const allEntries = sessions
     .flatMap((s) =>
       s.messages.map((m) => ({
@@ -111,36 +81,26 @@ export function SessionTimeline() {
     })
 
   return (
-    <div className="p-4">
-      {/* Legend */}
-      <div className="flex items-center gap-3 mb-4 text-2xs text-muted">
-        <span>🔵 User</span>
-        <span>🟢 Assistant</span>
-        <span>🟠 Tools</span>
-        <span>⚪ Thinking</span>
-      </div>
-
-      {/* Active agents */}
-      <div className="flex gap-2 mb-4 flex-wrap">
-        {sessions.map((s) => (
-          <Badge key={s.agentId} variant="secondary" size="sm">
-            {s.agentAvatar || '🤖'} {s.agentName || s.agentId}
-          </Badge>
-        ))}
-      </div>
-
-      {/* Timeline */}
-      <div>
-        {allEntries.map((entry, i) => (
-          <TimelineItem
-            key={entry.id || i}
-            entry={entry}
-            agentName={entry.agentName}
-            agentAvatar={entry.agentAvatar}
-            isLast={i === allEntries.length - 1}
-          />
-        ))}
-      </div>
-    </div>
+    <RackSection title={t('timeline')} count={loading ? undefined : allEntries.length}>
+      {loading ? (
+        [1, 2, 3].map((i) => <SkeletonCard key={i} height="h-12" />)
+      ) : error ? (
+        <EmptyState onRack title={t('unavailable')} description={error} />
+      ) : allEntries.length === 0 ? (
+        <EmptyState onRack title={t('noActivity')} description={t('noneRunningHint')} />
+      ) : (
+        <div className="rounded-[2px] bg-strip px-4 py-3">
+          {allEntries.map((entry, i) => (
+            <TimelineItem
+              key={entry.id || i}
+              entry={entry}
+              agentName={entry.agentName}
+              agentAvatar={entry.agentAvatar}
+              isLast={i === allEntries.length - 1}
+            />
+          ))}
+        </div>
+      )}
+    </RackSection>
   )
 }
