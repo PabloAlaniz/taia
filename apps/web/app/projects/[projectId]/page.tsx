@@ -149,7 +149,7 @@ function Bay({
   return (
     <div className="bg-rack rounded-md flex-1 min-w-56 flex flex-col">
       <div className="flex items-baseline gap-2 pl-4 pr-3 pt-2.5 pb-2 border-b border-rack-line">
-        <h3 className="text-xs font-semibold tracking-[0.08em] uppercase text-[#eef1f3] truncate">
+        <h3 className="text-xs font-semibold tracking-[0.08em] uppercase text-rack-heading truncate">
           {label}
         </h3>
         <span className="text-xs tabular-nums text-on-rack-muted">{items.length}</span>

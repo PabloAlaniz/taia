@@ -72,7 +72,7 @@ export const Column = memo(function Column({
       <header className="flex items-baseline gap-2 pl-5 pr-2 pt-2.5 pb-2 border-b border-rack-line text-on-rack">
         <h2
           id={headingId}
-          className="text-sm font-semibold tracking-[0.08em] uppercase text-[#eef1f3] truncate"
+          className="text-sm font-semibold tracking-[0.08em] uppercase text-rack-heading truncate"
         >
           {column.label}
         </h2>

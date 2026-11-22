@@ -25,7 +25,7 @@ export function RackSection({ title, count, aside, children, className, id }: Ra
       <header className="flex flex-wrap items-center gap-x-3 gap-y-2 pl-5 pr-3 py-2.5 border-b border-rack-line text-on-rack">
         <h2
           id={headingId}
-          className="text-sm font-semibold tracking-[0.08em] uppercase text-[#eef1f3]"
+          className="text-sm font-semibold tracking-[0.08em] uppercase text-rack-heading"
         >
           {title}
         </h2>

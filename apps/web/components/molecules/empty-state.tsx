@@ -26,7 +26,9 @@ export function EmptyState({
       {drawn && (
         <div className={cn('mb-1', onRack ? 'text-on-rack-muted' : 'text-muted')}>{drawn}</div>
       )}
-      <p className={cn('text-base font-semibold', onRack ? 'text-[#eef1f3]' : 'text-foreground')}>
+      <p
+        className={cn('text-base font-semibold', onRack ? 'text-rack-heading' : 'text-foreground')}
+      >
         {title}
       </p>
       {description && (

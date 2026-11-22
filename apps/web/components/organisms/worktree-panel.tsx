@@ -114,14 +114,10 @@ export function WorktreePanel({ taskId }: { taskId: string }) {
           </div>
 
           {worktree.diff_stats && (
-            <p className="text-xs text-muted tabular-nums">
+            <p className="text-xs text-muted tabular-nums font-mono">
               {t('filesChanged', { count: worktree.diff_stats.files_changed })}
-              <span className="text-green-600 dark:text-green-400 ml-1.5">
-                +{worktree.diff_stats.insertions}
-              </span>
-              <span className="text-red-600 dark:text-red-400 ml-1">
-                −{worktree.diff_stats.deletions}
-              </span>
+              <span className="text-ok ml-1.5">+{worktree.diff_stats.insertions}</span>
+              <span className="text-alert ml-1">−{worktree.diff_stats.deletions}</span>
             </p>
           )}
 
@@ -151,20 +147,14 @@ export function WorktreePanel({ taskId }: { taskId: string }) {
           {worktree.status === 'active' && (
             <p className="text-xs text-muted">{t('mergeNeedsReview')}</p>
           )}
-          {worktree.error_message && (
-            <p className="text-xs text-red-600 dark:text-red-400">{worktree.error_message}</p>
-          )}
+          {worktree.error_message && <p className="text-xs text-alert">{worktree.error_message}</p>}
         </div>
       )}
 
       {outcome && (
         <p
           role={outcome.kind === 'error' ? 'alert' : 'status'}
-          className={
-            outcome.kind === 'error'
-              ? 'mt-2 text-xs text-red-600 dark:text-red-400'
-              : 'mt-2 text-xs text-green-600 dark:text-green-400'
-          }
+          className={outcome.kind === 'error' ? 'mt-2 text-xs text-alert' : 'mt-2 text-xs text-ok'}
         >
           {outcome.message}
         </p>
@@ -192,15 +182,15 @@ export function WorktreePanel({ taskId }: { taskId: string }) {
           <ModalBody className="space-y-3">
             {!diff && !diffError && <p className="text-xs text-muted">{t('loadingDiff')}</p>}
             {diffError && (
-              <p role="alert" className="text-xs text-red-600 dark:text-red-400">
+              <p role="alert" className="text-xs text-alert">
                 {t('errors.diff')}
               </p>
             )}
             {stats && (
               <p className="text-sm tabular-nums">
                 {t('filesChanged', { count: stats.files_changed })}
-                <span className="text-green-600 dark:text-green-400 ml-2">+{stats.insertions}</span>
-                <span className="text-red-600 dark:text-red-400 ml-1">−{stats.deletions}</span>
+                <span className="text-ok ml-2">+{stats.insertions}</span>
+                <span className="text-alert ml-1">−{stats.deletions}</span>
               </p>
             )}
             {diff && diff.stats.files.length > 0 && (
@@ -210,12 +200,8 @@ export function WorktreePanel({ taskId }: { taskId: string }) {
                     <span className="truncate flex-1" title={f.path}>
                       {f.path}
                     </span>
-                    <span className="tabular-nums text-green-600 dark:text-green-400">
-                      +{f.insertions}
-                    </span>
-                    <span className="tabular-nums text-red-600 dark:text-red-400">
-                      −{f.deletions}
-                    </span>
+                    <span className="tabular-nums text-ok">+{f.insertions}</span>
+                    <span className="tabular-nums text-alert">−{f.deletions}</span>
                   </li>
                 ))}
                 {diff.stats.files.length > FILE_PREVIEW_LIMIT && (

@@ -29,6 +29,7 @@
   --color-rack-deep: var(--rack-deep);
   --color-rack-line: var(--rack-line);
   --color-on-rack: var(--on-rack);
+  --color-rack-heading: var(--rack-heading);
   --color-on-rack-muted: var(--on-rack-muted);
   --color-agent: var(--agent);
   --color-agent-ink: var(--agent-ink);
@@ -83,6 +84,7 @@
   --rack-deep: #232930;
   --rack-line: #3a424b;
   --on-rack: #c5cdd4;
+  --rack-heading: #eef1f3;
   --on-rack-muted: #9aa5af;
   --agent: #2f9bd0;
   --agent-ink: #176087;
@@ -113,6 +115,7 @@
   --rack-deep: #161b20;
   --rack-line: #2e363e;
   --on-rack: #c5cdd4;
+  --rack-heading: #eef1f3;
   --on-rack-muted: #8f9aa4;
   --agent: #2f9bd0;
   --agent-ink: #6cc0ea;

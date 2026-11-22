@@ -68,7 +68,7 @@ export function OnboardingShell({
                   <span
                     className={cn(
                       'block text-sm font-semibold',
-                      !active && 'text-[#eef1f3]',
+                      !active && 'text-rack-heading',
                       !active && !done && 'opacity-70',
                     )}
                   >
