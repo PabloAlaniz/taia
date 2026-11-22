@@ -2,16 +2,21 @@
 
 import { useTranslations } from 'next-intl'
 import { useState, useEffect } from 'react'
+import { ChevronDown, ChevronRight, Circle, Plus, Star } from 'lucide-react'
 import { api } from '@/lib/api'
 import type { Project, Repository } from '@taia/types'
-import { Button, Checkbox, Input } from '@/components/atoms'
+import { Alert, Button, Checkbox, Input } from '@/components/atoms'
 import { Card } from '@/components/molecules/card'
+import { ConfirmDialog } from '@/components/molecules/confirm-dialog'
 import { PageHeader } from '@/components/molecules/page-header'
 import { SectionCard } from '@/components/molecules/section-card'
 import { ProjectContextEditor } from './_components/project-context-editor'
 
 export default function ProjectsSettingsPage() {
   const tp = useTranslations('pageTitles')
+  const t = useTranslations('settingsProjects')
+  const tc = useTranslations('settingsCommon')
+  const tCommon = useTranslations('common')
   const [projects, setProjects] = useState<Project[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -39,9 +44,16 @@ export default function ProjectsSettingsPage() {
   // Delete state
   const [deletingId, setDeletingId] = useState<string | null>(null)
   const [deletingRepoId, setDeletingRepoId] = useState<string | null>(null)
+  const [confirmProject, setConfirmProject] = useState<Project | null>(null)
+  const [confirmRepo, setConfirmRepo] = useState<Repository | null>(null)
+  const [deleteError, setDeleteError] = useState<string | null>(null)
+
+  const errorText = (e: unknown) => (e instanceof Error ? e.message : String(e))
 
   useEffect(() => {
     fetchProjects()
+    // Loads once on mount; fetchProjects only reads t for its error text.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   async function fetchProjects() {
@@ -49,7 +61,7 @@ export default function ProjectsSettingsPage() {
       const data = await api.projects.list()
       setProjects(data.projects || [])
     } catch {
-      setError('Error loading projects')
+      setError(t('errors.load'))
     }
     setLoading(false)
   }
@@ -111,7 +123,7 @@ export default function ProjectsSettingsPage() {
 
   async function handleSave() {
     if (!formName.trim()) {
-      setError('Name is required')
+      setError(t('errors.nameRequired'))
       return
     }
     setSaving(true)
@@ -123,7 +135,7 @@ export default function ProjectsSettingsPage() {
           description: formDesc || undefined,
         })
         if (!data.ok) {
-          setError('Error updating project')
+          setError(t('errors.save', { error: t('errors.unknown') }))
           setSaving(false)
           return
         }
@@ -133,7 +145,7 @@ export default function ProjectsSettingsPage() {
           description: formDesc || undefined,
         })
         if (!data.ok) {
-          setError('Error creating project')
+          setError(t('errors.save', { error: t('errors.unknown') }))
           setSaving(false)
           return
         }
@@ -141,29 +153,31 @@ export default function ProjectsSettingsPage() {
       resetForm()
       await fetchProjects()
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e))
+      setError(t('errors.save', { error: errorText(e) }))
     }
     setSaving(false)
   }
 
   async function handleDelete(id: string) {
     setDeletingId(id)
+    setDeleteError(null)
     try {
       await api.projects.delete(id)
       if (expandedId === id) {
         setExpandedId(null)
         setRepos([])
       }
+      setConfirmProject(null)
       await fetchProjects()
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e))
+      setDeleteError(t('errors.delete', { error: errorText(e) }))
     }
     setDeletingId(null)
   }
 
   async function handleSaveRepo() {
     if (!repoName.trim() || !repoUrl.trim()) {
-      setError('Repo name and URL are required')
+      setError(t('errors.repoRequired'))
       return
     }
     if (!expandedId) return
@@ -186,7 +200,7 @@ export default function ProjectsSettingsPage() {
       resetRepoForm()
       await fetchRepos(expandedId)
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e))
+      setError(t('errors.repoSave', { error: errorText(e) }))
     }
     setSavingRepo(false)
   }
@@ -194,11 +208,13 @@ export default function ProjectsSettingsPage() {
   async function handleDeleteRepo(repoId: string) {
     if (!expandedId) return
     setDeletingRepoId(repoId)
+    setDeleteError(null)
     try {
       await api.projects.repositories.delete(expandedId, repoId)
+      setConfirmRepo(null)
       await fetchRepos(expandedId)
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e))
+      setDeleteError(t('errors.repoDelete', { error: errorText(e) }))
     }
     setDeletingRepoId(null)
   }
@@ -209,7 +225,9 @@ export default function ProjectsSettingsPage() {
   if (loading) {
     return (
       <div className="min-h-full bg-background flex items-center justify-center">
-        <span className="text-2xl animate-pulse">...</span>
+        <span className="text-sm text-muted animate-pulse" role="status">
+          {tCommon('loading')}
+        </span>
       </div>
     )
   }
@@ -228,10 +246,8 @@ export default function ProjectsSettingsPage() {
         <Card padding="none" className="rounded-lg">
           <div className="p-4 border-b border-border flex items-center justify-between">
             <div>
-              <h2 className="font-semibold">Projects</h2>
-              <p className="text-sm text-muted mt-1">
-                Manage projects and their GitHub repositories.
-              </p>
+              <h2 className="font-semibold">{t('listTitle')}</h2>
+              <p className="text-sm text-muted mt-1">{t('listDesc')}</p>
             </div>
             {!showForm && (
               <Button
@@ -242,15 +258,14 @@ export default function ProjectsSettingsPage() {
                   setShowForm(true)
                 }}
               >
-                + Add
+                <Plus className="w-4 h-4" aria-hidden="true" />
+                {t('add')}
               </Button>
             )}
           </div>
 
           {projects.length === 0 && !showForm ? (
-            <div className="p-8 text-center text-sm text-muted">
-              No projects yet. Add one to get started.
-            </div>
+            <div className="p-8 text-center text-sm text-muted">{t('empty')}</div>
           ) : (
             <div className="divide-y divide-border">
               {projects.map((project) => (
@@ -261,8 +276,18 @@ export default function ProjectsSettingsPage() {
                       size="xs"
                       onClick={() => toggleExpand(project.id)}
                       className="text-muted hover:text-foreground"
+                      aria-expanded={expandedId === project.id}
+                      aria-label={
+                        expandedId === project.id
+                          ? t('collapse', { name: project.name })
+                          : t('expand', { name: project.name })
+                      }
                     >
-                      {expandedId === project.id ? '▼' : '▶'}
+                      {expandedId === project.id ? (
+                        <ChevronDown className="w-3.5 h-3.5" aria-hidden="true" />
+                      ) : (
+                        <ChevronRight className="w-3.5 h-3.5" aria-hidden="true" />
+                      )}
                     </Button>
                     <div className="flex-1 min-w-0">
                       <div className="font-medium text-sm">{project.name}</div>
@@ -272,15 +297,18 @@ export default function ProjectsSettingsPage() {
                     </div>
                     <div className="flex items-center gap-2">
                       <Button variant="secondary" size="xs" onClick={() => startEdit(project)}>
-                        Edit
+                        {tCommon('edit')}
                       </Button>
                       <Button
                         variant="danger"
                         size="xs"
-                        onClick={() => handleDelete(project.id)}
+                        onClick={() => {
+                          setDeleteError(null)
+                          setConfirmProject(project)
+                        }}
                         disabled={deletingId === project.id}
                       >
-                        {deletingId === project.id ? '...' : 'Delete'}
+                        {deletingId === project.id ? t('deleting') : tCommon('delete')}
                       </Button>
                     </div>
                   </div>
@@ -290,14 +318,14 @@ export default function ProjectsSettingsPage() {
                     <div className="bg-background border-t border-border px-6 py-3 space-y-6">
                       <div className="space-y-3">
                         <span className="text-xs font-medium text-muted uppercase">
-                          Project context
+                          {t('contextHeading')}
                         </span>
                         <ProjectContextEditor key={project.id} projectId={project.id} />
                       </div>
 
                       <div className="flex items-center justify-between border-t border-border pt-3">
                         <span className="text-xs font-medium text-muted uppercase">
-                          Repositories
+                          {t('reposHeading')}
                         </span>
                         {!showRepoForm && (
                           <Button
@@ -309,22 +337,33 @@ export default function ProjectsSettingsPage() {
                             }}
                             className="text-accent hover:underline"
                           >
-                            + Add repo
+                            <Plus className="w-3.5 h-3.5" aria-hidden="true" />
+                            {t('addRepo')}
                           </Button>
                         )}
                       </div>
 
                       {loadingRepos ? (
-                        <div className="text-xs text-muted animate-pulse">Loading...</div>
+                        <div className="text-xs text-muted animate-pulse" role="status">
+                          {t('loadingRepos')}
+                        </div>
                       ) : repos.length === 0 && !showRepoForm ? (
-                        <div className="text-xs text-muted">No repositories.</div>
+                        <div className="text-xs text-muted">{t('noRepos')}</div>
                       ) : (
                         <div className="space-y-2">
                           {repos.map((repo) => (
                             <div key={repo.id} className="flex items-center gap-2 text-sm">
-                              <span className="text-muted text-xs">
-                                {repo.is_primary ? '★' : '○'}
-                              </span>
+                              {repo.is_primary ? (
+                                <Star
+                                  className="w-3 h-3 shrink-0 text-muted fill-current"
+                                  aria-hidden="true"
+                                />
+                              ) : (
+                                <Circle
+                                  className="w-3 h-3 shrink-0 text-muted"
+                                  aria-hidden="true"
+                                />
+                              )}
                               <span className="font-medium text-xs">{repo.name}</span>
                               <a
                                 href={repo.url}
@@ -336,7 +375,7 @@ export default function ProjectsSettingsPage() {
                               </a>
                               {repo.is_primary && (
                                 <span className="text-2xs bg-accent/20 text-accent px-1.5 py-0.5 rounded-sm">
-                                  primary
+                                  {t('primary')}
                                 </span>
                               )}
                               <Button
@@ -345,16 +384,19 @@ export default function ProjectsSettingsPage() {
                                 onClick={() => startEditRepo(repo)}
                                 className="text-2xs"
                               >
-                                Edit
+                                {tCommon('edit')}
                               </Button>
                               <Button
                                 variant="danger"
                                 size="xs"
-                                onClick={() => handleDeleteRepo(repo.id)}
+                                onClick={() => {
+                                  setDeleteError(null)
+                                  setConfirmRepo(repo)
+                                }}
                                 disabled={deletingRepoId === repo.id}
                                 className="text-2xs"
                               >
-                                {deletingRepoId === repo.id ? '...' : 'Del'}
+                                {deletingRepoId === repo.id ? t('deleting') : tCommon('delete')}
                               </Button>
                             </div>
                           ))}
@@ -366,17 +408,23 @@ export default function ProjectsSettingsPage() {
                         <Card padding="none" className="p-3 space-y-3">
                           <div className="grid grid-cols-2 gap-3">
                             <div>
-                              <label className="text-xs text-muted block mb-1">Name *</label>
+                              <label htmlFor="repo-name" className="text-xs text-muted block mb-1">
+                                {t('repoNameLabel')} *
+                              </label>
                               <Input
+                                id="repo-name"
                                 value={repoName}
                                 onChange={(e) => setRepoName(e.target.value)}
-                                placeholder="my-repo"
+                                placeholder={t('repoNamePlaceholder')}
                                 className={inputClass}
                               />
                             </div>
                             <div>
-                              <label className="text-xs text-muted block mb-1">URL *</label>
+                              <label htmlFor="repo-url" className="text-xs text-muted block mb-1">
+                                {t('repoUrlLabel')} *
+                              </label>
                               <Input
+                                id="repo-url"
                                 value={repoUrl}
                                 onChange={(e) => setRepoUrl(e.target.value)}
                                 placeholder="https://github.com/org/repo"
@@ -389,11 +437,11 @@ export default function ProjectsSettingsPage() {
                               checked={repoPrimary}
                               onChange={(e) => setRepoPrimary(e.target.checked)}
                             />
-                            Primary repository
+                            {t('repoPrimaryLabel')}
                           </label>
                           <div className="flex items-center gap-2 justify-end">
                             <Button variant="ghost" size="xs" onClick={resetRepoForm}>
-                              Cancel
+                              {tCommon('cancel')}
                             </Button>
                             <Button
                               variant="primary"
@@ -402,7 +450,11 @@ export default function ProjectsSettingsPage() {
                               disabled={savingRepo}
                               className="text-xs"
                             >
-                              {savingRepo ? '...' : editingRepoId ? 'Update' : 'Add'}
+                              {savingRepo
+                                ? tc('saving')
+                                : editingRepoId
+                                  ? t('repoUpdate')
+                                  : t('repoCreate')}
                             </Button>
                           </div>
                         </Card>
@@ -415,40 +467,92 @@ export default function ProjectsSettingsPage() {
           )}
         </Card>
 
+        {error && !showForm && <Alert variant="error">{error}</Alert>}
+
         {/* Add/Edit Project Form */}
         {showForm && (
-          <SectionCard title={editingId ? 'Edit project' : 'New project'}>
+          <SectionCard
+            title={
+              editingId
+                ? t('editTitle', {
+                    name: projects.find((p) => p.id === editingId)?.name ?? editingId,
+                  })
+                : t('newTitle')
+            }
+          >
             <div>
-              <label className="text-xs text-muted block mb-1">Name *</label>
+              <label htmlFor="project-name" className="text-xs text-muted block mb-1">
+                {t('nameLabel')} *
+              </label>
               <Input
+                id="project-name"
                 value={formName}
                 onChange={(e) => setFormName(e.target.value)}
-                placeholder="taia"
+                placeholder={t('namePlaceholder')}
                 className={inputClass}
               />
             </div>
             <div>
-              <label className="text-xs text-muted block mb-1">Description</label>
+              <label htmlFor="project-description" className="text-xs text-muted block mb-1">
+                {t('descLabel')}
+              </label>
               <Input
+                id="project-description"
                 value={formDesc}
                 onChange={(e) => setFormDesc(e.target.value)}
-                placeholder="Project description…"
+                placeholder={t('descPlaceholder')}
                 className={inputClass}
               />
             </div>
 
-            {error && <div className="text-sm text-red-500">{error}</div>}
+            {error && (
+              <div role="alert" className="text-sm text-alert">
+                {error}
+              </div>
+            )}
 
             <div className="flex items-center gap-3 justify-end">
               <Button variant="ghost" size="lg" onClick={resetForm}>
-                Cancel
+                {tCommon('cancel')}
               </Button>
               <Button variant="primary" size="lg" onClick={handleSave} disabled={saving}>
-                {saving ? 'Saving...' : editingId ? 'Update' : 'Create'}
+                {saving ? tc('saving') : editingId ? t('update') : t('create')}
               </Button>
             </div>
           </SectionCard>
         )}
+
+        <ConfirmDialog
+          open={confirmProject !== null}
+          title={t('confirmDelete.title', { name: confirmProject?.name ?? '' })}
+          body={t('confirmDelete.body')}
+          confirmLabel={t('confirmDelete.action')}
+          cancelLabel={tCommon('cancel')}
+          destructive
+          busy={deletingId !== null}
+          error={deleteError}
+          onConfirm={() => confirmProject && handleDelete(confirmProject.id)}
+          onCancel={() => {
+            setConfirmProject(null)
+            setDeleteError(null)
+          }}
+        />
+
+        <ConfirmDialog
+          open={confirmRepo !== null}
+          title={t('confirmDeleteRepo.title', { name: confirmRepo?.name ?? '' })}
+          body={t('confirmDeleteRepo.body')}
+          confirmLabel={t('confirmDeleteRepo.action')}
+          cancelLabel={tCommon('cancel')}
+          destructive
+          busy={deletingRepoId !== null}
+          error={deleteError}
+          onConfirm={() => confirmRepo && handleDeleteRepo(confirmRepo.id)}
+          onCancel={() => {
+            setConfirmRepo(null)
+            setDeleteError(null)
+          }}
+        />
       </div>
     </div>
   )

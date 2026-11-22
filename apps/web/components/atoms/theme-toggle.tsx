@@ -1,12 +1,14 @@
 'use client'
 
 import { useTheme } from 'next-themes'
+import { useTranslations } from 'next-intl'
 import { Sun, Moon, Monitor } from 'lucide-react'
 import { useIsClient } from '../../lib/use-is-client'
 import { cn } from '../../lib/utils'
 
 export function ThemeToggle() {
   const { theme, setTheme } = useTheme()
+  const t = useTranslations('appearanceUi')
   const isClient = useIsClient()
   if (!isClient) return null
 
@@ -18,8 +20,9 @@ export function ThemeToggle() {
           'p-1.5 rounded-sm transition-colors focus-visible:ring-2 focus-visible:ring-accent focus-visible:outline-hidden',
           theme === 'light' ? 'bg-card text-foreground' : 'text-muted hover:text-foreground',
         )}
-        title="Light mode"
-        aria-label="Light mode"
+        title={t('light')}
+        aria-label={t('light')}
+        aria-pressed={theme === 'light'}
       >
         <Sun className="w-3.5 h-3.5" aria-hidden="true" />
       </button>
@@ -29,8 +32,9 @@ export function ThemeToggle() {
           'p-1.5 rounded-sm transition-colors focus-visible:ring-2 focus-visible:ring-accent focus-visible:outline-hidden',
           theme === 'dark' ? 'bg-card text-foreground' : 'text-muted hover:text-foreground',
         )}
-        title="Dark mode"
-        aria-label="Dark mode"
+        title={t('dark')}
+        aria-label={t('dark')}
+        aria-pressed={theme === 'dark'}
       >
         <Moon className="w-3.5 h-3.5" aria-hidden="true" />
       </button>
@@ -40,8 +44,9 @@ export function ThemeToggle() {
           'p-1.5 rounded-sm transition-colors focus-visible:ring-2 focus-visible:ring-accent focus-visible:outline-hidden',
           theme === 'system' ? 'bg-card text-foreground' : 'text-muted hover:text-foreground',
         )}
-        title="System preference"
-        aria-label="System preference"
+        title={t('system')}
+        aria-label={t('system')}
+        aria-pressed={theme === 'system'}
       >
         <Monitor className="w-3.5 h-3.5" aria-hidden="true" />
       </button>

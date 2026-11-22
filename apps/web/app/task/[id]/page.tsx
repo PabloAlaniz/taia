@@ -2,6 +2,7 @@
 
 import { useEffect } from 'react'
 import { useParams, useRouter } from 'next/navigation'
+import { useTranslations } from 'next-intl'
 import { useStore } from '../../../lib/store'
 import { TaskPage } from '../../../components/organisms/task-page'
 import { Subtask, TaskTrajectory } from '@taia/types'
@@ -18,6 +19,7 @@ async function loadList<T>(url: string, field: string): Promise<T[]> {
 export default function TaskDetailPage() {
   const params = useParams()
   const router = useRouter()
+  const t = useTranslations('taskPage')
   const taskId = params.id as string
 
   const {
@@ -161,9 +163,10 @@ export default function TaskDetailPage() {
     return (
       <div className="flex items-center justify-center h-screen">
         <div className="text-center">
-          <p className="text-muted mb-4">Task not found</p>
+          <h1 className="text-base font-medium mb-1">{t('notFound')}</h1>
+          <p className="text-sm text-muted mb-4">{t('notFoundHint')}</p>
           <Button variant="ghost" onClick={handleBack} className="text-accent hover:underline">
-            Back to Board
+            {t('backToBoard')}
           </Button>
         </div>
       </div>

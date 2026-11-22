@@ -2,66 +2,78 @@
 
 import Link from 'next/link'
 import { useTranslations } from 'next-intl'
+import {
+  Bot,
+  Brain,
+  ChevronRight,
+  FolderGit2,
+  GitBranch,
+  Plug,
+  ScrollText,
+  Settings,
+  UserRound,
+  Users,
+  type LucideIcon,
+} from 'lucide-react'
 import { Card } from '@/components/molecules/card'
 import { PageHeader } from '@/components/molecules/page-header'
 
+interface Section {
+  href: string
+  icon: LucideIcon
+  title: string
+  description: string
+}
+
 export default function SettingsPage() {
   const t = useTranslations('settingsPage')
+  const tp = useTranslations('pageTitles')
+  const ti = useTranslations('settingsIndex')
 
-  const sections = [
+  const sections: Section[] = [
     {
       href: '/settings/general',
-      icon: '⚙️',
-      titleKey: 'General',
-      descKey: 'generalDesc',
+      icon: Settings,
+      title: tp('general'),
+      description: ti('generalDesc'),
     },
-    {
-      href: '/settings/agents',
-      icon: '🤖',
-      titleKey: 'agentsTitle',
-      descKey: 'agentsDesc',
-    },
+    { href: '/settings/agents', icon: Bot, title: t('agentsTitle'), description: ti('agentsDesc') },
     {
       href: '/settings/runtime',
-      icon: '🔌',
-      titleKey: 'runtimeTitle',
-      descKey: 'runtimeDesc',
+      icon: Plug,
+      title: t('runtimeTitle'),
+      description: ti('runtimeDesc'),
     },
     {
       href: '/settings/models',
-      icon: '🧠',
-      titleKey: 'modelsTitle',
-      descKey: 'modelsDesc',
+      icon: Brain,
+      title: t('modelsTitle'),
+      description: ti('modelsDesc'),
     },
-    {
-      href: '/settings/team',
-      icon: '👥',
-      titleKey: 'teamTitle',
-      descKey: 'teamDesc',
-    },
+    { href: '/settings/team', icon: Users, title: tp('team'), description: ti('teamDesc') },
     {
       href: '/settings/projects',
-      icon: '📁',
-      titleKey: 'projectsTitle',
-      descKey: 'projectsDesc',
+      icon: FolderGit2,
+      title: tp('projects'),
+      description: ti('projectsDesc'),
     },
     {
       href: '/settings/profile',
-      icon: '👤',
-      titleKey: 'User profile',
-      descKey: 'What every agent knows about you',
+      icon: UserRound,
+      title: tp('profile'),
+      description: ti('profileDesc'),
     },
     {
       href: '/settings/worktrees',
-      icon: '🌿',
-      titleKey: 'Git Worktrees',
-      descKey: 'worktreesDesc',
+      icon: GitBranch,
+      title: tp('worktrees'),
+      description: ti('worktreesDesc'),
     },
     {
       href: '/settings/audit',
-      icon: '🧾',
-      titleKey: 'Settings audit',
-      descKey: 'Workspace audit trail for settings and API keys',
+      icon: ScrollText,
+      title: tp('audit'),
+      description: ti('auditDesc'),
     },
   ]
 
@@ -70,29 +82,28 @@ export default function SettingsPage() {
       <PageHeader width="form" title={t('title')} />
 
       <div className="px-4 md:px-6 pt-5 pb-10 max-w-2xl mx-auto">
-        <p className="text-muted text-sm mb-6">{t('generalDesc')}</p>
+        <p className="text-muted text-sm mb-6">{ti('intro')}</p>
 
         <div className="space-y-2">
-          {sections.map((section) => (
-            <Link key={section.href} href={section.href} className="no-underline">
-              <Card
-                variant="interactive"
-                padding="md"
-                className="rounded-lg flex items-center gap-4"
-              >
-                <span className="text-2xl">{section.icon}</span>
-                <div>
-                  <div className="font-medium text-foreground">
-                    {t.has(section.titleKey) ? t(section.titleKey) : section.titleKey}
+          {sections.map((section) => {
+            const Icon = section.icon
+            return (
+              <Link key={section.href} href={section.href} className="no-underline">
+                <Card
+                  variant="interactive"
+                  padding="md"
+                  className="rounded-lg flex items-center gap-4"
+                >
+                  <Icon className="w-5 h-5 shrink-0 text-muted" aria-hidden="true" />
+                  <div>
+                    <div className="font-medium text-foreground">{section.title}</div>
+                    <div className="text-sm text-muted">{section.description}</div>
                   </div>
-                  <div className="text-sm text-muted">
-                    {t.has(section.descKey) ? t(section.descKey) : section.descKey}
-                  </div>
-                </div>
-                <span className="ml-auto text-muted">→</span>
-              </Card>
-            </Link>
-          ))}
+                  <ChevronRight className="ml-auto w-4 h-4 text-muted" aria-hidden="true" />
+                </Card>
+              </Link>
+            )
+          })}
         </div>
       </div>
     </div>

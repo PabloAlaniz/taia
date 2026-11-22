@@ -1,6 +1,8 @@
 'use client'
 
 import { useState, useRef, useEffect } from 'react'
+import { useTranslations } from 'next-intl'
+import { Plus, X } from 'lucide-react'
 import { Subtask } from '@taia/types'
 import { Button, Checkbox, IconButton, Input } from '../atoms'
 import { cn } from '../../lib/utils'
@@ -15,6 +17,8 @@ interface SubtaskListProps {
 }
 
 export function SubtaskList({ subtasks, onAdd, onToggle, onUpdate, onDelete }: SubtaskListProps) {
+  const t = useTranslations('subtasks')
+  const tc = useTranslations('common')
   const [newTitle, setNewTitle] = useState('')
   const [isAdding, setIsAdding] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
@@ -60,9 +64,12 @@ export function SubtaskList({ subtasks, onAdd, onToggle, onUpdate, onDelete }: S
       {/* Header with progress */}
       <div className="flex items-center justify-between">
         <h3 className="text-sm font-medium text-muted flex items-center gap-2">
-          <span>Subtasks</span>
+          <span>{t('title')}</span>
           {total > 0 && (
-            <span className="text-xs px-1.5 py-0.5 bg-background rounded-sm">
+            <span
+              className="text-xs px-1.5 py-0.5 bg-background rounded-sm"
+              aria-label={t('progress', { done: completed, total })}
+            >
               {completed}/{total}
             </span>
           )}
@@ -91,6 +98,7 @@ export function SubtaskList({ subtasks, onAdd, onToggle, onUpdate, onDelete }: S
               <Checkbox
                 checked={subtask.completed}
                 onChange={(e) => onToggle(subtask.id, e.target.checked)}
+                aria-label={t('toggle', { title: subtask.title })}
               />
 
               {editingId === subtask.id ? (
@@ -103,13 +111,14 @@ export function SubtaskList({ subtasks, onAdd, onToggle, onUpdate, onDelete }: S
                       if (e.key === 'Escape') handleCancelEdit()
                     }}
                     autoFocus
+                    aria-label={t('edit', { title: subtask.title })}
                     className="flex-1 text-sm"
                   />
                   <Button variant="ghost" size="xs" onClick={handleSaveEdit}>
-                    Save
+                    {tc('save')}
                   </Button>
                   <Button variant="ghost" size="xs" onClick={handleCancelEdit}>
-                    Cancel
+                    {tc('cancel')}
                   </Button>
                 </div>
               ) : (
@@ -120,6 +129,7 @@ export function SubtaskList({ subtasks, onAdd, onToggle, onUpdate, onDelete }: S
                       subtask.completed && 'line-through',
                     )}
                     onClick={() => handleStartEdit(subtask)}
+                    title={t('edit', { title: subtask.title })}
                   >
                     {subtask.title}
                   </span>
@@ -127,19 +137,10 @@ export function SubtaskList({ subtasks, onAdd, onToggle, onUpdate, onDelete }: S
                     variant="ghost"
                     size="xs"
                     onClick={() => onDelete(subtask.id)}
-                    className="opacity-0 group-hover:opacity-100 text-muted hover:text-red-400 transition-opacity"
-                    aria-label="Delete subtask"
+                    className="opacity-0 group-hover:opacity-100 focus-visible:opacity-100 text-muted hover:text-alert transition-opacity"
+                    aria-label={t('delete', { title: subtask.title })}
                   >
-                    <svg
-                      width="14"
-                      height="14"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                    >
-                      <path d="M18 6L6 18M6 6l12 12" />
-                    </svg>
+                    <X size={14} aria-hidden />
                   </IconButton>
                 </>
               )}
@@ -151,7 +152,7 @@ export function SubtaskList({ subtasks, onAdd, onToggle, onUpdate, onDelete }: S
       {/* Add new subtask */}
       {isAdding ? (
         <div className="flex items-center gap-2 p-2">
-          <Checkbox disabled className="opacity-50 cursor-default" />
+          <Checkbox disabled aria-hidden className="opacity-50 cursor-default" />
           <Input
             ref={inputRef}
             value={newTitle}
@@ -163,11 +164,12 @@ export function SubtaskList({ subtasks, onAdd, onToggle, onUpdate, onDelete }: S
                 setNewTitle('')
               }
             }}
-            placeholder="Enter subtask title…"
+            placeholder={t('placeholder')}
+            aria-label={t('placeholder')}
             className="flex-1 text-sm"
           />
           <Button variant="primary" size="xs" onClick={handleAdd}>
-            Add
+            {t('add')}
           </Button>
           <Button
             variant="ghost"
@@ -177,7 +179,7 @@ export function SubtaskList({ subtasks, onAdd, onToggle, onUpdate, onDelete }: S
               setNewTitle('')
             }}
           >
-            Cancel
+            {tc('cancel')}
           </Button>
         </div>
       ) : (
@@ -187,8 +189,8 @@ export function SubtaskList({ subtasks, onAdd, onToggle, onUpdate, onDelete }: S
           onClick={() => setIsAdding(true)}
           className="flex items-center gap-2 text-sm text-muted hover:text-foreground p-2 w-full rounded-sm hover:bg-background/50"
         >
-          <span className="w-4 h-4 flex items-center justify-center text-lg">+</span>
-          Add subtask
+          <Plus size={16} aria-hidden />
+          {t('addSubtask')}
         </Button>
       )}
     </div>

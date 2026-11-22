@@ -2,15 +2,19 @@
 
 import { useState, useMemo } from 'react'
 import Link from 'next/link'
+import { useFormatter, useTranslations } from 'next-intl'
+import { ChevronLeft, ChevronRight, X } from 'lucide-react'
 import { Task } from '@taia/types'
 import { cn } from '../../lib/utils'
+import { useStore } from '../../lib/store'
 import { Button, IconButton } from '../atoms'
 
 interface CalendarViewProps {
   tasks: Task[]
 }
 
-const DAYS_OF_WEEK = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+/** A week that starts on Sunday, to name the weekdays in the reader's locale. */
+const REFERENCE_WEEK = Array.from({ length: 7 }, (_, i) => new Date(2023, 0, 1 + i))
 
 function getDaysInMonth(year: number, month: number): number {
   return new Date(year, month + 1, 0).getDate()
@@ -25,14 +29,20 @@ function formatDate(date: Date): string {
 }
 
 function getPriorityColor(task: Task): string {
-  if (task.status === 'DONE') return 'bg-green-500'
-  if (task.status === 'IN_PROGRESS') return 'bg-blue-500'
-  if (task.priority === 'URGENT') return 'bg-red-500'
-  if (task.priority === 'HIGH') return 'bg-orange-500'
+  if (task.status === 'DONE') return 'bg-ok'
+  if (task.status === 'IN_PROGRESS') return 'bg-agent'
+  if (task.priority === 'URGENT') return 'bg-alert'
+  if (task.priority === 'HIGH') return 'bg-person'
   return 'bg-muted'
 }
 
 export function CalendarView({ tasks }: CalendarViewProps) {
+  const t = useTranslations('calendarUi')
+  const format = useFormatter()
+  const agents = useStore((s) => s.agents)
+  const boardColumns = useStore((s) => s.boardColumns)
+  const columnLabel = (slug: string) => boardColumns.find((c) => c.slug === slug)?.label ?? slug
+  const agentName = (id: string) => agents.find((a) => a.id === id)?.name ?? id
   const [currentDate, setCurrentDate] = useState(new Date())
   const [selectedDay, setSelectedDay] = useState<string | null>(null)
 
@@ -120,38 +130,38 @@ export function CalendarView({ tasks }: CalendarViewProps) {
       {/* Calendar Header */}
       <div className="flex items-center justify-between mb-2 shrink-0">
         <div className="flex items-center gap-2">
-          <IconButton variant="ghost" size="sm" onClick={goToPrevMonth} aria-label="Previous month">
-            ◀
+          <IconButton variant="ghost" size="sm" onClick={goToPrevMonth} aria-label={t('prevMonth')}>
+            <ChevronLeft size={16} aria-hidden />
           </IconButton>
-          <h2 className="text-base font-bold min-w-[160px] text-center">
-            {currentDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
+          <h2 className="text-base font-bold min-w-[160px] text-center first-letter:uppercase">
+            {format.dateTime(currentDate, { month: 'long', year: 'numeric' })}
           </h2>
-          <IconButton variant="ghost" size="sm" onClick={goToNextMonth} aria-label="Next month">
-            ▶
+          <IconButton variant="ghost" size="sm" onClick={goToNextMonth} aria-label={t('nextMonth')}>
+            <ChevronRight size={16} aria-hidden />
           </IconButton>
         </div>
         <div className="flex items-center gap-3">
           {/* Legend - inline */}
           <div className="hidden md:flex items-center gap-3 text-xs text-muted">
             <div className="flex items-center gap-1">
-              <div className="w-2 h-2 rounded-full bg-red-500" />
-              <span>Urgent</span>
+              <div className="w-2 h-2 rounded-full bg-alert" />
+              <span>{t('urgent')}</span>
             </div>
             <div className="flex items-center gap-1">
-              <div className="w-2 h-2 rounded-full bg-orange-500" />
-              <span>High</span>
+              <div className="w-2 h-2 rounded-full bg-person" />
+              <span>{t('high')}</span>
             </div>
             <div className="flex items-center gap-1">
-              <div className="w-2 h-2 rounded-full bg-blue-500" />
-              <span>In Progress</span>
+              <div className="w-2 h-2 rounded-full bg-agent" />
+              <span>{t('inProgress')}</span>
             </div>
             <div className="flex items-center gap-1">
-              <div className="w-2 h-2 rounded-full bg-green-500" />
-              <span>Done</span>
+              <div className="w-2 h-2 rounded-full bg-ok" />
+              <span>{t('done')}</span>
             </div>
           </div>
           <Button variant="secondary" size="xs" onClick={goToToday}>
-            Today
+            {t('today')}
           </Button>
         </div>
       </div>
@@ -161,9 +171,9 @@ export function CalendarView({ tasks }: CalendarViewProps) {
         <div className="flex-1 flex flex-col min-h-0">
           {/* Days of week header */}
           <div className="grid grid-cols-7 gap-1 shrink-0">
-            {DAYS_OF_WEEK.map((day) => (
-              <div key={day} className="text-center text-xs text-muted py-1 font-medium">
-                {day}
+            {REFERENCE_WEEK.map((day) => (
+              <div key={day.getDay()} className="text-center text-xs text-muted py-1 font-medium">
+                {format.dateTime(day, { weekday: 'short' })}
               </div>
             ))}
           </div>
@@ -191,6 +201,15 @@ export function CalendarView({ tasks }: CalendarViewProps) {
                       key={day}
                       variant="ghost"
                       onClick={() => setSelectedDay(isSelected ? null : dateKey)}
+                      aria-pressed={isSelected}
+                      aria-label={t('dayAria', {
+                        date: format.dateTime(new Date(year, month, day), {
+                          weekday: 'long',
+                          day: 'numeric',
+                          month: 'long',
+                        }),
+                        count: dayTasks.length,
+                      })}
                       className={cn(
                         'p-1 rounded-sm border transition-colors relative flex flex-col h-full font-normal',
                         'hover:bg-card focus:outline-hidden focus:ring-2 focus:ring-accent',
@@ -245,8 +264,8 @@ export function CalendarView({ tasks }: CalendarViewProps) {
           {selectedDay ? (
             <>
               <div className="flex items-center justify-between mb-2 shrink-0">
-                <h3 className="font-medium text-sm">
-                  {new Date(selectedDay + 'T00:00:00').toLocaleDateString('en-US', {
+                <h3 className="font-medium text-sm first-letter:uppercase">
+                  {format.dateTime(new Date(selectedDay + 'T00:00:00'), {
                     weekday: 'short',
                     month: 'short',
                     day: 'numeric',
@@ -256,13 +275,13 @@ export function CalendarView({ tasks }: CalendarViewProps) {
                   variant="ghost"
                   size="xs"
                   onClick={() => setSelectedDay(null)}
-                  aria-label="Close day detail"
+                  aria-label={t('closeDay')}
                 >
-                  ✕
+                  <X size={14} aria-hidden />
                 </IconButton>
               </div>
               {selectedDayTasks.length === 0 ? (
-                <p className="text-xs text-muted">No tasks due this day</p>
+                <p className="text-xs text-muted">{t('dayEmpty')}</p>
               ) : (
                 <div className="space-y-1.5 overflow-y-auto flex-1">
                   {selectedDayTasks.map((task) => (
@@ -281,8 +300,8 @@ export function CalendarView({ tasks }: CalendarViewProps) {
                         <div className="flex-1 min-w-0">
                           <div className="text-xs font-medium truncate">{task.title}</div>
                           <div className="text-2xs text-muted flex items-center gap-1">
-                            <span>{task.status}</span>
-                            {task.assigned_to && <span>· {task.assigned_to}</span>}
+                            <span>{columnLabel(task.status)}</span>
+                            {task.assigned_to && <span>· {agentName(task.assigned_to)}</span>}
                           </div>
                         </div>
                       </div>
@@ -293,7 +312,7 @@ export function CalendarView({ tasks }: CalendarViewProps) {
             </>
           ) : (
             <div className="text-xs text-muted text-center flex-1 flex items-center justify-center">
-              Click on a day to see tasks
+              {t('pickDay')}
             </div>
           )}
         </div>

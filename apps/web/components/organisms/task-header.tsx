@@ -1,5 +1,7 @@
 'use client'
 
+import { useTranslations } from 'next-intl'
+import { ArrowLeft } from 'lucide-react'
 import { Task } from '@taia/types'
 import { Button, Badge, Divider } from '../atoms'
 import { PRIORITY_COLORS } from '../../lib/utils'
@@ -12,6 +14,7 @@ interface TaskHeaderProps {
 }
 
 export function TaskHeader({ task, onBack }: TaskHeaderProps) {
+  const t = useTranslations('taskPage')
   const priorityColor = PRIORITY_COLORS[task.priority]
   const tagColors = useStore((s) => s.tagColors)
 
@@ -19,8 +22,8 @@ export function TaskHeader({ task, onBack }: TaskHeaderProps) {
     <header className="h-14 px-4 border-b border-border flex items-center justify-between bg-card shrink-0">
       <div className="flex items-center gap-4">
         <Button variant="ghost" size="sm" onClick={onBack}>
-          <span className="mr-1">←</span>
-          Back
+          <ArrowLeft size={14} aria-hidden className="mr-1" />
+          {t('backToBoard')}
         </Button>
 
         <Divider orientation="vertical" />
@@ -31,7 +34,9 @@ export function TaskHeader({ task, onBack }: TaskHeaderProps) {
           <span
             className="w-2 h-2 rounded-full"
             style={{ background: priorityColor }}
-            title={task.priority}
+            role="img"
+            aria-label={t('priorityAria', { priority: task.priority })}
+            title={t('priorityAria', { priority: task.priority })}
           />
 
           {task.project && (

@@ -2,8 +2,10 @@
 
 import { useTranslations } from 'next-intl'
 import { useState, useEffect } from 'react'
+import { Plus } from 'lucide-react'
 import { Button, Input } from '@/components/atoms'
 import { Card } from '@/components/molecules/card'
+import { ConfirmDialog } from '@/components/molecules/confirm-dialog'
 import { PageHeader } from '@/components/molecules/page-header'
 import { SectionCard } from '@/components/molecules/section-card'
 
@@ -17,6 +19,9 @@ interface HumanAgent {
 
 export default function TeamSettingsPage() {
   const tp = useTranslations('pageTitles')
+  const t = useTranslations('settingsTeam')
+  const tCommon = useTranslations('common')
+  const tc = useTranslations('settingsCommon')
   const [members, setMembers] = useState<HumanAgent[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -32,9 +37,13 @@ export default function TeamSettingsPage() {
 
   // Delete state
   const [deletingId, setDeletingId] = useState<string | null>(null)
+  const [confirmMember, setConfirmMember] = useState<HumanAgent | null>(null)
+  const [deleteError, setDeleteError] = useState<string | null>(null)
 
   useEffect(() => {
     fetchMembers()
+    // Loads once on mount; fetchMembers only reads t for its error text.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   async function fetchMembers() {
@@ -45,7 +54,7 @@ export default function TeamSettingsPage() {
         setMembers(data.agents.filter((a: { type?: string }) => a.type === 'human'))
       }
     } catch {
-      setError('Error al cargar miembros')
+      setError(t('errors.load'))
     }
     setLoading(false)
   }
@@ -72,7 +81,7 @@ export default function TeamSettingsPage() {
 
   async function handleSave() {
     if (!formId.trim() || !formName.trim()) {
-      setError('ID y Nombre son requeridos')
+      setError(t('errors.required'))
       return
     }
 
@@ -93,7 +102,7 @@ export default function TeamSettingsPage() {
         })
         const data = await res.json()
         if (!data.ok) {
-          setError(data.error || 'Error al actualizar')
+          setError(t('errors.save', { error: String(data.error) }))
           setSaving(false)
           return
         }
@@ -112,7 +121,7 @@ export default function TeamSettingsPage() {
         })
         const data = await res.json()
         if (!data.ok) {
-          setError(data.error || 'Error al crear')
+          setError(t('errors.save', { error: String(data.error) }))
           setSaving(false)
           return
         }
@@ -121,23 +130,30 @@ export default function TeamSettingsPage() {
       resetForm()
       await fetchMembers()
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e))
+      setError(t('errors.save', { error: e instanceof Error ? e.message : String(e) }))
     }
     setSaving(false)
   }
 
-  async function handleDelete(id: string) {
-    setDeletingId(id)
+  async function handleDelete(member: HumanAgent) {
+    setDeletingId(member.id)
+    setDeleteError(null)
     try {
-      const res = await fetch(`/api/agents/${id}`, { method: 'DELETE' })
+      const res = await fetch(`/api/agents/${member.id}`, { method: 'DELETE' })
       const data = await res.json()
       if (!data.ok) {
-        setError(data.error || 'Error al eliminar')
+        setDeleteError(t('errors.delete', { name: member.name, error: String(data.error) }))
       } else {
+        setConfirmMember(null)
         await fetchMembers()
       }
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e))
+      setDeleteError(
+        t('errors.delete', {
+          name: member.name,
+          error: e instanceof Error ? e.message : String(e),
+        }),
+      )
     }
     setDeletingId(null)
   }
@@ -148,7 +164,9 @@ export default function TeamSettingsPage() {
   if (loading) {
     return (
       <div className="min-h-full bg-background flex items-center justify-center">
-        <span className="text-2xl">⏳</span>
+        <span className="text-sm text-muted" role="status">
+          {tCommon('loading')}
+        </span>
       </div>
     )
   }
@@ -162,10 +180,8 @@ export default function TeamSettingsPage() {
         <Card padding="none" className="rounded-lg">
           <div className="p-4 border-b border-border flex items-center justify-between">
             <div>
-              <h2 className="font-semibold">Miembros del equipo</h2>
-              <p className="text-sm text-muted mt-1">
-                Miembros humanos que pueden tener tareas asignadas.
-              </p>
+              <h2 className="font-semibold">{t('listTitle')}</h2>
+              <p className="text-sm text-muted mt-1">{t('listDesc')}</p>
             </div>
             {!showForm && (
               <Button
@@ -176,37 +192,41 @@ export default function TeamSettingsPage() {
                   setShowForm(true)
                 }}
               >
-                + Agregar
+                <Plus className="w-4 h-4" aria-hidden="true" />
+                {t('add')}
               </Button>
             )}
           </div>
 
           {members.length === 0 && !showForm ? (
-            <div className="p-8 text-center text-sm text-muted">
-              No hay miembros humanos. Agrega uno para comenzar.
-            </div>
+            <div className="p-8 text-center text-sm text-muted">{t('empty')}</div>
           ) : (
             <div className="divide-y divide-border">
               {members.map((member) => (
                 <div key={member.id} className="p-4 flex items-center gap-3">
-                  <span className="text-2xl">{member.avatar}</span>
+                  <span className="text-2xl" aria-hidden="true">
+                    {member.avatar}
+                  </span>
                   <div className="flex-1 min-w-0">
                     <div className="font-medium text-sm">{member.name}</div>
                     <div className="text-xs text-muted truncate">
-                      {member.role || 'Sin rol'} · <code className="text-2xs">{member.id}</code>
+                      {member.role || t('noRole')} · <code className="text-2xs">{member.id}</code>
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
                     <Button variant="secondary" size="xs" onClick={() => startEdit(member)}>
-                      Editar
+                      {tCommon('edit')}
                     </Button>
                     <Button
                       variant="danger"
                       size="xs"
-                      onClick={() => handleDelete(member.id)}
+                      onClick={() => {
+                        setDeleteError(null)
+                        setConfirmMember(member)
+                      }}
                       disabled={deletingId === member.id}
                     >
-                      {deletingId === member.id ? '...' : 'Eliminar'}
+                      {deletingId === member.id ? t('deleting') : tCommon('delete')}
                     </Button>
                   </div>
                 </div>
@@ -217,44 +237,62 @@ export default function TeamSettingsPage() {
 
         {/* Add/Edit Form */}
         {showForm && (
-          <SectionCard title={editingId ? 'Editar miembro' : 'Nuevo miembro'}>
+          <SectionCard
+            title={
+              editingId
+                ? t('editTitle', {
+                    name: members.find((m) => m.id === editingId)?.name ?? editingId,
+                  })
+                : t('newTitle')
+            }
+          >
             <div>
-              <label className="text-xs text-muted block mb-1">ID *</label>
+              <label htmlFor="team-member-id" className="text-xs text-muted block mb-1">
+                {t('idLabel')} *
+              </label>
               <Input
+                id="team-member-id"
                 value={formId}
                 onChange={(e) => setFormId(e.target.value)}
-                placeholder="agent-1"
+                placeholder={t('idPlaceholder')}
                 disabled={!!editingId}
                 className={`${inputClass} ${editingId ? 'opacity-50' : ''}`}
               />
-              <p className="text-xs text-muted mt-1">
-                Identificador unico (lowercase, sin espacios).
-              </p>
+              <p className="text-xs text-muted mt-1">{t('idHelp')}</p>
             </div>
 
             <div>
-              <label className="text-xs text-muted block mb-1">Nombre *</label>
+              <label htmlFor="team-member-name" className="text-xs text-muted block mb-1">
+                {t('nameLabel')} *
+              </label>
               <Input
+                id="team-member-name"
                 value={formName}
                 onChange={(e) => setFormName(e.target.value)}
-                placeholder="Agent 1"
+                placeholder={t('namePlaceholder')}
                 className={inputClass}
               />
             </div>
 
             <div>
-              <label className="text-xs text-muted block mb-1">Rol</label>
+              <label htmlFor="team-member-role" className="text-xs text-muted block mb-1">
+                {t('roleLabel')}
+              </label>
               <Input
+                id="team-member-role"
                 value={formRole}
                 onChange={(e) => setFormRole(e.target.value)}
-                placeholder="Lead"
+                placeholder={t('rolePlaceholder')}
                 className={inputClass}
               />
             </div>
 
             <div>
-              <label className="text-xs text-muted block mb-1">Avatar</label>
+              <label htmlFor="team-member-avatar" className="text-xs text-muted block mb-1">
+                {t('avatarLabel')}
+              </label>
               <Input
+                id="team-member-avatar"
                 value={formAvatar}
                 onChange={(e) => setFormAvatar(e.target.value)}
                 placeholder="👤"
@@ -262,18 +300,38 @@ export default function TeamSettingsPage() {
               />
             </div>
 
-            {error && <div className="text-sm text-red-500">{error}</div>}
+            {error && (
+              <div role="alert" className="text-sm text-alert">
+                {error}
+              </div>
+            )}
 
             <div className="flex items-center gap-3 justify-end">
               <Button variant="ghost" size="lg" onClick={resetForm}>
-                Cancelar
+                {tCommon('cancel')}
               </Button>
               <Button variant="primary" size="lg" onClick={handleSave} disabled={saving}>
-                {saving ? 'Guardando...' : editingId ? 'Actualizar' : 'Crear'}
+                {saving ? tc('saving') : editingId ? t('update') : t('create')}
               </Button>
             </div>
           </SectionCard>
         )}
+
+        <ConfirmDialog
+          open={confirmMember !== null}
+          title={t('confirmDelete.title', { name: confirmMember?.name ?? '' })}
+          body={t('confirmDelete.body', { name: confirmMember?.name ?? '' })}
+          confirmLabel={t('confirmDelete.action')}
+          cancelLabel={tCommon('cancel')}
+          destructive
+          busy={deletingId !== null}
+          error={deleteError}
+          onConfirm={() => confirmMember && handleDelete(confirmMember)}
+          onCancel={() => {
+            setConfirmMember(null)
+            setDeleteError(null)
+          }}
+        />
       </div>
     </div>
   )

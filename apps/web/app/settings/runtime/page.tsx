@@ -9,6 +9,7 @@ import { RuntimeProviderForm } from '@/components/organisms/runtime-provider-for
 export default function RuntimeSettingsPage() {
   const tp = useTranslations('pageTitles')
   const t = useTranslations('runtime')
+  const tc = useTranslations('settingsCommon')
   const [settings, setSettings] = useState<Record<string, string> | null>(null)
 
   useEffect(() => {
@@ -30,8 +31,8 @@ export default function RuntimeSettingsPage() {
       <div className="px-4 md:px-6 pt-5 pb-10 max-w-2xl mx-auto">
         <SectionCard title={t('title')} description={t('pageDesc')}>
           {settings === null ? (
-            <span className="text-2xl animate-pulse" aria-busy="true">
-              ⏳
+            <span className="text-sm text-muted animate-pulse" role="status" aria-busy="true">
+              {tc('loadingPage')}
             </span>
           ) : (
             <RuntimeProviderForm initialSettings={settings} />

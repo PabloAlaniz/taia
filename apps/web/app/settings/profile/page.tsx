@@ -1,6 +1,6 @@
 'use client'
 
-import { useTranslations } from 'next-intl'
+import { useFormatter, useNow, useTranslations } from 'next-intl'
 // /settings/profile — typed editor for the UserProfile bundle layer.
 //
 // Single-user TAIA today (singleton id='default'); the route therefore
@@ -12,6 +12,7 @@ import { useTranslations } from 'next-intl'
 
 import { useCallback, useEffect, useState } from 'react'
 import type { UserProfile } from '@taia/types'
+import { X } from 'lucide-react'
 import { Alert, Button, Input, Label } from '@/components/atoms'
 import { fetchJson, useResource } from '@/lib/use-resource'
 import { PageHeader } from '@/components/molecules/page-header'
@@ -24,6 +25,18 @@ interface ProfileVersionEntry {
   note: string | null
 }
 
+/** "5 minutes ago", never in the future, with the full date on hover. */
+function VersionTime({ iso }: { iso: string }) {
+  const format = useFormatter()
+  const now = useNow({ updateInterval: 60_000 })
+  const date = new Date(iso)
+  return (
+    <time dateTime={iso} title={format.dateTime(date, { dateStyle: 'medium', timeStyle: 'short' })}>
+      {format.relativeTime(new Date(Math.min(date.getTime(), now.getTime())), now)}
+    </time>
+  )
+}
+
 function ProfileVersionDrawer({
   isOpen,
   onClose,
@@ -33,6 +46,7 @@ function ProfileVersionDrawer({
   onClose: () => void
   onRestored: () => void
 }) {
+  const t = useTranslations('settingsProfile')
   const versionsUrl = '/api/user/profile/versions'
   const history = useResource(isOpen ? versionsUrl : null, () =>
     fetchJson<{ versions?: ProfileVersionEntry[] }>(versionsUrl),
@@ -63,7 +77,9 @@ function ProfileVersionDrawer({
       onRestored()
       close()
     } catch (err) {
-      setRestoreError(err instanceof Error ? err.message : String(err))
+      setRestoreError(
+        t('restoreFailed', { error: err instanceof Error ? err.message : String(err) }),
+      )
     } finally {
       setRestoring(null)
     }
@@ -81,33 +97,40 @@ function ProfileVersionDrawer({
         className="bg-card border-l border-border h-full w-full max-w-[480px] flex flex-col"
       >
         <div className="flex items-center justify-between p-4 border-b border-border">
-          <h3 className="text-lg font-semibold">Version history</h3>
-          <Button variant="ghost" size="sm" onClick={close}>
-            ×
+          <h3 className="text-lg font-semibold">{t('historyTitle')}</h3>
+          <Button variant="ghost" size="sm" onClick={close} aria-label={t('closeHistory')}>
+            <X className="w-4 h-4" aria-hidden="true" />
           </Button>
         </div>
         <div className="flex-1 overflow-y-auto p-4 space-y-3">
           {error && <Alert variant="error">{error}</Alert>}
-          {!versions && !error && <div className="text-muted text-sm">Loading…</div>}
+          {!versions && !error && (
+            <div className="text-muted text-sm" role="status">
+              {t('loadingHistory')}
+            </div>
+          )}
           {versions && versions.length === 0 && (
-            <div className="text-muted text-sm">No versions yet.</div>
+            <div className="text-muted text-sm">{t('noVersions')}</div>
           )}
           {versions?.map((v, i) => (
             <div key={v.versionId} className="border border-border rounded-lg p-3">
               <div className="flex items-start justify-between gap-2">
                 <div className="text-sm">
                   <div className="font-medium">
-                    {i === 0 ? 'Current — ' : ''}
-                    {new Date(v.createdAt).toLocaleString()}
+                    {i === 0 ? `${t('current')} · ` : ''}
+                    <VersionTime iso={v.createdAt} />
                   </div>
                   <div className="text-muted text-xs">
-                    {v.createdBy ?? 'unknown'}
-                    {v.note ? ` — ${v.note}` : ''}
+                    {v.createdBy ?? t('unknownAuthor')}
+                    {v.note ? ` · ${v.note}` : ''}
                   </div>
                   <div className="text-muted text-xs mt-1">
-                    {v.content.displayName} • {v.content.facts?.length ?? 0} facts •{' '}
-                    {Object.keys(v.content.preferences ?? {}).length} prefs •{' '}
-                    {v.content.doNotDo?.length ?? 0} do-nots
+                    {v.content.displayName} ·{' '}
+                    {t('versionSummary', {
+                      facts: v.content.facts?.length ?? 0,
+                      prefs: Object.keys(v.content.preferences ?? {}).length,
+                      doNots: v.content.doNotDo?.length ?? 0,
+                    })}
                   </div>
                 </div>
                 {i > 0 && (
@@ -117,7 +140,7 @@ function ProfileVersionDrawer({
                     onClick={() => restore(v.versionId)}
                     disabled={restoring !== null}
                   >
-                    {restoring === v.versionId ? 'Restoring…' : 'Restore'}
+                    {restoring === v.versionId ? t('restoring') : t('restore')}
                   </Button>
                 )}
               </div>
@@ -131,6 +154,8 @@ function ProfileVersionDrawer({
 
 export default function UserProfilePage() {
   const tp = useTranslations('pageTitles')
+  const t = useTranslations('settingsProfile')
+  const tc = useTranslations('settingsCommon')
   const [profile, setProfile] = useState<UserProfile | null>(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -176,9 +201,15 @@ export default function UserProfilePage() {
         setDoNotDo(p.doNotDo ?? [])
       })
       .catch((err) =>
-        setMessage({ type: 'error', text: err instanceof Error ? err.message : String(err) }),
+        setMessage({
+          type: 'error',
+          text: t('loadFailed', { error: err instanceof Error ? err.message : String(err) }),
+        }),
       )
       .finally(() => setLoading(false))
+    // Fetches once: t is only used for the error text, and re-running on a
+    // new t identity would refetch the profile.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   useEffect(fetchProfile, [fetchProfile])
@@ -196,7 +227,7 @@ export default function UserProfilePage() {
     const v = prefValue.trim()
     if (!k || !v) return
     if (prefs.some(([existing]) => existing === k)) {
-      setMessage({ type: 'error', text: `Preference "${k}" already set.` })
+      setMessage({ type: 'error', text: t('duplicatePref', { key: k }) })
       setTimeout(() => setMessage(null), 3000)
       return
     }
@@ -247,7 +278,7 @@ export default function UserProfilePage() {
             preferences: Object.fromEntries(prefs),
             doNotDo,
           },
-          note: 'Edited via Profile page',
+          note: t('versionNote'),
         }),
       })
       if (!res.ok) {
@@ -257,12 +288,12 @@ export default function UserProfilePage() {
       const data = await res.json()
       setProfile(data.profile)
       setVersionMeta({ versionId: data.versionId })
-      setMessage({ type: 'success', text: 'Profile saved.' })
+      setMessage({ type: 'success', text: t('saved') })
       setTimeout(() => setMessage(null), 3000)
     } catch (err) {
       setMessage({
         type: 'error',
-        text: err instanceof Error ? err.message : String(err),
+        text: t('saveFailed', { error: err instanceof Error ? err.message : String(err) }),
       })
     } finally {
       setSaving(false)
@@ -278,54 +309,56 @@ export default function UserProfilePage() {
         backLabel={tp('settings')}
       />
       <div className="px-4 md:px-6 pt-5 pb-10 max-w-2xl mx-auto space-y-6">
-        <p className="text-muted text-sm">
-          What every agent knows about you. Edited fields are versioned — restore any past state via
-          History.
-        </p>
+        <p className="text-muted text-sm">{t('intro')}</p>
 
         {message && <Alert variant={message.type}>{message.text}</Alert>}
 
         {versionMeta?.versionId && (
           <div className="text-muted text-xs">
-            Version {versionMeta.versionId.slice(0, 12)}…
-            {versionMeta.createdAt ? ` • ${new Date(versionMeta.createdAt).toLocaleString()}` : ''}
-            {versionMeta.createdBy ? ` • ${versionMeta.createdBy}` : ''}
+            {tc('version', { id: versionMeta.versionId.slice(0, 12) })}
+            {versionMeta.createdAt && (
+              <>
+                {' · '}
+                <VersionTime iso={versionMeta.createdAt} />
+              </>
+            )}
+            {versionMeta.createdBy ? ` · ${versionMeta.createdBy}` : ''}
           </div>
         )}
 
         {loading ? (
-          <div className="text-muted text-sm">Loading profile…</div>
+          <div className="text-muted text-sm" role="status">
+            {t('loading')}
+          </div>
         ) : (
           <>
             <div>
-              <Label htmlFor="profile-displayName">Display name</Label>
+              <Label htmlFor="profile-displayName">{t('displayNameLabel')}</Label>
               <Input
                 id="profile-displayName"
                 type="text"
                 value={displayName}
                 onChange={(e) => setDisplayName(e.target.value)}
-                placeholder="What agents should call you"
+                placeholder={t('displayNamePlaceholder')}
               />
             </div>
 
             <ListField
-              label="Facts"
-              hint="Things every agent should remember (e.g. role, location, current focus)."
+              label={t('factsLabel')}
+              hint={t('factsHelp')}
               items={facts}
               newValue={newFact}
               onNewValue={setNewFact}
               onAdd={addFact}
               onRemove={removeFact}
-              ariaLabel="fact"
-              placeholder="Add a fact…"
+              addLabel={t('addFact')}
+              removeLabel={(item) => t('removeFact', { item })}
+              placeholder={t('factPlaceholder')}
             />
 
             <div>
-              <Label>Preferences</Label>
-              <p className="text-muted text-xs mb-2">
-                Key→value preferences (tone, language, formats). Stored as a flat object in the
-                bundle.
-              </p>
+              <Label>{t('prefsLabel')}</Label>
+              <p className="text-muted text-xs mb-2">{t('prefsHelp')}</p>
               {prefs.length > 0 && (
                 <ul className="space-y-1 mb-2">
                   {prefs.map(([k, v], i) => (
@@ -340,9 +373,9 @@ export default function UserProfilePage() {
                         variant="ghost"
                         size="sm"
                         onClick={() => removePref(i)}
-                        aria-label={`Remove preference ${i + 1}`}
+                        aria-label={t('removePref', { key: k })}
                       >
-                        ×
+                        <X className="w-3.5 h-3.5" aria-hidden="true" />
                       </Button>
                     </li>
                   ))}
@@ -352,13 +385,13 @@ export default function UserProfilePage() {
                 <Input
                   type="text"
                   value={prefKey}
-                  placeholder="Key"
+                  placeholder={t('keyPlaceholder')}
                   onChange={(e) => setPrefKey(e.target.value)}
                 />
                 <Input
                   type="text"
                   value={prefValue}
-                  placeholder="Value"
+                  placeholder={t('valuePlaceholder')}
                   onChange={(e) => setPrefValue(e.target.value)}
                   onKeyDown={(e) => {
                     if (e.key === 'Enter') {
@@ -373,29 +406,32 @@ export default function UserProfilePage() {
                   onClick={addPref}
                   disabled={!prefKey.trim() || !prefValue.trim()}
                 >
-                  Add
+                  {t('addPref')}
                 </Button>
               </div>
             </div>
 
             <ListField
-              label="Do NOT"
-              hint='Anti-preferences applied as constraints in the system prompt (e.g. "guess when uncertain").'
+              label={t('doNotLabel')}
+              hint={t('doNotHelp')}
               items={doNotDo}
               newValue={newDoNotDo}
               onNewValue={setNewDoNotDo}
               onAdd={addDoNotDo}
               onRemove={removeDoNotDo}
-              ariaLabel="do-not"
-              placeholder="Add an anti-preference…"
+              addLabel={t('addDoNot')}
+              removeLabel={(item) => t('removeDoNot', { item })}
+              placeholder={t('doNotPlaceholder')}
             />
 
             <div className="flex justify-end gap-3 pt-2 border-t border-border">
               {hasChanges && (
-                <span className="text-yellow-500 text-sm self-center">● Unsaved changes</span>
+                <span className="text-accent text-sm self-center" role="status">
+                  {tc('unsaved')}
+                </span>
               )}
               <Button variant="secondary" size="lg" onClick={() => setHistoryOpen(true)}>
-                History
+                {t('history')}
               </Button>
               <Button
                 variant={hasChanges ? 'primary' : 'secondary'}
@@ -403,7 +439,7 @@ export default function UserProfilePage() {
                 onClick={save}
                 disabled={!hasChanges || saving}
               >
-                {saving ? 'Saving…' : 'Save profile'}
+                {saving ? tc('saving') : t('save')}
               </Button>
             </div>
           </>
@@ -414,7 +450,7 @@ export default function UserProfilePage() {
         isOpen={historyOpen}
         onClose={() => setHistoryOpen(false)}
         onRestored={() => {
-          setMessage({ type: 'success', text: 'Profile restored.' })
+          setMessage({ type: 'success', text: t('restored') })
           setTimeout(() => setMessage(null), 3000)
           fetchProfile()
         }}
@@ -431,7 +467,8 @@ function ListField({
   onNewValue,
   onAdd,
   onRemove,
-  ariaLabel,
+  addLabel,
+  removeLabel,
   placeholder,
 }: {
   label: string
@@ -441,7 +478,8 @@ function ListField({
   onNewValue: (v: string) => void
   onAdd: () => void
   onRemove: (idx: number) => void
-  ariaLabel: string
+  addLabel: string
+  removeLabel: (item: string) => string
   placeholder: string
 }) {
   return (
@@ -460,9 +498,9 @@ function ListField({
                 variant="ghost"
                 size="sm"
                 onClick={() => onRemove(i)}
-                aria-label={`Remove ${ariaLabel} ${i + 1}`}
+                aria-label={removeLabel(item)}
               >
-                ×
+                <X className="w-3.5 h-3.5" aria-hidden="true" />
               </Button>
             </li>
           ))}
@@ -487,7 +525,7 @@ function ListField({
           onClick={onAdd}
           disabled={newValue.trim().length === 0}
         >
-          Add
+          {addLabel}
         </Button>
       </div>
     </div>

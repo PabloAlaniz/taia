@@ -51,6 +51,8 @@ export function AppearancePopover({ fontScale }: AppearancePopoverProps) {
         variant="ghost"
         onClick={() => setOpen(!open)}
         title={t('title')}
+        aria-label={t('title')}
+        aria-expanded={open}
         className="text-muted hover:text-foreground"
       >
         Aa
@@ -81,6 +83,7 @@ export function AppearancePopover({ fontScale }: AppearancePopoverProps) {
                   onClick={fontScale.decrease}
                   disabled={!fontScale.canDecrease}
                   title={t('decreaseFont')}
+                  aria-label={t('decreaseFont')}
                 >
                   A-
                 </Button>
@@ -88,6 +91,7 @@ export function AppearancePopover({ fontScale }: AppearancePopoverProps) {
                   size="xs"
                   onClick={fontScale.reset}
                   title={t('resetFont')}
+                  aria-label={`${t('resetFont')} (${Math.round(fontScale.scale * 100)}%)`}
                   className="min-w-12"
                 >
                   {Math.round(fontScale.scale * 100)}%
@@ -97,6 +101,7 @@ export function AppearancePopover({ fontScale }: AppearancePopoverProps) {
                   onClick={fontScale.increase}
                   disabled={!fontScale.canIncrease}
                   title={t('increaseFont')}
+                  aria-label={t('increaseFont')}
                 >
                   A+
                 </Button>

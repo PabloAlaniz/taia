@@ -1,6 +1,8 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { useTranslations } from 'next-intl'
+import { Loader2, Plus, X } from 'lucide-react'
 import { Button, Input } from '../atoms'
 import { Modal, ModalHeader, ModalBody, ModalFooter } from '../molecules/modal'
 import { useStore } from '@/lib/store'
@@ -25,6 +27,8 @@ interface NewAgentInput {
 
 type ColumnMode = 'preset' | 'ai'
 
+const AI_EXAMPLE_KEYS = ['software', 'marketing', 'editorial', 'sales'] as const
+
 interface CreateWorkspaceModalProps {
   open: boolean
   onClose: () => void
@@ -38,6 +42,10 @@ export function CreateWorkspaceModal({ open, ...props }: CreateWorkspaceModalPro
 }
 
 function CreateWorkspaceForm({ onClose, fullScreen }: Omit<CreateWorkspaceModalProps, 'open'>) {
+  const t = useTranslations('workspaceForm')
+  const tc = useTranslations('common')
+  const [generateError, setGenerateError] = useState<string | null>(null)
+  const [createError, setCreateError] = useState<string | null>(null)
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
   const [presets, setPresets] = useState<WorkspacePreset[]>([])
@@ -85,10 +93,17 @@ function CreateWorkspaceForm({ onClose, fullScreen }: Omit<CreateWorkspaceModalP
     if (!input || input.length < 3) return
 
     setGenerating(true)
+    setGenerateError(null)
     try {
       type GeneratedSetup = {
         workspace: { name?: string; columns: ColumnInput[] }
-        agents: Array<{ id: string; name: string; role?: string; avatar?: string; type?: string }>
+        agents: Array<{
+          id: string
+          name: string
+          role?: string
+          avatar?: string
+          type?: string
+        }>
       }
       const res = await api.onboarding.generateSetup(input)
       const setup = res.setup as GeneratedSetup | undefined
@@ -106,9 +121,12 @@ function CreateWorkspaceForm({ onClose, fullScreen }: Omit<CreateWorkspaceModalP
         if (!name.trim() && setup.workspace.name) {
           setName(setup.workspace.name)
         }
+      } else {
+        setGenerateError(t('generateFailed'))
       }
     } catch (e) {
       console.error('AI generation failed:', e instanceof Error ? e.message : String(e))
+      setGenerateError(t('generateFailed'))
     }
     setGenerating(false)
   }
@@ -127,7 +145,7 @@ function CreateWorkspaceForm({ onClose, fullScreen }: Omit<CreateWorkspaceModalP
       ...cols,
       {
         slug: `NEW_${Date.now()}`,
-        label: 'Nueva columna',
+        label: t('newColumn'),
         icon: '📌',
         is_initial_state: false,
         is_done_state: false,
@@ -183,6 +201,7 @@ function CreateWorkspaceForm({ onClose, fullScreen }: Omit<CreateWorkspaceModalP
   async function handleCreate() {
     if (!canCreate) return
     setLoading(true)
+    setCreateError(null)
     try {
       const body: Record<string, unknown> = {
         name: name.trim(),
@@ -216,36 +235,21 @@ function CreateWorkspaceForm({ onClose, fullScreen }: Omit<CreateWorkspaceModalP
         setActiveWorkspace(data.workspace.id)
         refresh()
         onClose()
+      } else {
+        setCreateError(t('createFailed'))
       }
     } catch (error) {
       console.error('Failed to create workspace:', error)
+      setCreateError(t('createFailed'))
     } finally {
       setLoading(false)
     }
   }
 
-  const AI_EXAMPLES = [
-    {
-      label: 'Desarrollo de software',
-      value:
-        'Quiero gestionar un equipo de desarrollo de software con agentes que revisen codigo, escriban tests, y hagan deploy',
-    },
-    {
-      label: 'Marketing de contenidos',
-      value:
-        'Necesito agentes para crear y gestionar contenido de marketing: redaccion, diseno, publicacion en redes sociales',
-    },
-    {
-      label: 'Escritura y editorial',
-      value:
-        'Quiero gestionar un flujo editorial: investigacion, borradores, edicion, revision y publicacion',
-    },
-    {
-      label: 'Pipeline de ventas',
-      value:
-        'Necesito gestionar un pipeline de ventas: prospeccion, contacto, propuestas, negociacion y cierre',
-    },
-  ]
+  const AI_EXAMPLES = AI_EXAMPLE_KEYS.map((key) => ({
+    label: t(`examples.${key}.label`),
+    value: t(`examples.${key}.prompt`),
+  }))
 
   const content = (
     <>
@@ -253,43 +257,51 @@ function CreateWorkspaceForm({ onClose, fullScreen }: Omit<CreateWorkspaceModalP
         {/* Name & Description */}
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className="text-sm text-muted mb-1 block">Nombre</label>
+            <label htmlFor="workspace-name" className="text-sm text-muted mb-1 block">
+              {t('name')}
+            </label>
             <Input
+              id="workspace-name"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="ej: Marketing, Escritura…"
+              placeholder={t('namePlaceholder')}
               autoFocus
             />
           </div>
           <div>
-            <label className="text-sm text-muted mb-1 block">Descripcion (opcional)</label>
+            <label htmlFor="workspace-description" className="text-sm text-muted mb-1 block">
+              {t('description')}
+            </label>
             <Input
+              id="workspace-description"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              placeholder="Descripcion del workspace"
+              placeholder={t('descriptionPlaceholder')}
             />
           </div>
         </div>
 
         {/* Column Mode Toggle */}
         <div>
-          <label className="text-sm text-muted mb-2 block">Columnas</label>
+          <p className="text-sm text-muted mb-2">{t('columns')}</p>
           <div className="flex gap-1 mb-3">
             <Button
               variant={columnMode === 'preset' ? 'primary' : 'ghost'}
               size="sm"
               onClick={() => setColumnMode('preset')}
+              aria-pressed={columnMode === 'preset'}
               className="text-xs"
             >
-              Presets
+              {t('modePreset')}
             </Button>
             <Button
               variant={columnMode === 'ai' ? 'primary' : 'ghost'}
               size="sm"
               onClick={() => setColumnMode('ai')}
+              aria-pressed={columnMode === 'ai'}
               className="text-xs"
             >
-              Generar con IA
+              {t('modeAi')}
             </Button>
           </div>
 
@@ -324,9 +336,12 @@ function CreateWorkspaceForm({ onClose, fullScreen }: Omit<CreateWorkspaceModalP
           {columnMode === 'ai' && (
             <div className="space-y-3">
               {generating ? (
-                <div className="flex flex-col items-center justify-center py-8 space-y-3">
-                  <div className="text-3xl animate-pulse">🧠</div>
-                  <p className="text-muted text-sm">El agente esta analizando tu necesidad...</p>
+                <div
+                  role="status"
+                  className="flex flex-col items-center justify-center py-8 space-y-3"
+                >
+                  <Loader2 size={24} aria-hidden className="animate-spin text-muted" />
+                  <p className="text-muted text-sm">{t('generating')}</p>
                 </div>
               ) : customColumns.length === 0 ? (
                 <>
@@ -347,12 +362,15 @@ function CreateWorkspaceForm({ onClose, fullScreen }: Omit<CreateWorkspaceModalP
                     ))}
                   </div>
                   <div>
-                    <p className="text-xs text-muted mb-1">O describe tu caso:</p>
+                    <label htmlFor="workspace-ai-prompt" className="text-xs text-muted mb-1 block">
+                      {t('describeCase')}
+                    </label>
                     <div className="flex gap-2">
                       <Input
+                        id="workspace-ai-prompt"
                         value={aiPrompt}
                         onChange={(e) => setAiPrompt(e.target.value)}
-                        placeholder="Ej: Quiero gestionar un equipo de QA…"
+                        placeholder={t('promptPlaceholder')}
                         onKeyDown={(e) => e.key === 'Enter' && handleGenerate(aiPrompt)}
                         className="flex-1"
                       />
@@ -362,9 +380,14 @@ function CreateWorkspaceForm({ onClose, fullScreen }: Omit<CreateWorkspaceModalP
                         onClick={() => handleGenerate(aiPrompt)}
                         disabled={!aiPrompt || aiPrompt.length < 3}
                       >
-                        Generar
+                        {t('generate')}
                       </Button>
                     </div>
+                    {generateError && (
+                      <p role="alert" className="text-xs text-alert mt-2">
+                        {generateError}
+                      </p>
+                    )}
                   </div>
                 </>
               ) : (
@@ -376,20 +399,22 @@ function CreateWorkspaceForm({ onClose, fullScreen }: Omit<CreateWorkspaceModalP
                         key={`${col.slug}-${i}`}
                         className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-sm border ${
                           col.is_initial_state
-                            ? 'border-blue-500/50 bg-blue-500/10'
+                            ? 'border-accent/50 bg-accent/10'
                             : col.is_done_state
-                              ? 'border-green-500/50 bg-green-500/10'
+                              ? 'border-ok/50 bg-ok/15'
                               : 'border-border bg-card'
                         }`}
                       >
                         <Input
                           className="w-8 text-center bg-transparent border-none outline-hidden px-0 py-0 rounded-none"
                           value={col.icon}
+                          aria-label={t('columnIcon')}
                           onChange={(e) => updateColumn(i, { icon: e.target.value })}
                         />
                         <Input
                           className="flex-1 bg-transparent border-none outline-hidden text-foreground text-sm px-0 py-0 rounded-none"
                           value={col.label}
+                          aria-label={t('columnName')}
                           onChange={(e) => {
                             const label = e.target.value
                             const slug = label
@@ -402,19 +427,20 @@ function CreateWorkspaceForm({ onClose, fullScreen }: Omit<CreateWorkspaceModalP
                           }}
                         />
                         {col.is_initial_state && (
-                          <span className="text-xs text-blue-400 shrink-0">(inicio)</span>
+                          <span className="text-xs text-accent shrink-0">{t('initial')}</span>
                         )}
                         {col.is_done_state && (
-                          <span className="text-xs text-green-400 shrink-0">(final)</span>
+                          <span className="text-xs text-ok shrink-0">{t('final')}</span>
                         )}
                         <Button
                           variant="ghost"
                           size="sm"
                           onClick={() => removeColumn(i)}
-                          className="text-muted hover:text-red-400 transition-colors shrink-0 p-0 h-auto"
+                          className="text-muted hover:text-alert transition-colors shrink-0 p-0 h-auto"
                           disabled={customColumns.length <= 2}
+                          aria-label={t('removeColumn', { label: col.label })}
                         >
-                          ✕
+                          <X size={14} aria-hidden />
                         </Button>
                       </div>
                     ))}
@@ -426,7 +452,8 @@ function CreateWorkspaceForm({ onClose, fullScreen }: Omit<CreateWorkspaceModalP
                       onClick={addColumn}
                       className="text-xs text-muted hover:text-accent p-0 h-auto"
                     >
-                      + Agregar columna
+                      <Plus size={12} aria-hidden className="mr-1" />
+                      {t('addColumn')}
                     </Button>
                     <Button
                       variant="ghost"
@@ -437,7 +464,7 @@ function CreateWorkspaceForm({ onClose, fullScreen }: Omit<CreateWorkspaceModalP
                       }}
                       className="text-xs text-muted hover:text-accent p-0 h-auto"
                     >
-                      Regenerar
+                      {t('regenerate')}
                     </Button>
                   </div>
                 </>
@@ -448,12 +475,12 @@ function CreateWorkspaceForm({ onClose, fullScreen }: Omit<CreateWorkspaceModalP
 
         {/* Agents Section */}
         <div>
-          <label className="text-sm text-muted mb-2 block">Agentes</label>
+          <p className="text-sm text-muted mb-2">{t('agents')}</p>
 
           {/* AI-suggested agents */}
           {aiAgents.length > 0 && (
             <div className="mb-3">
-              <p className="text-xs text-muted mb-1.5">Sugeridos por IA</p>
+              <p className="text-xs text-muted mb-1.5">{t('aiSuggested')}</p>
               <div className="space-y-1.5">
                 {aiAgents.map((agent, i) => (
                   <div
@@ -463,11 +490,13 @@ function CreateWorkspaceForm({ onClose, fullScreen }: Omit<CreateWorkspaceModalP
                     <Input
                       className="w-7 text-center bg-transparent border-none outline-hidden px-0 py-0 text-base"
                       value={agent.avatar}
+                      aria-label={t('agentAvatar', { name: agent.name })}
                       onChange={(e) => updateAiAgent(i, { avatar: e.target.value })}
                     />
                     <Input
                       className="flex-1 bg-transparent border-none outline-hidden text-sm font-medium px-0 py-0 rounded-none"
                       value={agent.name}
+                      aria-label={t('agentNameAria')}
                       onChange={(e) => {
                         const agentName = e.target.value
                         const id = agentName
@@ -484,9 +513,10 @@ function CreateWorkspaceForm({ onClose, fullScreen }: Omit<CreateWorkspaceModalP
                       variant="ghost"
                       size="sm"
                       onClick={() => removeAiAgent(i)}
-                      className="text-muted hover:text-red-400 p-0 h-auto shrink-0"
+                      className="text-muted hover:text-alert p-0 h-auto shrink-0"
+                      aria-label={t('removeAgent', { name: agent.name })}
                     >
-                      ✕
+                      <X size={14} aria-hidden />
                     </Button>
                   </div>
                 ))}
@@ -497,7 +527,7 @@ function CreateWorkspaceForm({ onClose, fullScreen }: Omit<CreateWorkspaceModalP
           {/* Existing agents */}
           {existingAgents.length > 0 && (
             <div className="mb-3">
-              <p className="text-xs text-muted mb-1.5">Agentes existentes</p>
+              <p className="text-xs text-muted mb-1.5">{t('existingAgents')}</p>
               <div className="flex flex-wrap gap-1.5">
                 {existingAgents.map((agent) => (
                   <Button
@@ -505,6 +535,7 @@ function CreateWorkspaceForm({ onClose, fullScreen }: Omit<CreateWorkspaceModalP
                     variant="ghost"
                     size="sm"
                     onClick={() => toggleAgentSelection(agent.id)}
+                    aria-pressed={selectedAgentIds.has(agent.id)}
                     className={`text-xs border rounded-md px-2 py-1 h-auto ${
                       selectedAgentIds.has(agent.id)
                         ? 'border-accent bg-accent/10 text-accent'
@@ -521,7 +552,7 @@ function CreateWorkspaceForm({ onClose, fullScreen }: Omit<CreateWorkspaceModalP
           {/* Manually added agents */}
           {newAgents.length > 0 && (
             <div className="mb-3">
-              <p className="text-xs text-muted mb-1.5">Nuevos agentes</p>
+              <p className="text-xs text-muted mb-1.5">{t('newAgents')}</p>
               <div className="space-y-1.5">
                 {newAgents.map((agent, i) => (
                   <div
@@ -535,9 +566,10 @@ function CreateWorkspaceForm({ onClose, fullScreen }: Omit<CreateWorkspaceModalP
                       variant="ghost"
                       size="sm"
                       onClick={() => removeNewAgent(i)}
-                      className="text-muted hover:text-red-400 p-0 h-auto shrink-0"
+                      className="text-muted hover:text-alert p-0 h-auto shrink-0"
+                      aria-label={t('removeAgent', { name: agent.name })}
                     >
-                      ✕
+                      <X size={14} aria-hidden />
                     </Button>
                   </div>
                 ))}
@@ -552,14 +584,16 @@ function CreateWorkspaceForm({ onClose, fullScreen }: Omit<CreateWorkspaceModalP
                 <Input
                   value={newAgentName}
                   onChange={(e) => setNewAgentName(e.target.value)}
-                  placeholder="Nombre del agente"
+                  placeholder={t('agentNamePlaceholder')}
+                  aria-label={t('agentNamePlaceholder')}
                   className="text-sm mb-1"
                   autoFocus
                 />
                 <Input
                   value={newAgentRole}
                   onChange={(e) => setNewAgentRole(e.target.value)}
-                  placeholder="Rol (ej: Revisa codigo y sugiere mejoras)"
+                  placeholder={t('agentRolePlaceholder')}
+                  aria-label={t('agentRolePlaceholder')}
                   className="text-sm"
                   onKeyDown={(e) => e.key === 'Enter' && handleAddNewAgent()}
                 />
@@ -571,10 +605,15 @@ function CreateWorkspaceForm({ onClose, fullScreen }: Omit<CreateWorkspaceModalP
                   onClick={handleAddNewAgent}
                   disabled={!newAgentName.trim() || !newAgentRole.trim()}
                 >
-                  Agregar
+                  {t('add')}
                 </Button>
-                <Button variant="ghost" size="sm" onClick={() => setShowAddAgent(false)}>
-                  ✕
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setShowAddAgent(false)}
+                  aria-label={t('cancelAddAgent')}
+                >
+                  <X size={14} aria-hidden />
                 </Button>
               </div>
             </div>
@@ -585,7 +624,8 @@ function CreateWorkspaceForm({ onClose, fullScreen }: Omit<CreateWorkspaceModalP
               onClick={() => setShowAddAgent(true)}
               className="text-xs text-muted hover:text-accent p-0 h-auto"
             >
-              + Agregar agente
+              <Plus size={12} aria-hidden className="mr-1" />
+              {t('addAgent')}
             </Button>
           )}
         </div>
@@ -597,8 +637,13 @@ function CreateWorkspaceForm({ onClose, fullScreen }: Omit<CreateWorkspaceModalP
     return (
       <div className="min-h-screen bg-background flex items-center justify-center p-4">
         <div className="bg-card border border-border rounded-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto p-6 shadow-xl">
-          <h2 className="text-lg font-bold mb-4">Nuevo Workspace</h2>
+          <h2 className="text-lg font-bold mb-4">{t('title')}</h2>
           {content}
+          {createError && (
+            <p role="alert" className="text-sm text-alert mt-4">
+              {createError}
+            </p>
+          )}
           <div className="flex justify-end gap-2 mt-6">
             <Button
               variant="primary"
@@ -606,7 +651,7 @@ function CreateWorkspaceForm({ onClose, fullScreen }: Omit<CreateWorkspaceModalP
               onClick={handleCreate}
               disabled={!canCreate || loading}
             >
-              {loading ? 'Creando...' : 'Crear Workspace'}
+              {loading ? t('creating') : t('create')}
             </Button>
           </div>
         </div>
@@ -618,16 +663,23 @@ function CreateWorkspaceForm({ onClose, fullScreen }: Omit<CreateWorkspaceModalP
     <Modal open onClose={onClose} size="full" aria-labelledby="create-workspace-title">
       <ModalHeader>
         <h2 id="create-workspace-title" className="text-lg font-bold">
-          Nuevo Workspace
+          {t('title')}
         </h2>
       </ModalHeader>
-      <ModalBody>{content}</ModalBody>
+      <ModalBody>
+        {content}
+        {createError && (
+          <p role="alert" className="text-sm text-alert mt-4">
+            {createError}
+          </p>
+        )}
+      </ModalBody>
       <ModalFooter>
         <Button variant="ghost" size="sm" onClick={onClose}>
-          Cancelar
+          {tc('cancel')}
         </Button>
         <Button variant="primary" size="sm" onClick={handleCreate} disabled={!canCreate || loading}>
-          {loading ? 'Creando...' : 'Crear Workspace'}
+          {loading ? t('creating') : t('create')}
         </Button>
       </ModalFooter>
     </Modal>

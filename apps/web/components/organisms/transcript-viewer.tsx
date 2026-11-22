@@ -1,9 +1,12 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
+import { useFormatter, useTranslations } from 'next-intl'
+import { AlertTriangle, ArrowDown, Check, Copy, Wrench } from 'lucide-react'
 import type { SessionDetail } from '@taia/types'
 import { api } from '@/lib/api'
 import { useResource } from '@/lib/use-resource'
+import { cn } from '@/lib/utils'
 import { Button, Badge } from '../atoms'
 import { TranscriptMessage } from '../molecules/transcript-message'
 
@@ -14,7 +17,11 @@ interface TranscriptViewerProps {
 }
 
 export function TranscriptViewer({ sessionKey, instanceId }: TranscriptViewerProps) {
+  const t = useTranslations('transcript')
+  const tStatus = useTranslations('sessionsPage.status')
+  const format = useFormatter()
   const [includeTools, setIncludeTools] = useState(true)
+  const [copyState, setCopyState] = useState<'idle' | 'copied' | 'failed'>('idle')
   const [autoScroll, setAutoScroll] = useState(true)
   const [showScrollButton, setShowScrollButton] = useState(false)
   const scrollRef = useRef<HTMLDivElement>(null)
@@ -65,41 +72,49 @@ export function TranscriptViewer({ sessionKey, instanceId }: TranscriptViewerPro
     }
   }
 
-  const copyAsMarkdown = () => {
+  const copyAsMarkdown = async () => {
     if (!detail?.messages) return
     const md = detail.messages
       .map((m) => {
-        if (m.role === 'user') return `**User:** ${m.text || ''}`
+        if (m.role === 'user') return `**${t('mdUser')}:** ${m.text || ''}`
         const parts = m.parts
           ?.map((p) => {
             if (p.type === 'text') return p.text
-            if (p.type === 'tool') return `\`🔧 ${p.name}\``
-            if (p.type === 'thinking') return `_💭 ${(p.text || '').slice(0, 100)}_`
+            if (p.type === 'tool') return `\`${t('mdTool', { name: p.name ?? '' })}\``
+            if (p.type === 'thinking')
+              return `_${t('mdThinking', { text: (p.text || '').slice(0, 100) })}_`
             return ''
           })
           .filter(Boolean)
           .join('\n')
-        return `**Assistant:** ${parts || m.text || ''}`
+        return `**${t('mdAssistant')}:** ${parts || m.text || ''}`
       })
       .join('\n\n---\n\n')
-    navigator.clipboard.writeText(md)
+    try {
+      await navigator.clipboard.writeText(md)
+      setCopyState('copied')
+    } catch {
+      setCopyState('failed')
+    }
+    setTimeout(() => setCopyState('idle'), 2000)
   }
 
   if (loading) {
     return (
       <div className="flex-1 flex items-center justify-center">
-        <div className="text-sm text-muted animate-pulse">Cargando transcript...</div>
+        <div className="text-sm text-muted animate-pulse">{t('loading')}</div>
       </div>
     )
   }
 
   if (error) {
     return (
-      <div className="flex-1 flex flex-col items-center justify-center gap-2">
-        <div className="text-2xl">⚠️</div>
-        <div className="text-sm text-muted">{error}</div>
+      <div role="alert" className="flex-1 flex flex-col items-center justify-center gap-2">
+        <AlertTriangle size={20} aria-hidden className="text-alert" />
+        <div className="text-sm">{t('loadFailed')}</div>
+        <div className="text-xs text-muted">{error}</div>
         <Button size="sm" onClick={reload}>
-          Reintentar
+          {t('retry')}
         </Button>
       </div>
     )
@@ -107,13 +122,15 @@ export function TranscriptViewer({ sessionKey, instanceId }: TranscriptViewerPro
 
   if (!detail) {
     return (
-      <div className="flex-1 flex items-center justify-center">
-        <div className="text-sm text-muted">Session not found</div>
+      <div className="flex-1 flex flex-col items-center justify-center gap-1 text-center">
+        <div className="text-sm">{t('notFound')}</div>
+        <div className="text-xs text-muted">{t('notFoundHint')}</div>
       </div>
     )
   }
 
-  const statusIcon = detail.status === 'live' ? '🟢' : detail.status === 'idle' ? '🟡' : '⚪'
+  const statusDot =
+    detail.status === 'live' ? 'bg-ok' : detail.status === 'idle' ? 'bg-person-ink' : 'bg-muted'
 
   return (
     <div className="flex flex-col h-full">
@@ -123,11 +140,16 @@ export function TranscriptViewer({ sessionKey, instanceId }: TranscriptViewerPro
           <div className="flex items-center gap-3">
             <div>
               <div className="font-medium text-sm flex items-center gap-2">
-                <span>{statusIcon}</span>
+                <span
+                  className={cn(
+                    'w-2 h-2 rounded-full',
+                    statusDot,
+                    detail.status === 'live' && 'animate-pulse',
+                  )}
+                  aria-hidden
+                />
                 <span>{detail.agentName || detail.agentId}</span>
-                {detail.status === 'live' && (
-                  <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-                )}
+                <span className="text-2xs font-normal text-muted">{tStatus(detail.status)}</span>
               </div>
               <div className="text-2xs text-muted flex items-center gap-2 mt-0.5">
                 {detail.label && <span>{detail.label}</span>}
@@ -136,9 +158,24 @@ export function TranscriptViewer({ sessionKey, instanceId }: TranscriptViewerPro
                     {detail.model.split('/').pop()}
                   </Badge>
                 )}
-                {detail.totalTokens && <span>{formatTokensShort(detail.totalTokens)} tokens</span>}
+                {detail.totalTokens ? (
+                  <span>
+                    {t('tokens', {
+                      count: format.number(detail.totalTokens, {
+                        notation: 'compact',
+                        maximumFractionDigits: 1,
+                      }),
+                    })}
+                  </span>
+                ) : null}
                 {detail.estimatedCostUsd !== undefined && detail.estimatedCostUsd > 0 && (
-                  <span>${detail.estimatedCostUsd.toFixed(3)}</span>
+                  <span>
+                    {format.number(detail.estimatedCostUsd, {
+                      style: 'currency',
+                      currency: 'USD',
+                      maximumFractionDigits: 3,
+                    })}
+                  </span>
                 )}
               </div>
             </div>
@@ -149,13 +186,23 @@ export function TranscriptViewer({ sessionKey, instanceId }: TranscriptViewerPro
               size="xs"
               variant={includeTools ? 'primary' : 'secondary'}
               onClick={() => setIncludeTools(!includeTools)}
-              title="Toggle tool calls"
+              aria-pressed={includeTools}
+              aria-label={includeTools ? t('hideTools') : t('showTools')}
+              title={includeTools ? t('hideTools') : t('showTools')}
             >
-              🔧
+              <Wrench size={14} aria-hidden />
             </Button>
-            <Button size="xs" onClick={copyAsMarkdown} title="Copy as markdown">
-              📋
+            <Button size="xs" onClick={copyAsMarkdown} aria-label={t('copy')} title={t('copy')}>
+              {copyState === 'copied' ? (
+                <Check size={14} aria-hidden className="text-ok" />
+              ) : (
+                <Copy size={14} aria-hidden />
+              )}
             </Button>
+            <span role="status" aria-live="polite" className="text-2xs">
+              {copyState === 'copied' && <span className="text-ok">{t('copied')}</span>}
+              {copyState === 'failed' && <span className="text-alert">{t('copyFailed')}</span>}
+            </span>
           </div>
         </div>
       </div>
@@ -163,7 +210,7 @@ export function TranscriptViewer({ sessionKey, instanceId }: TranscriptViewerPro
       {/* Messages */}
       <div ref={scrollRef} className="flex-1 overflow-y-auto p-3" onScroll={handleScroll}>
         {detail.messages.length === 0 ? (
-          <div className="py-8 text-center text-sm text-muted">No messages in this session</div>
+          <div className="py-8 text-center text-sm text-muted">{t('empty')}</div>
         ) : (
           detail.messages.map((entry, i) => <TranscriptMessage key={entry.id || i} entry={entry} />)
         )}
@@ -173,16 +220,11 @@ export function TranscriptViewer({ sessionKey, instanceId }: TranscriptViewerPro
       {showScrollButton && (
         <div className="absolute bottom-4 right-4">
           <Button size="sm" onClick={scrollToBottom}>
-            ↓ Ir al final
+            <ArrowDown size={14} aria-hidden className="mr-1" />
+            {t('scrollToEnd')}
           </Button>
         </div>
       )}
     </div>
   )
-}
-
-function formatTokensShort(tokens: number): string {
-  if (tokens >= 1_000_000) return `${(tokens / 1_000_000).toFixed(1)}M`
-  if (tokens >= 1_000) return `${(tokens / 1_000).toFixed(1)}K`
-  return String(tokens)
 }

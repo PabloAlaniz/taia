@@ -1,6 +1,8 @@
 'use client'
 
 import { useState, useEffect, useMemo } from 'react'
+import { useTranslations } from 'next-intl'
+import { X } from 'lucide-react'
 import { html as diff2html } from 'diff2html'
 import type { DiffResult } from '@taia/types'
 import { Badge, Button } from '../atoms'
@@ -11,12 +13,19 @@ interface DiffViewerProps {
   onClose: () => void
 }
 
+function escapeHtml(text: string): string {
+  return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+}
+
 export function DiffViewer({ diff, onClose }: DiffViewerProps) {
+  const t = useTranslations('diffViewer')
+  const tw = useTranslations('worktree')
+  const noChanges = t('noChanges')
   const [viewMode, setViewMode] = useState<'line-by-line' | 'side-by-side'>('line-by-line')
   const [selectedFile, setSelectedFile] = useState<string | null>(null)
 
   const diffHtml = useMemo(() => {
-    if (!diff.unified_diff) return '<p class="text-muted">No changes</p>'
+    if (!diff.unified_diff) return `<p class="text-muted">${escapeHtml(noChanges)}</p>`
     try {
       return diff2html(diff.unified_diff, {
         drawFileList: false,
@@ -24,9 +33,9 @@ export function DiffViewer({ diff, onClose }: DiffViewerProps) {
         outputFormat: viewMode,
       })
     } catch {
-      return `<pre>${diff.unified_diff}</pre>`
+      return `<pre>${escapeHtml(diff.unified_diff)}</pre>`
     }
-  }, [diff.unified_diff, viewMode])
+  }, [diff.unified_diff, viewMode, noChanges])
 
   // Handle escape key to close
   useEffect(() => {
@@ -42,36 +51,49 @@ export function DiffViewer({ diff, onClose }: DiffViewerProps) {
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-border shrink-0">
         <div className="flex items-center gap-3">
-          <h2 className="text-sm font-semibold">Diff Viewer</h2>
+          <h2 className="text-sm font-semibold">{t('title')}</h2>
           <Badge variant="secondary" size="sm">
-            {diff.stats.files_changed} files
+            {tw('filesChanged', { count: diff.stats.files_changed })}
           </Badge>
-          <span className="text-xs text-green-400">+{diff.stats.insertions}</span>
-          <span className="text-xs text-red-400">-{diff.stats.deletions}</span>
+          <span
+            className="text-xs text-ok"
+            title={t('insertions', { count: diff.stats.insertions })}
+          >
+            +{diff.stats.insertions}
+          </span>
+          <span
+            className="text-xs text-alert"
+            title={t('deletions', { count: diff.stats.deletions })}
+          >
+            -{diff.stats.deletions}
+          </span>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2" role="group" aria-label={t('viewMode')}>
           <Button
             variant={viewMode === 'line-by-line' ? 'primary' : 'ghost'}
             size="xs"
+            aria-pressed={viewMode === 'line-by-line'}
             onClick={() => setViewMode('line-by-line')}
           >
-            Inline
+            {t('unified')}
           </Button>
           <Button
             variant={viewMode === 'side-by-side' ? 'primary' : 'ghost'}
             size="xs"
+            aria-pressed={viewMode === 'side-by-side'}
             onClick={() => setViewMode('side-by-side')}
           >
-            Side-by-Side
+            {t('sideBySide')}
           </Button>
           <Button
             variant="ghost"
             size="xs"
             onClick={onClose}
-            className="ml-2 text-lg text-muted hover:text-foreground"
-            title="Close (Esc)"
+            className="ml-2 text-muted hover:text-foreground"
+            aria-label={t('close')}
+            title={t('close')}
           >
-            ×
+            <X size={16} aria-hidden />
           </Button>
         </div>
       </div>
@@ -79,7 +101,7 @@ export function DiffViewer({ diff, onClose }: DiffViewerProps) {
       <div className="flex flex-1 overflow-hidden">
         {/* File list sidebar */}
         <div className="w-64 border-r border-border overflow-y-auto p-2 shrink-0">
-          <p className="text-2xs text-muted uppercase font-medium mb-2 px-2">Files changed</p>
+          <p className="text-2xs text-muted uppercase font-medium mb-2 px-2">{t('files')}</p>
           {diff.stats.files.map((file) => (
             <Button
               key={file.path}
@@ -92,14 +114,16 @@ export function DiffViewer({ diff, onClose }: DiffViewerProps) {
               title={file.path}
             >
               <span
+                aria-hidden
                 className={`inline-block w-1.5 h-1.5 rounded-full mr-1.5 ${
                   file.status === 'added'
-                    ? 'bg-green-400'
+                    ? 'bg-ok'
                     : file.status === 'deleted'
-                      ? 'bg-red-400'
-                      : 'bg-yellow-400'
+                      ? 'bg-alert'
+                      : 'bg-person-ink'
                 }`}
               />
+              <span className="sr-only">{t('fileStatus', { status: file.status })}: </span>
               {file.path.split('/').pop()}
               <span className="text-2xs text-muted ml-1">
                 +{file.insertions} -{file.deletions}
@@ -111,7 +135,7 @@ export function DiffViewer({ diff, onClose }: DiffViewerProps) {
           {diff.commits.length > 0 && (
             <>
               <p className="text-2xs text-muted uppercase font-medium mt-4 mb-2 px-2">
-                Commits ({diff.commits.length})
+                {t('commits', { count: diff.commits.length })}
               </p>
               {diff.commits.map((commit) => (
                 <div key={commit.hash} className="px-2 py-1.5 text-xs">

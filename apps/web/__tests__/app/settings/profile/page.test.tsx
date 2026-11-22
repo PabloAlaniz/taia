@@ -8,6 +8,11 @@ import UserProfilePage from '@/app/settings/profile/page'
 
 vi.mock('next-intl', () => ({
   useTranslations: () => (key: string) => key,
+  useFormatter: () => ({
+    dateTime: (d: Date) => d.toISOString(),
+    relativeTime: (d: Date) => d.toISOString(),
+  }),
+  useNow: () => new Date(),
 }))
 
 const fetchMock = vi.fn()
@@ -72,14 +77,13 @@ describe('UserProfilePage', () => {
       expect(screen.getByText('likes short answers')).toBeInTheDocument()
     })
 
-    const saveBtn = screen.getByRole('button', { name: /Save profile/i })
+    const saveBtn = screen.getByRole('button', { name: 'save' })
     expect(saveBtn).toBeDisabled()
 
-    fireEvent.change(screen.getByPlaceholderText('Add a fact…'), {
+    fireEvent.change(screen.getByPlaceholderText('factPlaceholder'), {
       target: { value: 'CTO of TAIA' },
     })
-    const addButtons = screen.getAllByRole('button', { name: 'Add' })
-    fireEvent.click(addButtons[0]) // First Add is for facts (above preferences)
+    fireEvent.click(screen.getByRole('button', { name: 'addFact' }))
     expect(saveBtn).not.toBeDisabled()
   })
 
@@ -92,12 +96,12 @@ describe('UserProfilePage', () => {
       expect(screen.getByText('likes short answers')).toBeInTheDocument()
     })
 
-    fireEvent.change(screen.getByPlaceholderText('Add a fact…'), {
+    fireEvent.change(screen.getByPlaceholderText('factPlaceholder'), {
       target: { value: 'works on AI agents' },
     })
-    fireEvent.click(screen.getAllByRole('button', { name: 'Add' })[0])
+    fireEvent.click(screen.getByRole('button', { name: 'addFact' }))
 
-    fireEvent.click(screen.getByRole('button', { name: /Save profile/i }))
+    fireEvent.click(screen.getByRole('button', { name: 'save' }))
 
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledTimes(2)
@@ -121,13 +125,13 @@ describe('UserProfilePage', () => {
       expect(screen.getByText('language')).toBeInTheDocument()
     })
 
-    fireEvent.change(screen.getByPlaceholderText('Key'), { target: { value: 'language' } })
-    fireEvent.change(screen.getByPlaceholderText('Value'), { target: { value: 'en' } })
-    // Find the Add button next to Key/Value (the one in the preferences row).
-    const addButtons = screen.getAllByRole('button', { name: 'Add' })
-    fireEvent.click(addButtons[1]) // Second Add corresponds to preferences
+    fireEvent.change(screen.getByPlaceholderText('keyPlaceholder'), {
+      target: { value: 'language' },
+    })
+    fireEvent.change(screen.getByPlaceholderText('valuePlaceholder'), { target: { value: 'en' } })
+    fireEvent.click(screen.getByRole('button', { name: 'addPref' }))
 
-    expect(screen.getByText(/already set/i)).toBeInTheDocument()
+    expect(screen.getByText('duplicatePref')).toBeInTheDocument()
   })
 
   it('renders the singleton fallback profile when no version exists', async () => {
@@ -137,7 +141,7 @@ describe('UserProfilePage', () => {
     await waitFor(() => {
       expect(screen.getByDisplayValue('TAIA user')).toBeInTheDocument()
     })
-    const saveBtn = screen.getByRole('button', { name: /Save profile/i })
+    const saveBtn = screen.getByRole('button', { name: 'save' })
     expect(saveBtn).toBeDisabled()
   })
 })

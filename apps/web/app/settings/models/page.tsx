@@ -2,6 +2,7 @@
 
 import Link from 'next/link'
 import { useTranslations } from 'next-intl'
+import { Cpu, Info } from 'lucide-react'
 import { Card } from '@/components/molecules/card'
 import { useResource } from '@/lib/use-resource'
 import { PageHeader } from '@/components/molecules/page-header'
@@ -14,20 +15,6 @@ interface ModelInfo {
   /** Instances that run this model by default. */
   defaultFor?: string[]
   usedBy?: string[]
-}
-
-const providerColors: Record<string, string> = {
-  anthropic: '#D4A574',
-  openai: '#10A37F',
-  'openai-codex': '#10A37F',
-  'github-copilot': '#6E40C9',
-}
-
-const providerIcons: Record<string, string> = {
-  anthropic: '🅰️',
-  openai: '🤖',
-  'openai-codex': '💻',
-  'github-copilot': '🐙',
 }
 
 interface ModelsResponse {
@@ -43,13 +30,14 @@ interface ModelsResponse {
 async function loadModels(): Promise<ModelsResponse> {
   const res = await fetch('/api/models')
   const data = (await res.json()) as ModelsResponse
-  if (!data.ok) throw new Error(data.error || 'Failed to load models')
+  if (!data.ok) throw new Error(data.error || `HTTP ${res.status}`)
   return data
 }
 
 export default function ModelsPage() {
   const tp = useTranslations('pageTitles')
   const t = useTranslations('modelsPage')
+  const tm = useTranslations('settingsModels')
   const { data, loading, error } = useResource('/api/models', loadModels)
   const models = data?.models ?? []
   const unsupportedProvider = data?.supported === false ? (data.provider ?? null) : null
@@ -73,8 +61,9 @@ export default function ModelsPage() {
         )}
 
         {error && (
-          <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-4 mb-6 text-red-400">
-            {error}
+          <div role="alert" className="bg-alert/15 border border-alert/30 rounded-lg p-4 mb-6">
+            <p className="text-sm text-alert">{tm('loadFailed')}</p>
+            <p className="text-xs text-muted mt-1 font-mono">{error}</p>
           </div>
         )}
 
@@ -86,7 +75,7 @@ export default function ModelsPage() {
               <Card key={model.id} padding="md" className="rounded-lg">
                 <div className="flex items-start justify-between">
                   <div className="flex items-center gap-3">
-                    <span className="text-2xl">{providerIcons[model.provider] || '🤖'}</span>
+                    <Cpu className="w-5 h-5 shrink-0 text-muted" aria-hidden="true" />
                     <div>
                       <div className="flex items-center gap-2">
                         <span className="font-mono text-sm font-medium text-foreground">
@@ -95,16 +84,13 @@ export default function ModelsPage() {
                         {model.isDefault && (
                           <span className="text-xs px-2 py-0.5 rounded-sm bg-accent/20 text-accent">
                             {multiInstance && model.defaultFor?.length
-                              ? `default · ${model.defaultFor.join(', ')}`
-                              : 'default'}
+                              ? tm('defaultFor', { instances: model.defaultFor.join(', ') })
+                              : tm('default')}
                           </span>
                         )}
                       </div>
                       <div className="text-xs text-muted mt-1">
-                        {t('provider')}{' '}
-                        <span style={{ color: providerColors[model.provider] || '#888' }}>
-                          {model.provider}
-                        </span>
+                        {t('provider')} <span className="text-foreground">{model.provider}</span>
                       </div>
                     </div>
                   </div>
@@ -136,7 +122,10 @@ export default function ModelsPage() {
         )}
 
         <Card padding="md" className="mt-8 rounded-lg">
-          <h3 className="text-sm font-medium mb-2">💡 Info</h3>
+          <h3 className="text-sm font-medium mb-2 flex items-center gap-1.5">
+            <Info className="w-4 h-4 text-muted" aria-hidden="true" />
+            {tm('infoTitle')}
+          </h3>
           <p className="text-xs text-muted">{t('info')}</p>
         </Card>
       </div>

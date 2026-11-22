@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useMemo } from 'react'
-import { useTranslations } from 'next-intl'
+import { useFormatter, useLocale, useNow, useTranslations } from 'next-intl'
 import Link from 'next/link'
 import { Task, Agent, Activity, CostDashboardMetrics } from '@taia/types'
 import { cn } from '../../lib/utils'
@@ -11,6 +11,7 @@ import { PageHeader } from '@/components/molecules/page-header'
 import { StatCard } from '@/components/molecules/stat-card'
 import { computeDailyCompletions, getAgentColor } from '../../lib/dashboard-utils'
 import { useResource } from '@/lib/use-resource'
+import { formatTokens } from '@/lib/format'
 import { useStore } from '../../lib/store'
 
 type PeriodFilter = '24h' | 'week' | 'month' | 'all'
@@ -23,7 +24,13 @@ interface Stats {
   inReview: number
   blocked: number
   avgTimeMinutes: number
-  byAgent: { agent: Agent; total: number; done: number; pending: number; timeMinutes: number }[]
+  byAgent: {
+    agent: Agent
+    total: number
+    done: number
+    pending: number
+    timeMinutes: number
+  }[]
   byProject: { project: string; count: number; done: number }[]
   staleTasks: Task[]
   recentActivity: Activity[]
@@ -78,6 +85,12 @@ async function optionalMetrics<T>(res: Response | null): Promise<T | null> {
   }
 }
 
+/** Cost with three decimals under a dollar, where cents alone would read as zero. */
+function formatCost(locale: string, usd: number): string {
+  const digits = usd < 1 ? 3 : 2
+  return `$${usd.toLocaleString(locale, { minimumFractionDigits: digits, maximumFractionDigits: digits })}`
+}
+
 interface DashboardData {
   stats: Stats
   costMetrics: CostDashboardMetrics | null
@@ -101,10 +114,15 @@ async function loadDashboard(
   ])
 
   const { tasks: allTasks } = (await tasksRes.json()) as { tasks: Task[] }
-  const agentsData = (await agentsRes.json()) as { agents: Agent[]; source?: string }
+  const agentsData = (await agentsRes.json()) as {
+    agents: Agent[]
+    source?: string
+  }
   const agents = agentsData.agents
   const agentSource = agentsData.source
-  const { activities } = (await activityRes.json()) as { activities: Activity[] }
+  const { activities } = (await activityRes.json()) as {
+    activities: Activity[]
+  }
 
   // Apply period filter
   const periodStart = getPeriodStart(period)
@@ -199,6 +217,10 @@ async function loadDashboard(
 
 export default function DashboardPage() {
   const t = useTranslations('dashboard')
+  const tu = useTranslations('dashboardUi')
+  const format = useFormatter()
+  const locale = useLocale()
+  const now = useNow({ updateInterval: 60_000 })
   const [period, setPeriod] = useState<PeriodFilter>('all')
   const activeWorkspaceId = useStore((state) => state.activeWorkspaceId)
   // Keeps the previous figures on screen while another period loads.
@@ -228,18 +250,36 @@ export default function DashboardPage() {
     return mins > 0 ? `${hours}h ${mins}m` : `${hours}h`
   }
 
+  /** YYYY-MM-DD day keys, shown as a short localized date. */
+  function formatDay(day: string): string {
+    const date = new Date(`${day.slice(0, 10)}T00:00:00Z`)
+    if (Number.isNaN(date.getTime())) return day
+    return format.dateTime(date, {
+      day: 'numeric',
+      month: 'short',
+      timeZone: 'UTC',
+    })
+  }
+
   if (loading) {
     return (
       <div className="min-h-full bg-background flex items-center justify-center">
-        <span className="text-2xl">⏳</span>
+        <span role="status" className="text-sm text-muted">
+          {tu('loading')}
+        </span>
       </div>
     )
   }
 
   if (!stats) {
     return (
-      <div className="min-h-full bg-background flex items-center justify-center">
-        <span className="text-red-500">Failed to load stats</span>
+      <div className="min-h-full bg-background flex flex-col items-center justify-center gap-3">
+        <span role="alert" className="text-alert">
+          {tu('loadFailed')}
+        </span>
+        <Button variant="secondary" size="sm" onClick={reload}>
+          {tu('retry')}
+        </Button>
       </div>
     )
   }
@@ -250,6 +290,7 @@ export default function DashboardPage() {
         <Select
           value={period}
           onChange={(e) => setPeriod(e.target.value as PeriodFilter)}
+          aria-label={tu('period')}
           className="bg-background border border-border rounded-md px-2 py-1 text-xs w-auto"
         >
           <option value="24h">{t('last24h')}</option>
@@ -265,27 +306,10 @@ export default function DashboardPage() {
       <div className="px-4 md:px-6 pt-5 pb-10 max-w-6xl mx-auto">
         {/* Overview Cards — hero size for primary metrics */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-10">
-          <StatCard label={t('totalTasks')} value={stats.totalTasks} icon="📋" size="hero" />
-          <StatCard
-            label={t('completedToday')}
-            value={stats.completedToday}
-            icon="✅"
-            color="text-green-500"
-            size="hero"
-          />
-          <StatCard
-            label={t('thisWeek')}
-            value={stats.completedThisWeek}
-            icon="📅"
-            color="text-blue-500"
-            size="hero"
-          />
-          <StatCard
-            label={t('avgTime')}
-            value={formatTime(stats.avgTimeMinutes)}
-            icon="⏱️"
-            size="hero"
-          />
+          <StatCard label={t('totalTasks')} value={stats.totalTasks} size="hero" />
+          <StatCard label={t('completedToday')} value={stats.completedToday} size="hero" />
+          <StatCard label={t('thisWeek')} value={stats.completedThisWeek} size="hero" />
+          <StatCard label={t('avgTime')} value={formatTime(stats.avgTimeMinutes)} size="hero" />
         </div>
 
         {/* Usage Analytics */}
@@ -293,41 +317,47 @@ export default function DashboardPage() {
           <>
             <div className="flex items-center justify-between gap-3 mb-3">
               <h2 className="text-xs font-medium text-muted uppercase tracking-wider">
-                Usage Analytics
+                {tu('flowSection')}
               </h2>
               <a
                 href={`/api/usage-analytics?${getUsageAnalyticsParams(period, activeWorkspaceId, 'csv')}`}
                 download="usage-analytics.csv"
+                aria-label={tu('exportCsvLabel')}
                 className={cn(
                   'rounded-md font-medium transition-colors cursor-pointer',
                   'focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-1 focus-visible:ring-offset-background focus-visible:outline-hidden',
                   'bg-background border border-border text-foreground hover:bg-card px-2.5 py-1 text-xs',
                 )}
               >
-                Export CSV
+                {tu('exportCsv')}
               </a>
             </div>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-10">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-2">
+              <StatCard label={tu('throughput')} value={usageMetrics.throughput.completed_count} />
               <StatCard
-                label="Throughput"
-                value={usageMetrics.throughput.completed_count}
-                icon="🚀"
-                color="text-green-500"
+                label={tu('avgAging')}
+                value={tu('days', {
+                  days: format.number(usageMetrics.aging.average_age_days, {
+                    maximumFractionDigits: 1,
+                  }),
+                })}
               />
               <StatCard
-                label="Avg aging"
-                value={`${usageMetrics.aging.average_age_days}d`}
-                icon="🕰️"
+                label={tu('p95Aging')}
+                value={tu('days', {
+                  days: format.number(usageMetrics.aging.p95_age_days, {
+                    maximumFractionDigits: 1,
+                  }),
+                })}
               />
-              <StatCard label="P95 aging" value={`${usageMetrics.aging.p95_age_days}d`} icon="📈" />
               <StatCard
-                label="Tracked time"
+                label={tu('trackedTime')}
                 value={formatTime(
                   usageMetrics.time_by_column.reduce((sum, row) => sum + row.total_minutes, 0),
                 )}
-                icon="⏱️"
               />
             </div>
+            <p className="text-xs text-muted mb-10 max-w-prose">{tu('agingNote')}</p>
           </>
         )}
 
@@ -336,23 +366,13 @@ export default function DashboardPage() {
           {t('statusSection')}
         </h2>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-10">
-          <StatCard
-            label={t('inProgress')}
-            value={stats.inProgress}
-            icon="🔨"
-            color="text-yellow-500"
-          />
+          <StatCard label={t('inProgress')} value={stats.inProgress} />
           <StatCard
             label={t('blocked')}
             value={stats.blocked}
             tone={stats.blocked > 0 ? 'alert' : 'default'}
           />
-          <StatCard
-            label={t('inReview')}
-            value={stats.inReview}
-            icon="👀"
-            color="text-purple-500"
-          />
+          <StatCard label={t('inReview')} value={stats.inReview} />
           <StatCard
             label={t('stale')}
             value={stats.staleTasks.length}
@@ -369,31 +389,14 @@ export default function DashboardPage() {
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
               <StatCard
                 label={t('totalCost')}
-                value={
-                  costMetrics.totals.total_cost_usd < 1
-                    ? `$${costMetrics.totals.total_cost_usd.toFixed(3)}`
-                    : `$${costMetrics.totals.total_cost_usd.toFixed(2)}`
-                }
-                icon="💰"
-                color="text-green-400"
+                value={formatCost(locale, costMetrics.totals.total_cost_usd)}
               />
               <StatCard
                 label={t('totalTokens')}
-                value={
-                  costMetrics.totals.total_tokens >= 1_000_000
-                    ? `${(costMetrics.totals.total_tokens / 1_000_000).toFixed(1)}M`
-                    : costMetrics.totals.total_tokens >= 1_000
-                      ? `${(costMetrics.totals.total_tokens / 1_000).toFixed(1)}K`
-                      : costMetrics.totals.total_tokens
-                }
-                icon="🔢"
+                value={formatTokens(costMetrics.totals.total_tokens)}
               />
-              <StatCard
-                label={t('sessionCount')}
-                value={costMetrics.totals.session_count}
-                icon="🔗"
-              />
-              <StatCard label={t('models')} value={costMetrics.by_model.length} icon="🤖" />
+              <StatCard label={t('sessionCount')} value={costMetrics.totals.session_count} />
+              <StatCard label={t('models')} value={costMetrics.by_model.length} />
             </div>
           </>
         )}
@@ -425,20 +428,24 @@ export default function DashboardPage() {
                     <div className="space-y-1">
                       {dailyCompletions.map((day) => (
                         <div key={day.date} className="flex items-center gap-3">
-                          <span className="text-xs text-muted w-14 shrink-0 font-mono">
-                            {day.date.slice(5)}
+                          <span className="text-xs text-muted w-14 shrink-0 tabular-nums">
+                            {formatDay(day.date)}
                           </span>
                           <div className="flex-1 h-4 bg-background rounded-sm overflow-hidden">
                             {day.total > 0 && (
                               <div
                                 className="h-full flex rounded-sm overflow-hidden"
-                                style={{ width: `${(day.total / maxTotal) * 100}%` }}
+                                style={{
+                                  width: `${(day.total / maxTotal) * 100}%`,
+                                }}
                               >
                                 {day.byAgent.map(({ agentId, count }) => (
                                   <div
                                     key={agentId}
                                     className={cn('h-full', getAgentColor(agentId, chartAgentIds))}
-                                    style={{ width: `${(count / day.total) * 100}%` }}
+                                    style={{
+                                      width: `${(count / day.total) * 100}%`,
+                                    }}
                                     title={`${agentId}: ${count}`}
                                   />
                                 ))}
@@ -466,7 +473,7 @@ export default function DashboardPage() {
             <h2 className="text-sm font-medium mb-4">
               {t('byAgent')}
               {stats.agentSource === 'database-fallback' && (
-                <span className="ml-2 text-xs text-yellow-500">{t('offlineMode')}</span>
+                <span className="ml-2 text-xs text-person-ink">{t('offlineMode')}</span>
               )}
             </h2>
             {stats.byAgent.length === 0 ? (
@@ -486,8 +493,14 @@ export default function DashboardPage() {
                         segments={
                           total > 0
                             ? [
-                                { percent: (done / total) * 100, color: 'bg-green-500' },
-                                { percent: (pending / total) * 100, color: 'bg-yellow-500' },
+                                {
+                                  percent: (done / total) * 100,
+                                  color: 'bg-ok',
+                                },
+                                {
+                                  percent: (pending / total) * 100,
+                                  color: 'bg-person',
+                                },
                               ]
                             : []
                         }
@@ -495,9 +508,9 @@ export default function DashboardPage() {
                     </div>
                     <div className="text-right">
                       <div className="text-sm">
-                        <span className="text-green-500 font-bold">{done}</span>
+                        <span className="text-ok font-bold">{done}</span>
                         <span className="text-muted"> / </span>
-                        <span className="text-yellow-500">{pending}</span>
+                        <span className="text-person-ink">{pending}</span>
                       </div>
                       <div className="text-2xs text-muted">{t('doneVsPending')}</div>
                     </div>
@@ -520,7 +533,7 @@ export default function DashboardPage() {
                       <div className="text-sm font-medium truncate">{project}</div>
                       <ProgressBar
                         className="mt-1"
-                        segments={[{ percent: (done / count) * 100, color: 'bg-green-500' }]}
+                        segments={[{ percent: (done / count) * 100, color: 'bg-ok' }]}
                       />
                     </div>
                     <div className="text-xs text-muted whitespace-nowrap">
@@ -535,7 +548,7 @@ export default function DashboardPage() {
           {/* Stale Tasks */}
           {stats.staleTasks.length > 0 && (
             <Card padding="md" className="rounded-lg">
-              <h2 className="text-sm font-medium mb-4 text-orange-500">{t('staleTasks')}</h2>
+              <h2 className="text-sm font-medium mb-4 text-person-ink">{t('staleTasks')}</h2>
               <div className="space-y-2">
                 {stats.staleTasks.slice(0, 5).map((task) => (
                   <Link
@@ -545,7 +558,7 @@ export default function DashboardPage() {
                   >
                     <div className="text-sm truncate">{task.title}</div>
                     <div className="text-xs text-muted">
-                      {task.assigned_to} · {new Date(task.updated_at).toLocaleDateString()}
+                      {task.assigned_to} · {format.relativeTime(new Date(task.updated_at), now)}
                     </div>
                   </Link>
                 ))}
@@ -556,16 +569,20 @@ export default function DashboardPage() {
           {/* Recent Activity */}
           <Card padding="md" className="rounded-lg">
             <h2 className="text-sm font-medium mb-4">{t('recentActivity')}</h2>
-            <div className="space-y-2 max-h-64 overflow-y-auto">
-              {stats.recentActivity.slice(0, 10).map((activity) => (
-                <div key={activity.id} className="text-xs border-b border-border pb-2">
-                  <div className="text-muted">
-                    {new Date(activity.created_at).toLocaleTimeString()}
+            {stats.recentActivity.length === 0 ? (
+              <p className="text-muted text-sm">{tu('noActivity')}</p>
+            ) : (
+              <div className="space-y-2 max-h-64 overflow-y-auto">
+                {stats.recentActivity.slice(0, 10).map((activity) => (
+                  <div key={activity.id} className="text-xs border-b border-border pb-2">
+                    <div className="text-muted">
+                      {format.relativeTime(new Date(activity.created_at), now)}
+                    </div>
+                    <div className="truncate">{activity.message}</div>
                   </div>
-                  <div className="truncate">{activity.message}</div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            )}
           </Card>
 
           {/* Cost by Agent */}
@@ -580,31 +597,29 @@ export default function DashboardPage() {
                       <div className="flex-1 min-w-0">
                         <div className="text-sm font-medium truncate">{agent.agent_id}</div>
                         <div className="text-xs text-muted">
-                          {agent.session_count} sesiones ·{' '}
-                          {agent.by_model.map((m) => m.model).join(', ')}
+                          {tu('agentSessions', {
+                            count: agent.session_count,
+                            models: agent.by_model.map((m) => m.model).join(', '),
+                          })}
                         </div>
                         <ProgressBar
                           className="mt-1"
                           segments={[
                             {
                               percent: (agent.total_cost_usd / maxCost) * 100,
-                              color: 'bg-green-500',
+                              color: 'bg-agent',
                             },
                           ]}
                         />
                       </div>
                       <div className="text-right shrink-0">
-                        <div className="text-sm font-bold text-green-400">
-                          $
-                          {agent.total_cost_usd < 1
-                            ? agent.total_cost_usd.toFixed(3)
-                            : agent.total_cost_usd.toFixed(2)}
+                        <div className="text-sm font-bold tabular-nums">
+                          {formatCost(locale, agent.total_cost_usd)}
                         </div>
                         <div className="text-2xs text-muted">
-                          {agent.total_tokens >= 1000
-                            ? `${(agent.total_tokens / 1000).toFixed(1)}K`
-                            : agent.total_tokens}{' '}
-                          tok
+                          {tu('tokens', {
+                            count: formatTokens(agent.total_tokens),
+                          })}
                         </div>
                       </div>
                     </div>
@@ -624,15 +639,19 @@ export default function DashboardPage() {
                     Math.max(...costMetrics.daily_trend.map((d) => d.cost_usd)) || 1
                   return (
                     <div key={day.date} className="flex items-center gap-3">
-                      <span className="text-xs text-muted w-20 shrink-0">{day.date}</span>
+                      <span className="text-xs text-muted w-20 shrink-0 tabular-nums">
+                        {formatDay(day.date)}
+                      </span>
                       <div className="flex-1 h-4 bg-background rounded-sm overflow-hidden">
                         <div
-                          className="h-full bg-blue-500/60 rounded-sm"
-                          style={{ width: `${(day.cost_usd / maxDailyCost) * 100}%` }}
+                          className="h-full bg-agent/60 rounded-sm"
+                          style={{
+                            width: `${(day.cost_usd / maxDailyCost) * 100}%`,
+                          }}
                         />
                       </div>
                       <span className="text-xs font-mono w-16 text-right shrink-0">
-                        ${day.cost_usd < 1 ? day.cost_usd.toFixed(3) : day.cost_usd.toFixed(2)}
+                        {formatCost(locale, day.cost_usd)}
                       </span>
                     </div>
                   )

@@ -10,12 +10,18 @@
 // Reference: ADR-003, apps/docs/src/content/docs/arquitectura/modelo-de-contexto.md.
 
 import { useEffect, useState } from 'react'
+import { useFormatter, useNow, useTranslations } from 'next-intl'
+import { X } from 'lucide-react'
 import type { KnowledgeRef, ProjectContext } from '@taia/types'
 import { Alert, Button, Checkbox, Input, Label, Select, Textarea } from '@/components/atoms'
 
 const KNOWLEDGE_KINDS: Array<KnowledgeRef['kind']> = ['url', 'doc', 'vector_store', 'file']
 
 export function ProjectContextEditor({ projectId }: { projectId: string }) {
+  const t = useTranslations('settingsProjectContext')
+  const tc = useTranslations('settingsCommon')
+  const format = useFormatter()
+  const now = useNow({ updateInterval: 60_000 })
   const [context, setContext] = useState<ProjectContext | null>(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -65,7 +71,7 @@ export function ProjectContextEditor({ projectId }: { projectId: string }) {
         if (cancelled) return
         setMessage({
           type: 'error',
-          text: err instanceof Error ? err.message : String(err),
+          text: t('loadFailed', { error: err instanceof Error ? err.message : String(err) }),
         })
       })
       .finally(() => {
@@ -74,6 +80,8 @@ export function ProjectContextEditor({ projectId }: { projectId: string }) {
     return () => {
       cancelled = true
     }
+    // t is stable per locale; the effect only re-runs for another project.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [projectId])
 
   const addGlossaryEntry = () => {
@@ -81,7 +89,7 @@ export function ProjectContextEditor({ projectId }: { projectId: string }) {
     const v = glossaryValue.trim()
     if (!k || !v) return
     if (glossary.some(([existing]) => existing === k)) {
-      setMessage({ type: 'error', text: `Term "${k}" already in glossary.` })
+      setMessage({ type: 'error', text: t('duplicateTerm', { term: k }) })
       setTimeout(() => setMessage(null), 3000)
       return
     }
@@ -143,7 +151,7 @@ export function ProjectContextEditor({ projectId }: { projectId: string }) {
             glossary: Object.fromEntries(glossary),
             knowledgeRefs: refs,
           },
-          note: 'Edited via Project Context editor',
+          note: t('versionNote'),
         }),
       })
       if (!res.ok) {
@@ -153,12 +161,12 @@ export function ProjectContextEditor({ projectId }: { projectId: string }) {
       const data = await res.json()
       setContext(data.context)
       setVersionMeta({ versionId: data.versionId })
-      setMessage({ type: 'success', text: 'Project context saved.' })
+      setMessage({ type: 'success', text: t('saved') })
       setTimeout(() => setMessage(null), 3000)
     } catch (err) {
       setMessage({
         type: 'error',
-        text: err instanceof Error ? err.message : String(err),
+        text: t('saveFailed', { error: err instanceof Error ? err.message : String(err) }),
       })
     } finally {
       setSaving(false)
@@ -166,7 +174,11 @@ export function ProjectContextEditor({ projectId }: { projectId: string }) {
   }
 
   if (loading) {
-    return <div className="text-muted text-xs p-2">Loading context…</div>
+    return (
+      <div className="text-muted text-xs p-2" role="status">
+        {t('loading')}
+      </div>
+    )
   }
 
   return (
@@ -175,28 +187,42 @@ export function ProjectContextEditor({ projectId }: { projectId: string }) {
 
       {versionMeta?.versionId && (
         <div className="text-muted text-xs">
-          Version {versionMeta.versionId.slice(0, 12)}…
-          {versionMeta.createdAt ? ` • ${new Date(versionMeta.createdAt).toLocaleString()}` : ''}
-          {versionMeta.createdBy ? ` • ${versionMeta.createdBy}` : ''}
+          {tc('version', { id: versionMeta.versionId.slice(0, 12) })}
+          {versionMeta.createdAt && (
+            <>
+              {' · '}
+              <time
+                dateTime={versionMeta.createdAt}
+                title={format.dateTime(new Date(versionMeta.createdAt), {
+                  dateStyle: 'medium',
+                  timeStyle: 'short',
+                })}
+              >
+                {format.relativeTime(
+                  new Date(Math.min(new Date(versionMeta.createdAt).getTime(), now.getTime())),
+                  now,
+                )}
+              </time>
+            </>
+          )}
+          {versionMeta.createdBy ? ` · ${versionMeta.createdBy}` : ''}
         </div>
       )}
 
       <div>
-        <Label htmlFor={`pc-desc-${projectId}`}>Description</Label>
+        <Label htmlFor={`pc-desc-${projectId}`}>{t('descriptionLabel')}</Label>
         <Textarea
           id={`pc-desc-${projectId}`}
           value={description}
           onChange={(e) => setDescription(e.target.value)}
           className="min-h-[80px] p-2"
-          placeholder="What this project is about — fed to every agent's system prompt."
+          placeholder={t('descriptionPlaceholder')}
         />
       </div>
 
       <div>
-        <Label>Glossary</Label>
-        <p className="text-muted text-xs mb-2">
-          Domain terms agents should know. Term → definition.
-        </p>
+        <Label>{t('glossaryLabel')}</Label>
+        <p className="text-muted text-xs mb-2">{t('glossaryHelp')}</p>
         {glossary.length > 0 && (
           <ul className="space-y-1 mb-2">
             {glossary.map(([k, v], i) => (
@@ -211,9 +237,9 @@ export function ProjectContextEditor({ projectId }: { projectId: string }) {
                   variant="ghost"
                   size="sm"
                   onClick={() => removeGlossaryEntry(i)}
-                  aria-label={`Remove glossary entry ${i + 1}`}
+                  aria-label={t('removeTerm', { term: k })}
                 >
-                  ×
+                  <X className="w-3.5 h-3.5" aria-hidden="true" />
                 </Button>
               </li>
             ))}
@@ -223,13 +249,13 @@ export function ProjectContextEditor({ projectId }: { projectId: string }) {
           <Input
             type="text"
             value={glossaryKey}
-            placeholder="Term"
+            placeholder={t('termPlaceholder')}
             onChange={(e) => setGlossaryKey(e.target.value)}
           />
           <Input
             type="text"
             value={glossaryValue}
-            placeholder="Definition"
+            placeholder={t('definitionPlaceholder')}
             onChange={(e) => setGlossaryValue(e.target.value)}
             onKeyDown={(e) => {
               if (e.key === 'Enter') {
@@ -244,16 +270,14 @@ export function ProjectContextEditor({ projectId }: { projectId: string }) {
             onClick={addGlossaryEntry}
             disabled={!glossaryKey.trim() || !glossaryValue.trim()}
           >
-            Add
+            {t('addTerm')}
           </Button>
         </div>
       </div>
 
       <div>
-        <Label>Knowledge references</Label>
-        <p className="text-muted text-xs mb-2">
-          External pointers (URLs, vector stores, files) the agent can consult.
-        </p>
+        <Label>{t('refsLabel')}</Label>
+        <p className="text-muted text-xs mb-2">{t('refsHelp')}</p>
         {refs.length > 0 && (
           <ul className="space-y-1 mb-2">
             {refs.map((r, i) => (
@@ -261,22 +285,22 @@ export function ProjectContextEditor({ projectId }: { projectId: string }) {
                 key={`${i}-${r.uri}`}
                 className="flex items-center gap-2 text-xs bg-background rounded p-2"
               >
-                <span className="text-muted text-2xs uppercase">[{r.kind}]</span>
+                <span className="text-muted text-2xs uppercase">{t(`kinds.${r.kind}`)}</span>
                 <span className="font-medium truncate max-w-[200px]">{r.uri}</span>
                 <span className="text-muted">—</span>
                 <span className="flex-1 truncate">{r.description}</span>
                 {r.cacheable && (
                   <span className="text-2xs bg-accent/20 text-accent px-1.5 py-0.5 rounded-sm">
-                    cacheable
+                    {t('cacheableBadge')}
                   </span>
                 )}
                 <Button
                   variant="ghost"
                   size="sm"
                   onClick={() => removeRef(i)}
-                  aria-label={`Remove knowledge ref ${i + 1}`}
+                  aria-label={t('removeRef', { uri: r.uri })}
                 >
-                  ×
+                  <X className="w-3.5 h-3.5" aria-hidden="true" />
                 </Button>
               </li>
             ))}
@@ -285,6 +309,7 @@ export function ProjectContextEditor({ projectId }: { projectId: string }) {
         <div className="space-y-2 bg-background rounded p-2 border border-border">
           <div className="grid grid-cols-[120px_1fr] gap-2">
             <Select
+              aria-label={t('kindLabel')}
               value={newRef.kind}
               onChange={(e) =>
                 setNewRef((prev) => ({ ...prev, kind: e.target.value as KnowledgeRef['kind'] }))
@@ -292,21 +317,21 @@ export function ProjectContextEditor({ projectId }: { projectId: string }) {
             >
               {KNOWLEDGE_KINDS.map((k) => (
                 <option key={k} value={k}>
-                  {k}
+                  {t(`kinds.${k}`)}
                 </option>
               ))}
             </Select>
             <Input
               type="text"
               value={newRef.uri}
-              placeholder="URI (URL, path, vector store id)"
+              placeholder={t('uriPlaceholder')}
               onChange={(e) => setNewRef((prev) => ({ ...prev, uri: e.target.value }))}
             />
           </div>
           <Input
             type="text"
             value={newRef.description}
-            placeholder="Description (what this is, why it matters)"
+            placeholder={t('refDescPlaceholder')}
             onChange={(e) => setNewRef((prev) => ({ ...prev, description: e.target.value }))}
           />
           <div className="flex items-center justify-between">
@@ -315,7 +340,7 @@ export function ProjectContextEditor({ projectId }: { projectId: string }) {
                 checked={newRef.cacheable}
                 onChange={(e) => setNewRef((prev) => ({ ...prev, cacheable: e.target.checked }))}
               />
-              Cacheable in system prompt
+              {t('cacheableLabel')}
             </label>
             <Button
               variant="secondary"
@@ -323,7 +348,7 @@ export function ProjectContextEditor({ projectId }: { projectId: string }) {
               onClick={addRef}
               disabled={!newRef.uri.trim() || !newRef.description.trim()}
             >
-              Add reference
+              {t('addRef')}
             </Button>
           </div>
         </div>
@@ -331,7 +356,9 @@ export function ProjectContextEditor({ projectId }: { projectId: string }) {
 
       <div className="flex justify-end gap-3 pt-2 border-t border-border">
         {hasChanges && (
-          <span className="text-yellow-500 text-xs self-center">● Unsaved changes</span>
+          <span className="text-accent text-xs self-center" role="status">
+            {tc('unsaved')}
+          </span>
         )}
         <Button
           variant={hasChanges ? 'primary' : 'secondary'}
@@ -339,7 +366,7 @@ export function ProjectContextEditor({ projectId }: { projectId: string }) {
           onClick={save}
           disabled={!hasChanges || saving}
         >
-          {saving ? 'Saving…' : 'Save context'}
+          {saving ? tc('saving') : t('save')}
         </Button>
       </div>
     </div>

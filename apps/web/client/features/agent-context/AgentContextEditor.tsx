@@ -7,24 +7,13 @@
 // for Anthropic), so the UI never edits generated markdown. See ADR-005.
 
 import { useEffect, useState, type ReactNode } from 'react'
+import { useTranslations } from 'next-intl'
 import { cn } from '@/lib/utils'
 import { Alert, Button, Select, Textarea } from '@/components/atoms'
 
 type Section = 'persona' | 'instructions' | 'working' | 'memory'
 
-const SECTION_LABELS: Record<Section, string> = {
-  persona: 'Persona',
-  instructions: 'Instructions',
-  working: 'Working notes',
-  memory: 'Memory',
-}
-
-const SECTION_HINTS: Record<Section, string> = {
-  persona: 'Who the agent is: expertise, judgement and tone.',
-  instructions: 'How it works its tasks: priorities, checks, when to escalate.',
-  working: 'Progress notes the agent keeps between runs.',
-  memory: 'Files the agent maintains with its memory tool.',
-}
+const SECTIONS: Section[] = ['persona', 'instructions', 'working', 'memory']
 
 export interface ExtraTab {
   key: string
@@ -48,6 +37,7 @@ interface Loaded {
 }
 
 export function AgentContextEditor({ agentId, extraTabs = [], onSaved }: AgentContextEditorProps) {
+  const t = useTranslations('agentContext')
   const [active, setActive] = useState<string>(extraTabs[0]?.key ?? 'persona')
   const [loaded, setLoaded] = useState<Loaded | null>(null)
   const [selectedMemory, setSelectedMemory] = useState('')
@@ -55,7 +45,11 @@ export function AgentContextEditor({ agentId, extraTabs = [], onSaved }: AgentCo
   // Unsaved edits per tab; a tab without an entry shows the saved value.
   const [drafts, setDrafts] = useState<Record<string, string>>({})
   const [saving, setSaving] = useState(false)
-  const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
+  const [message, setMessage] = useState<{
+    type: 'success' | 'error'
+    text: string
+  } | null>(null)
+  const [loadFailed, setLoadFailed] = useState(false)
 
   useEffect(() => {
     let cancelled = false
@@ -74,14 +68,14 @@ export function AgentContextEditor({ agentId, extraTabs = [], onSaved }: AgentCo
         })
       })
       .catch(() => {
-        if (!cancelled) setMessage({ type: 'error', text: 'Failed to load the agent context' })
+        if (!cancelled) setLoadFailed(true)
       })
     return () => {
       cancelled = true
     }
   }, [agentId])
 
-  const section = (Object.keys(SECTION_LABELS) as Section[]).find((s) => s === active)
+  const section = SECTIONS.find((s) => s === active)
 
   const saved = !loaded || !section ? '' : section === 'memory' ? memoryContent : loaded[section]
 
@@ -100,9 +94,16 @@ export function AgentContextEditor({ agentId, extraTabs = [], onSaved }: AgentCo
       setMemoryContent('')
       return
     }
-    const res = await fetch(`/api/agents/${agentId}/memory/${name}`)
-    const data = await res.json()
-    setMemoryContent(data.content ?? '')
+    try {
+      const res = await fetch(`/api/agents/${agentId}/memory/${name}`)
+      const data = await res.json()
+      setMemoryContent(data.content ?? '')
+    } catch {
+      setMessage({
+        type: 'error',
+        text: t('memoryLoadFailed', { file: name }),
+      })
+    }
   }
 
   const save = async () => {
@@ -115,7 +116,10 @@ export function AgentContextEditor({ agentId, extraTabs = [], onSaved }: AgentCo
         res = await fetch(`/api/agents/${agentId}/context`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ identity: { [section]: draft }, note: `Edited ${section}` }),
+          body: JSON.stringify({
+            identity: { [section]: draft },
+            note: `Edited ${section}`,
+          }),
         })
       } else if (section === 'working') {
         res = await fetch(`/api/agents/${agentId}/working-state`, {
@@ -130,16 +134,20 @@ export function AgentContextEditor({ agentId, extraTabs = [], onSaved }: AgentCo
           body: JSON.stringify({ content: draft }),
         })
       }
-      if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || 'Failed to save')
+      if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || '')
 
       if (section === 'memory') setMemoryContent(draft)
       else setLoaded({ ...loaded, [section]: draft })
       clearDraft()
-      setMessage({ type: 'success', text: 'Saved' })
+      setMessage({ type: 'success', text: t('saved') })
       setTimeout(() => setMessage(null), 3000)
       onSaved?.()
     } catch (err) {
-      setMessage({ type: 'error', text: err instanceof Error ? err.message : 'Failed to save' })
+      const detail = err instanceof Error ? err.message : ''
+      setMessage({
+        type: 'error',
+        text: detail ? t('saveFailedWith', { error: detail }) : t('saveFailed'),
+      })
     } finally {
       setSaving(false)
     }
@@ -147,25 +155,31 @@ export function AgentContextEditor({ agentId, extraTabs = [], onSaved }: AgentCo
 
   const tabs = [
     ...extraTabs.map((t) => ({ key: t.key, label: t.label })),
-    ...(Object.keys(SECTION_LABELS) as Section[])
-      .filter((s) => s !== 'memory' || (loaded?.memoryFiles.length ?? 0) > 0)
-      .map((s) => ({
-        key: s,
-        label: s === 'memory' ? `Memory (${loaded?.memoryFiles.length ?? 0})` : SECTION_LABELS[s],
-      })),
+    ...SECTIONS.filter((s) => s !== 'memory' || (loaded?.memoryFiles.length ?? 0) > 0).map((s) => ({
+      key: s,
+      label:
+        s === 'memory'
+          ? t('memoryTab', { count: loaded?.memoryFiles.length ?? 0 })
+          : t(`sections.${s}`),
+    })),
   ]
-  const extra = extraTabs.find((t) => t.key === active)
+  const extra = extraTabs.find((tab) => tab.key === active)
   const hasChanges = Boolean(section) && draft !== saved
 
   return (
     <>
+      {loadFailed && (
+        <Alert variant="error" className="mb-4">
+          {t('loadFailed')}
+        </Alert>
+      )}
       {message && (
         <Alert variant={message.type === 'success' ? 'success' : 'error'} className="mb-4">
           {message.text}
         </Alert>
       )}
 
-      <div className="flex gap-1 mb-3 flex-wrap" role="tablist">
+      <div className="flex gap-1 mb-3 flex-wrap" role="tablist" aria-label={t('tabs')}>
         {tabs.map((tab) => (
           <Button
             key={tab.key}
@@ -188,16 +202,16 @@ export function AgentContextEditor({ agentId, extraTabs = [], onSaved }: AgentCo
         extra.content
       ) : section ? (
         <>
-          <p className="text-mid text-muted mb-2">{SECTION_HINTS[section]}</p>
+          <p className="text-mid text-muted mb-2">{t(`hints.${section}`)}</p>
 
           {section === 'memory' && (
             <Select
-              aria-label="Memory file"
+              aria-label={t('memoryFile')}
               value={selectedMemory}
               onChange={(e) => openMemory(e.target.value)}
               className="mb-3"
             >
-              <option value="">Select file...</option>
+              <option value="">{t('memoryPick')}</option>
               {loaded?.memoryFiles.map((f) => (
                 <option key={f} value={f}>
                   {f}
@@ -207,7 +221,7 @@ export function AgentContextEditor({ agentId, extraTabs = [], onSaved }: AgentCo
           )}
 
           <Textarea
-            aria-label={SECTION_LABELS[section]}
+            aria-label={t(`sections.${section}`)}
             variant="mono"
             resizable
             value={draft}
@@ -218,7 +232,7 @@ export function AgentContextEditor({ agentId, extraTabs = [], onSaved }: AgentCo
 
           <div className="mt-3 flex justify-end gap-3">
             {hasChanges && (
-              <span className="text-yellow-500 text-mid self-center">● Unsaved changes</span>
+              <span className="text-person-ink text-mid self-center">{t('unsaved')}</span>
             )}
             <Button
               variant={hasChanges ? 'primary' : 'secondary'}
@@ -227,7 +241,7 @@ export function AgentContextEditor({ agentId, extraTabs = [], onSaved }: AgentCo
               disabled={!hasChanges || saving || (section === 'memory' && !selectedMemory)}
               className="px-5"
             >
-              {saving ? 'Saving...' : 'Save'}
+              {saving ? t('saving') : t('save')}
             </Button>
           </div>
         </>
