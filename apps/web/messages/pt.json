@@ -462,7 +462,7 @@
   },
   "boardHeader": {
     "title": "Quadro",
-    "summary": "{tasks, plural, one {# tarea} other {# tareas}} · {agents, plural, =0 {ningún agente trabajando} one {# agente trabajando} other {# agentes trabajando}}",
+    "summary": "{tasks, plural, one {# tarefa} other {# tarefas}} · {agents, plural, =0 {nenhum agente trabalhando} one {# agente trabalhando} other {# agentes trabalhando}}",
     "live": "ao vivo",
     "polling": "sem tempo real, atualizando a cada 30 s",
     "syncing": "atualizando…",
