@@ -1,10 +1,10 @@
 'use client'
 
-import { useState, forwardRef, useImperativeHandle, type ReactNode } from 'react'
+import { useState, forwardRef, useImperativeHandle } from 'react'
 import { useFormatter, useNow, useTranslations } from 'next-intl'
-import { Bot, User } from 'lucide-react'
+import { User } from 'lucide-react'
 import { Task, Agent, Message, Subtask, TaskTrajectory } from '@taia/types'
-import { Button, Input, Textarea } from '../atoms'
+import { Button, Input, Textarea, ParticipantMark } from '../atoms'
 import { Card, SubtaskList } from '../molecules'
 import { useCurrentUserAgent } from '@/lib/store-selectors'
 
@@ -66,12 +66,9 @@ export const TaskContent = forwardRef<TaskContentHandle, TaskContentProps>(funct
     focusDescription: () => setEditingDescription(true),
   }))
 
-  const getAgentInfo = (agentId: string): { name: string; avatar: ReactNode } => {
+  const getAgentInfo = (agentId: string): { name: string; type?: string } => {
     const agent = agents.find((a) => a.id === agentId)
-    return {
-      name: agent?.name ?? agentId,
-      avatar: agent?.avatar || <Bot size={14} aria-hidden />,
-    }
+    return { name: agent?.name ?? agentId, type: agent?.type }
   }
 
   const ago = (iso: string) => format.relativeTime(parseTimestamp(iso), now)
@@ -215,7 +212,7 @@ export const TaskContent = forwardRef<TaskContentHandle, TaskContentProps>(funct
                 <Card key={item.id} padding="sm" className="bg-background">
                   <div className="flex items-center justify-between gap-3 mb-2">
                     <div className="flex items-center gap-2">
-                      <span>{agent.avatar}</span>
+                      <ParticipantMark agent={agent} />
                       <span className="font-medium text-sm">{agent.name}</span>
                     </div>
                     <span className="text-xs text-muted">{ago(item.created_at)}</span>
@@ -249,9 +246,7 @@ export const TaskContent = forwardRef<TaskContentHandle, TaskContentProps>(funct
               const agent = getAgentInfo(msg.from_agent_id)
               return (
                 <div key={msg.id} className="flex gap-3">
-                  <div className="w-8 h-8 rounded-full bg-background flex items-center justify-center shrink-0">
-                    {agent.avatar}
-                  </div>
+                  <ParticipantMark agent={agent} className="h-8 mt-0.5" />
                   <div className="flex-1">
                     <div className="flex items-center gap-2 mb-1">
                       <span className="font-medium text-sm">{agent.name}</span>

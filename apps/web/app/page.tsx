@@ -7,6 +7,7 @@ import type { TaskStatus, SavedFilterConfig } from '@taia/types'
 import { useStore } from '../lib/store'
 import { useRealtimeUpdates } from '../lib/use-websocket'
 import { useBoardSignals } from '../lib/use-board-signals'
+import { useRuntimeStatus } from '../lib/use-runtime-status'
 import { useHideChrome } from '../lib/chrome'
 import { useKeyboardShortcuts } from '@/lib/use-keyboard-shortcuts'
 import { useFontScale } from '@/lib/use-font-scale'
@@ -83,7 +84,8 @@ function Home() {
     [tasks, activeFilterConfig, boardColumns, selectedProjectId],
   )
 
-  const signals = useBoardSignals(tasks, agents)
+  const signals = useBoardSignals(tasks)
+  const runtime = useRuntimeStatus()
   const searchParams = useSearchParams()
   const urlView: BoardView = searchParams.get('view') === 'waiting' ? 'waiting' : 'all'
   const [view, setView] = useState<BoardView>(urlView)
@@ -361,7 +363,8 @@ function Home() {
     <div className="flex flex-col h-full">
       <BoardHeader
         taskCount={tasks.length}
-        activeAgents={agents.filter((a) => a.type !== 'human' && a.status === 'WORKING').length}
+        agentCount={agents.filter((a) => a.type !== 'human').length}
+        liveAgents={runtime.configured ? signals.liveAgents : null}
         waitingCount={signals.waitingCount}
         view={view}
         onViewChange={changeView}
@@ -458,6 +461,7 @@ function Home() {
           onEditWipLimit={setWipModalStatus}
           costs={signals.costs}
           waiting={signals.waiting}
+          running={signals.running}
           onDecide={decide}
         />
 

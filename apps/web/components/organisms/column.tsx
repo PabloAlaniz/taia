@@ -24,6 +24,7 @@ interface ColumnProps {
   onEditWipLimit?: (status: string) => void
   costs?: Record<string, number>
   waiting?: Record<string, WaitingReason>
+  running?: Set<string>
   onDecide?: (approvalId: string, decision: 'approved' | 'rejected') => Promise<string | null>
 }
 
@@ -42,6 +43,7 @@ export const Column = memo(function Column({
   onEditWipLimit,
   costs = {},
   waiting = {},
+  running,
   onDecide,
 }: ColumnProps) {
   const t = useTranslations('board')
@@ -129,6 +131,7 @@ export const Column = memo(function Column({
                       onAssign={onAssign}
                       cost={costs[task.id]}
                       waiting={waiting[task.id]}
+                      running={running?.has(task.id) ?? false}
                       onDecide={onDecide}
                     />
                   </div>

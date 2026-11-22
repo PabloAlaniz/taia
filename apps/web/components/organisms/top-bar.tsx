@@ -10,7 +10,7 @@ import { MateMark } from '../atoms'
 import { useIsClient } from '../../lib/use-is-client'
 import { cn } from '../../lib/utils'
 import { formatUsd } from '../../lib/format'
-import { useShellSignals } from '../../lib/use-shell-signals'
+import { useLivePoller, useLiveStore, useWaiting } from '../../lib/use-shell-signals'
 import { useRuntimeStatus, type RuntimeStatus } from '../../lib/use-runtime-status'
 import { useStore } from '../../lib/store'
 import { WorkspaceSwitcher } from './workspace-switcher'
@@ -45,7 +45,9 @@ export function TopBar({ onCreateWorkspace }: { onCreateWorkspace?: () => void }
   const t = useTranslations('shell')
   const tn = useTranslations('nav')
   const locale = useLocale()
-  const { waitingCount, costToday } = useShellSignals()
+  useLivePoller()
+  const waitingCount = Object.keys(useWaiting()).length
+  const costToday = useLiveStore((s) => s.costToday)
   const runtime = useRuntimeStatus()
 
   // Pages other than the board don't load the store; the bar needs the
@@ -54,19 +56,24 @@ export function TopBar({ onCreateWorkspace }: { onCreateWorkspace?: () => void }
   const hasAgents = useStore((s) => s.agents.length > 0)
   const fetchWorkspaces = useStore((s) => s.fetchWorkspaces)
   const fetchAgents = useStore((s) => s.fetchAgents)
+  const fetchTasks = useStore((s) => s.fetchTasks)
   useEffect(() => {
     if (!hasWorkspaces) fetchWorkspaces()
     if (!hasAgents) fetchAgents()
   }, [hasWorkspaces, hasAgents, fetchWorkspaces, fetchAgents])
+  // The waiting count is computed over the workspace's tasks, like the board's.
+  useEffect(() => {
+    fetchTasks()
+  }, [fetchTasks])
 
   return (
-    <header className="h-[52px] shrink-0 bg-rack border-b border-rack-deep text-on-rack flex items-center gap-3 md:gap-5 px-3 md:px-6">
+    <header className="h-[52px] shrink-0 bg-rack border-b border-rack-deep text-on-rack flex items-center gap-2 sm:gap-3 md:gap-5 px-3 md:px-6 min-w-0">
       <Link
         href="/"
         className="flex items-center gap-2 font-bold text-lg tracking-[0.14em] text-white no-underline focus-visible:outline-2 focus-visible:outline-white rounded-sm"
       >
         <MateMark size={22} className="text-white [&_rect]:stroke-person" />
-        TAIA
+        <span className="hidden sm:inline">TAIA</span>
       </Link>
       <WorkspaceSwitcher onCreateWorkspace={onCreateWorkspace} />
 
@@ -94,15 +101,16 @@ export function TopBar({ onCreateWorkspace }: { onCreateWorkspace?: () => void }
 
       <div className="flex-1" />
 
-      {waitingCount !== null && waitingCount > 0 && (
+      {waitingCount > 0 && (
         <Link
           href="/?view=waiting"
-          className="flex items-center gap-2 rounded bg-person text-on-person font-bold text-sm pl-1.5 pr-2.5 py-1 no-underline hover:brightness-105 focus-visible:outline-2 focus-visible:outline-white"
+          aria-label={t('waitingAria', { count: waitingCount })}
+          className="flex items-center gap-2 whitespace-nowrap rounded bg-person text-on-person font-bold text-sm px-1.5 sm:pr-2.5 py-1 no-underline hover:brightness-105 focus-visible:outline-2 focus-visible:outline-white"
         >
           <span className="rounded-[3px] bg-on-person text-person px-1.5 tabular-nums text-mid">
             {waitingCount}
           </span>
-          {t('waiting', { count: waitingCount })}
+          <span className="hidden sm:inline">{t('waiting', { count: waitingCount })}</span>
         </Link>
       )}
 
@@ -122,7 +130,7 @@ export function TopBar({ onCreateWorkspace }: { onCreateWorkspace?: () => void }
         title={tn('settings')}
         aria-current={pathname.startsWith('/settings') ? 'page' : undefined}
         className={cn(
-          'p-1.5 rounded hover:bg-rack-line hover:text-white focus-visible:outline-2 focus-visible:outline-white',
+          'hidden md:block p-1.5 rounded hover:bg-rack-line hover:text-white focus-visible:outline-2 focus-visible:outline-white',
           pathname.startsWith('/settings') ? 'text-white bg-rack-line' : 'text-on-rack-muted',
         )}
       >
@@ -185,7 +193,7 @@ function ThemeSwitch() {
       onClick={() => setTheme(dark ? 'light' : 'dark')}
       aria-label={dark ? t('toLight') : t('toDark')}
       title={dark ? t('toLight') : t('toDark')}
-      className="p-1.5 rounded text-on-rack-muted hover:text-white hover:bg-rack-line focus-visible:outline-2 focus-visible:outline-white"
+      className="hidden md:block p-1.5 rounded text-on-rack-muted hover:text-white hover:bg-rack-line focus-visible:outline-2 focus-visible:outline-white"
     >
       {dark ? <Sun size={17} aria-hidden="true" /> : <Moon size={17} aria-hidden="true" />}
     </button>

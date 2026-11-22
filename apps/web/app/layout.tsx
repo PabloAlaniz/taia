@@ -48,7 +48,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
       <head />
       <body>
         <NextIntlClientProvider messages={messages}>
-          <ThemeProvider attribute="class" defaultTheme="dark" enableSystem>
+          <ThemeProvider attribute="class" defaultTheme="light" enableSystem>
             <SkipLink />
             <AppShell>{children}</AppShell>
           </ThemeProvider>

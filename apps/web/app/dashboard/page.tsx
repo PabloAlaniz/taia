@@ -5,7 +5,7 @@ import { useFormatter, useLocale, useNow, useTranslations } from 'next-intl'
 import Link from 'next/link'
 import { Task, Agent, Activity, CostDashboardMetrics } from '@taia/types'
 import { cn } from '../../lib/utils'
-import { Button, Select, ProgressBar } from '../../components/atoms'
+import { Button, Select, ProgressBar, ParticipantMark } from '../../components/atoms'
 import { Card } from '@/components/molecules/card'
 import { PageHeader } from '@/components/molecules/page-header'
 import { StatCard } from '@/components/molecules/stat-card'
@@ -482,7 +482,7 @@ export default function DashboardPage() {
               <div className="space-y-3">
                 {stats.byAgent.map(({ agent, total, done, pending, timeMinutes }) => (
                   <div key={agent.id} className="flex items-center gap-3">
-                    <span className="text-xl">{agent.avatar}</span>
+                    <ParticipantMark agent={agent} className="h-6" />
                     <div className="flex-1 min-w-0">
                       <div className="text-sm font-medium truncate">{agent.name}</div>
                       <div className="text-xs text-muted">

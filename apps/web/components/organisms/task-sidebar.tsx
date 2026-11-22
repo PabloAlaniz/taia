@@ -12,7 +12,7 @@ import {
   TaskCostBreakdown,
   TaskDependencyDetail,
 } from '@taia/types'
-import { Select, Badge, Input, CostBadge, Button, GitHubIcon } from '../atoms'
+import { Select, Badge, Input, CostBadge, Button, GitHubIcon, ParticipantMark, Kbd } from '../atoms'
 import { Dropdown } from '../molecules/dropdown'
 import { PRIORITY_COLORS } from '../../lib/utils'
 import { formatMinutes, isOverdue, parseTimeInput } from '../../lib/task-utils'
@@ -183,10 +183,7 @@ export const TaskSidebar = forwardRef<TaskSidebarHandle, TaskSidebarProps>(funct
       {/* Status */}
       <div>
         <label htmlFor="task-status" className="text-xs font-medium text-muted block mb-2">
-          {t('status')}{' '}
-          <kbd className="font-mono text-2xs" title={t('shortcut', { key: 'S' })}>
-            S
-          </kbd>
+          {t('status')} <Kbd title={t('shortcut', { key: 'S' })}>S</Kbd>
         </label>
         <Select
           id="task-status"
@@ -240,13 +237,13 @@ export const TaskSidebar = forwardRef<TaskSidebarHandle, TaskSidebarProps>(funct
           <option value="">{t('unassigned')}</option>
           {assignableAgents.map((agent) => (
             <option key={agent.id} value={agent.id}>
-              {agent.avatar} {agent.name}
+              {agent.name}
             </option>
           ))}
         </Select>
         {assignedAgent && (
           <div className="mt-2 flex items-center gap-2">
-            <span>{assignedAgent.avatar}</span>
+            <ParticipantMark agent={assignedAgent} />
             <span className="text-sm">{assignedAgent.name}</span>
             <Badge variant="secondary" size="sm">
               {t('agentStatus', { status: assignedAgent.status })}
@@ -263,7 +260,7 @@ export const TaskSidebar = forwardRef<TaskSidebarHandle, TaskSidebarProps>(funct
             const creatorAgent = agents.find((a) => a.id === task.created_by)
             return creatorAgent ? (
               <div className="flex items-center gap-2">
-                <span>{creatorAgent.avatar}</span>
+                <ParticipantMark agent={creatorAgent} />
                 <span className="text-sm">{creatorAgent.name}</span>
               </div>
             ) : (

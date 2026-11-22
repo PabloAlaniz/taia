@@ -99,14 +99,15 @@
 
 .dark {
   /* Dark theme: the same rack, the page drops to near-graphite and the
-     strips darken; participant colours stay, inks lighten. */
+     strips stay a step lighter than the bay, like paper in a rack;
+     participant colours stay, inks lighten. */
   --background: #111519;
   --card: #1a1f24;
-  --strip: #262d34;
-  --strip-done: #20262c;
-  --border: #353e47;
+  --strip: #343d46;
+  --strip-done: #2a323a;
+  --border: #46515c;
   --foreground: #e6ebef;
-  --muted: #9aa5af;
+  --muted: #a7b2bc;
   --accent: #6cc0ea;
   --rack: #1d2329;
   --rack-deep: #161b20;
@@ -118,11 +119,11 @@
   --person: #e07b2e;
   --person-ink: #f0a56a;
   --on-person: #1a0f05;
-  --alert: #f07170;
+  --alert: #ff8a89;
   --ok: #4cc38a;
   --green: #4cc38a;
   --orange: #e07b2e;
-  --red: #f07170;
+  --red: #ff8a89;
 }
 
 body {
@@ -207,4 +208,17 @@ body {
 /* Calendar */
 .calendar-day-hover:hover {
   @apply bg-card;
+}
+
+/* Native selects get the world's chevron instead of the browser's. */
+select:not([multiple]):not([size]) {
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2356616b' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.6rem center;
+  background-size: 0.75rem;
+  padding-right: 2rem;
+}
+.dark select:not([multiple]):not([size]) {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23a7b2bc' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
 }

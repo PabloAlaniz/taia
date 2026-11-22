@@ -197,7 +197,9 @@ export function SquadAgentCard({
             >
               {member.name}
             </span>
-            {member.role && <span className="text-sm text-muted truncate">{member.role}</span>}
+            {member.role && !(isPerson && member.role === 'Agent') && (
+              <span className="text-sm text-muted truncate">{member.role}</span>
+            )}
             {!member.enabled && <StateChip tone="muted">{t('disabled')}</StateChip>}
             {member.enabled && member.cron && (
               <StateChip tone={member.cron.enabled ? 'ok' : 'muted'}>
@@ -470,11 +472,15 @@ function StateChip({
 
 function TaskCount({ n, label, strong }: { n: number; label: string; strong?: boolean }) {
   return (
-    <span className={cn('flex flex-col items-end leading-tight', n === 0 && 'opacity-50')}>
+    <span className="flex flex-col items-end leading-tight">
       <span
         className={cn(
           'text-base',
-          strong && n > 0 ? 'font-semibold text-agent-ink' : 'font-medium',
+          strong && n > 0
+            ? 'font-semibold text-agent-ink'
+            : n === 0
+              ? 'font-medium text-muted'
+              : 'font-medium',
         )}
       >
         {n}

@@ -25,6 +25,8 @@ interface TaskCardProps {
   cost?: number
   /** Set when the strip waits on a person: it is pulled out of the rack. */
   waiting?: WaitingReason
+  /** A live runtime session is working on it right now. */
+  running?: boolean
   onDecide?: (approvalId: string, decision: 'approved' | 'rejected') => Promise<string | null>
 }
 
@@ -54,6 +56,7 @@ export const TaskCard = memo(function TaskCard({
   unresolvedBlockers,
   cost,
   waiting,
+  running = false,
   onDecide,
 }: TaskCardProps) {
   const t = useTranslations('taskCard')
@@ -70,8 +73,6 @@ export const TaskCard = memo(function TaskCard({
   const assignee = agents.find((a) => a.id === task.assigned_to)
   const kind = participantKind(assignee)
   const assignable = agents.filter((a) => a.type !== 'orchestrator')
-  const running =
-    kind === 'agent' && assignee?.status === 'WORKING' && assignee.currentTask === task.id
   const done = task.status === 'DONE'
   const tags = Array.from(new Set(task.tags ?? [])).filter((tag) => !SYSTEM_TAGS.includes(tag))
   const blocked = task.tags?.includes('blocked')
@@ -102,8 +103,6 @@ export const TaskCard = memo(function TaskCard({
     stateLabel = task.started_at
       ? t('runningSince', { time: format.relativeTime(new Date(task.started_at), now) })
       : t('running')
-  } else if (assignee?.status === 'BLOCKED' && assignee.currentTask === task.id) {
-    stateLabel = t('agentBlocked')
   }
 
   return (
@@ -138,6 +137,10 @@ export const TaskCard = memo(function TaskCard({
         )}
       />
 
+      <div className="font-mono text-xxs text-muted tabular-nums leading-none mb-0.5">
+        {shortTaskId(task.id)}
+      </div>
+
       {waiting && (
         <div className="flex items-baseline gap-2 mb-1">
           <span className="shrink-0 whitespace-nowrap text-xxs font-bold tracking-[0.12em] uppercase bg-person text-on-person px-1.5 rounded-[2px]">
@@ -155,9 +158,6 @@ export const TaskCard = memo(function TaskCard({
       )}
 
       <div className="flex items-baseline gap-2 min-w-0">
-        <span className="font-mono text-xxs text-muted shrink-0 tabular-nums">
-          {shortTaskId(task.id)}
-        </span>
         <h4
           className={cn(
             'text-sm leading-snug line-clamp-2 break-words',

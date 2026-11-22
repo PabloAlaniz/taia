@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useTranslations } from 'next-intl'
 import { Loader2, Plus, X } from 'lucide-react'
-import { Button, Input } from '../atoms'
+import { Button, Input, ParticipantMark } from '../atoms'
 import { Modal, ModalHeader, ModalBody, ModalFooter } from '../molecules/modal'
 import { useStore } from '@/lib/store'
 import { api } from '@/lib/api'
@@ -542,7 +542,7 @@ function CreateWorkspaceForm({ onClose, fullScreen }: Omit<CreateWorkspaceModalP
                         : 'border-border text-muted'
                     }`}
                   >
-                    {agent.avatar} {agent.name}
+                    {agent.name}
                   </Button>
                 ))}
               </div>
@@ -559,7 +559,7 @@ function CreateWorkspaceForm({ onClose, fullScreen }: Omit<CreateWorkspaceModalP
                     key={agent.id}
                     className="flex items-center gap-2 px-3 py-1.5 border border-border rounded-md text-sm"
                   >
-                    <span>{agent.avatar}</span>
+                    <ParticipantMark agent={agent} />
                     <span className="font-medium">{agent.name}</span>
                     <span className="text-xs text-muted truncate flex-1">{agent.role}</span>
                     <Button

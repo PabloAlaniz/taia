@@ -1,12 +1,12 @@
 'use client'
 
-import { useState, type ReactNode } from 'react'
+import { useState } from 'react'
 import { useFormatter, useTranslations } from 'next-intl'
-import { Bot, X } from 'lucide-react'
+import { X } from 'lucide-react'
 import { Task, Message, Agent } from '@taia/types'
 import { PRIORITY_COLORS } from '../../lib/utils'
 import { useStore } from '../../lib/store'
-import { Button, Badge, Input } from '../atoms'
+import { Button, Badge, Input, ParticipantMark } from '../atoms'
 import { Card } from '../molecules'
 
 interface TaskDetailProps {
@@ -35,12 +35,9 @@ export function TaskDetail({
   const [newMessage, setNewMessage] = useState('')
   const assignedAgent = agents.find((a) => a.id === task.assigned_to)
 
-  const getAgentInfo = (agentId: string): { name: string; avatar: ReactNode } => {
+  const getAgentInfo = (agentId: string): { name: string; type?: string } => {
     const agent = agents.find((a) => a.id === agentId)
-    return {
-      name: agent?.name ?? agentId,
-      avatar: agent?.avatar || <Bot size={14} aria-hidden />,
-    }
+    return { name: agent?.name ?? agentId, type: agent?.type }
   }
 
   const handleSend = () => {
@@ -90,9 +87,7 @@ export function TaskDetail({
           {assignedAgent && (
             <div>
               <span className="text-muted">{t('assigned')} </span>
-              <span>
-                {assignedAgent.avatar} {assignedAgent.name}
-              </span>
+              <span>{assignedAgent.name}</span>
             </div>
           )}
         </div>
@@ -109,7 +104,7 @@ export function TaskDetail({
             return (
               <div key={msg.id} className="mb-4">
                 <div className="flex items-center gap-2 mb-1">
-                  <span>{agent.avatar}</span>
+                  <ParticipantMark agent={agent} />
                   <span className="font-medium text-sm">{agent.name}</span>
                   <span className="text-2xs text-muted">
                     {format.dateTime(new Date(msg.created_at), {

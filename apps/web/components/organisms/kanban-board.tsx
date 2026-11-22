@@ -36,6 +36,7 @@ interface KanbanBoardProps {
   onEditWipLimit?: (status: string) => void
   costs?: Record<string, number>
   waiting?: Record<string, WaitingReason>
+  running?: Set<string>
   onDecide?: (approvalId: string, decision: 'approved' | 'rejected') => Promise<string | null>
 }
 
@@ -149,6 +150,7 @@ export function KanbanBoard({
   onEditWipLimit,
   costs,
   waiting,
+  running,
   onDecide,
 }: KanbanBoardProps) {
   const t = useTranslations('board')
@@ -224,6 +226,7 @@ export function KanbanBoard({
                 onEditWipLimit={onEditWipLimit}
                 costs={costs}
                 waiting={waiting}
+                running={running}
                 onDecide={onDecide}
               />
             ))
@@ -278,6 +281,7 @@ export function KanbanBoard({
                       onEditWipLimit={onEditWipLimit}
                       costs={costs}
                       waiting={waiting}
+                      running={running}
                       onDecide={onDecide}
                       compact={isSwimlane}
                     />

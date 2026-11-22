@@ -151,7 +151,9 @@ export const AgentCard = memo(function AgentCard({
           >
             {agent.name}
           </span>
-          {agent.role && <span className="text-xs text-muted truncate">{agent.role}</span>}
+          {agent.role && !(isPerson && agent.role === 'Agent') && (
+            <span className="text-xs text-muted truncate">{agent.role}</span>
+          )}
           {taskCount > 0 && (
             <span className="ml-auto text-xs tabular-nums text-muted" title={t('openTasks')}>
               {taskCount}

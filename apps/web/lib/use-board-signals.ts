@@ -1,73 +1,39 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import type { Agent, Task, Worktree } from '@taia/types'
-import { api, type ApprovalRequest } from './api'
-import { announceWaitingChanged } from './use-shell-signals'
+import type { Task } from '@taia/types'
+import { api } from './api'
+import { announceWaitingChanged, useLiveStore, useWaiting } from './use-shell-signals'
+import type { WaitingReason } from './waiting'
+
+export type { WaitingReason } from './waiting'
+export { collectWaiting, taskForApproval } from './waiting'
 
 const POLL_MS = 15_000
-
-/** Why a strip is pulled forward: something only a person can resolve. */
-export type WaitingReason =
-  | { kind: 'approval'; approval: ApprovalRequest }
-  | { kind: 'merge'; worktree: Worktree }
-  | { kind: 'clarify' }
 
 export interface BoardSignals {
   /** USD per task, summed over its sessions. Absent means no sessions. */
   costs: Record<string, number>
-  /** What waits on a person, by task id. */
+  /** What waits on a person, by task id (same source as the top bar). */
   waiting: Record<string, WaitingReason>
   waitingCount: number
-  /** Approve or reject a paused tool call, then refresh. */
+  /** Task ids with a session the runtime reports as running now. */
+  running: Set<string>
+  /** Distinct agents with a running session. */
+  liveAgents: number
+  /** Approve or reject a paused tool call. Returns an error code or null. */
   decide: (
     approvalId: string,
     decision: 'approved' | 'rejected',
     decidedBy?: string,
   ) => Promise<string | null>
-  refresh: () => void
 }
 
-/** The task an approval belongs to: by session, else the agent's current task. */
-export function taskForApproval(
-  approval: ApprovalRequest,
-  tasks: Task[],
-  agents: Agent[],
-): Task | undefined {
-  return (
-    tasks.find((t) => t.session_key && t.session_key === approval.session_key) ??
-    tasks.find((t) => t.id === agents.find((a) => a.id === approval.agent_id)?.currentTask)
-  )
-}
-
-export function collectWaiting(
-  tasks: Task[],
-  agents: Agent[],
-  approvals: ApprovalRequest[],
-  worktrees: Worktree[],
-): Record<string, WaitingReason> {
-  const waiting: Record<string, WaitingReason> = {}
-  for (const task of tasks) {
-    if (task.tags?.includes('needs-clarification')) waiting[task.id] = { kind: 'clarify' }
-  }
-  for (const wt of worktrees) {
-    if (wt.status === 'reviewing' && tasks.some((t) => t.id === wt.task_id)) {
-      waiting[wt.task_id] = { kind: 'merge', worktree: wt }
-    }
-  }
-  // An approval outranks the rest: the agent is paused until someone answers.
-  for (const approval of approvals) {
-    const task = taskForApproval(approval, tasks, agents)
-    if (task) waiting[task.id] = { kind: 'approval', approval }
-  }
-  return waiting
-}
-
-export function useBoardSignals(tasks: Task[], agents: Agent[]): BoardSignals {
+export function useBoardSignals(tasks: Task[]): BoardSignals {
   const [costs, setCosts] = useState<Record<string, number>>({})
-  const [approvals, setApprovals] = useState<ApprovalRequest[]>([])
-  const [worktrees, setWorktrees] = useState<Worktree[]>([])
-  const [tick, setTick] = useState(0)
+  const waiting = useWaiting()
+  const liveSessions = useLiveStore((s) => s.liveSessions)
+  const dropApproval = useLiveStore((s) => s.dropApproval)
 
   const idsKey = useMemo(
     () =>
@@ -79,51 +45,54 @@ export function useBoardSignals(tasks: Task[], agents: Agent[]): BoardSignals {
   )
 
   useEffect(() => {
+    if (!idsKey) return
     let cancelled = false
-    const load = () => {
-      const ids = idsKey ? idsKey.split(',') : []
-      Promise.all([
-        ids.length ? api.cost.forTasks(ids).catch(() => null) : null,
-        api.approvals.pending().catch(() => null),
-        api.worktrees.list().catch(() => null),
-      ]).then(([c, a, w]) => {
-        if (cancelled) return
-        if (c?.ok) setCosts(c.costs)
-        if (a?.ok) setApprovals(a.approvals)
-        if (w?.ok) setWorktrees(w.worktrees)
-      })
-    }
+    const load = () =>
+      api.cost
+        .forTasks(idsKey.split(','))
+        .then((c) => !cancelled && c.ok && setCosts(c.costs))
+        .catch(() => {})
     load()
     const timer = setInterval(load, POLL_MS)
     return () => {
       cancelled = true
       clearInterval(timer)
     }
-  }, [idsKey, tick])
+  }, [idsKey])
 
-  const waiting = useMemo(
-    () => collectWaiting(tasks, agents, approvals, worktrees),
-    [tasks, agents, approvals, worktrees],
-  )
-
-  const refresh = useCallback(() => setTick((n) => n + 1), [])
+  // Running means the runtime says so: a live session on the task, never just
+  // "the task is in progress".
+  const running = useMemo(() => {
+    const ids = new Set<string>()
+    for (const s of liveSessions) {
+      const task = tasks.find((t) => t.session_key === s.key)
+      if (task) ids.add(task.id)
+    }
+    return ids
+  }, [liveSessions, tasks])
 
   const decide = useCallback(
     async (approvalId: string, decision: 'approved' | 'rejected', decidedBy?: string) => {
       try {
         const res = await api.approvals.decide(approvalId, decision, decidedBy)
         if (!res.ok) return res.error ?? 'error'
-        setApprovals((prev) => prev.filter((a) => a.id !== approvalId))
-        announceWaitingChanged()
+        dropApproval(approvalId)
         return null
       } catch {
         return 'network'
       } finally {
-        refresh()
+        announceWaitingChanged()
       }
     },
-    [refresh],
+    [dropApproval],
   )
 
-  return { costs, waiting, waitingCount: Object.keys(waiting).length, decide, refresh }
+  return {
+    costs,
+    waiting,
+    waitingCount: Object.keys(waiting).length,
+    running,
+    liveAgents: new Set(liveSessions.map((s) => s.agentId)).size,
+    decide,
+  }
 }

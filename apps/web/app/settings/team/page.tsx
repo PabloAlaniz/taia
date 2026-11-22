@@ -3,7 +3,7 @@
 import { useTranslations } from 'next-intl'
 import { useState, useEffect } from 'react'
 import { Plus } from 'lucide-react'
-import { Button, Input } from '@/components/atoms'
+import { Button, Input, ParticipantMark } from '@/components/atoms'
 import { Card } from '@/components/molecules/card'
 import { ConfirmDialog } from '@/components/molecules/confirm-dialog'
 import { PageHeader } from '@/components/molecules/page-header'
@@ -204,9 +204,7 @@ export default function TeamSettingsPage() {
             <div className="divide-y divide-border">
               {members.map((member) => (
                 <div key={member.id} className="p-4 flex items-center gap-3">
-                  <span className="text-2xl" aria-hidden="true">
-                    {member.avatar}
-                  </span>
+                  <ParticipantMark agent={{ type: 'human' }} className="h-8" />
                   <div className="flex-1 min-w-0">
                     <div className="font-medium text-sm">{member.name}</div>
                     <div className="text-xs text-muted truncate">

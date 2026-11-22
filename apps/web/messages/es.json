@@ -449,11 +449,20 @@
       "abort": "No se pudo descartar el worktree.",
       "diff": "No se pudieron cargar los cambios. Podés mergear igual, pero sin ver qué entra.",
       "network": "No hay conexión con TAIA. Probá de nuevo."
+    },
+    "status": {
+      "creating": "creando",
+      "active": "activo",
+      "reviewing": "en revisión",
+      "merging": "mergeando",
+      "merged": "mergeado",
+      "failed": "falló",
+      "cleanup": "limpiando"
     }
   },
   "boardHeader": {
     "title": "Tablero",
-    "summary": "{tasks, plural, one {# tarea} other {# tareas}} · {agents, plural, one {# agente activo} other {# agentes activos}}",
+    "summary": "{tasks, plural, one {# tarea} other {# tareas}} · {agents, plural, =0 {ningún agente trabajando} one {# agente trabajando} other {# agentes trabajando}}",
     "live": "en vivo",
     "polling": "sin tiempo real, actualizando cada 30 s",
     "syncing": "actualizando…",
@@ -468,7 +477,8 @@
     "hideActivity": "Ocultar actividad",
     "showAgents": "Mostrar agentes",
     "hideAgents": "Ocultar agentes",
-    "newTask": "Nueva tarea"
+    "newTask": "Nueva tarea",
+    "summaryStandalone": "{tasks, plural, one {# tarea} other {# tareas}} · {agents, plural, one {# agente} other {# agentes}}"
   },
   "shell": {
     "waiting": "{count, plural, one {te espera} other {te esperan}}",
@@ -497,7 +507,8 @@
     "theme": {
       "toLight": "Cambiar a tema claro",
       "toDark": "Cambiar a tema oscuro"
-    }
+    },
+    "waitingAria": "{count, plural, one {# cosa te espera} other {# cosas te esperan}}"
   },
   "pageTitles": {
     "settings": "Configuración",
@@ -561,7 +572,7 @@
     "intro": "Los agentes y las personas toman tareas del mismo tablero. Abrí una fila para ver su horario, sus corridas y su contexto.",
     "agentsSection": "Agentes",
     "peopleSection": "Personas",
-    "working": "{count, plural, =0 {nadie trabajando} one {# trabajando} other {# trabajando}}",
+    "working": "{count, plural, =0 {nadie con tareas en curso} one {# con tareas en curso} other {# con tareas en curso}}",
     "noAgents": "Todavía no hay agentes",
     "noAgentsHint": "Sumá un agente para que pueda tomar tareas del tablero o por MCP.",
     "noPeople": "Todavía no hay personas en el equipo",
@@ -658,7 +669,7 @@
     "priority": "Prioridad",
     "assignedTo": "Asignada a",
     "unassigned": "Sin asignar",
-    "agentStatus": "{status, select, IDLE {libre} WORKING {trabajando} BLOCKED {bloqueado} OFFLINE {desconectado} other {{status}}}",
+    "agentStatus": "{status, select, IDLE {sin tareas en curso} WORKING {con tareas en curso} BLOCKED {bloqueado} OFFLINE {desconectado} other {{status}}}",
     "createdBy": "Creada por",
     "project": "Proyecto",
     "noProject": "Sin proyecto",

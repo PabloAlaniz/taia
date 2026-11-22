@@ -3,7 +3,7 @@ import { cn } from '../../lib/utils'
 export type StripKind = 'agent' | 'person' | 'none'
 
 export interface StripProps extends React.HTMLAttributes<HTMLDivElement> {
-  /** Edge tab colour: who holds this row. */
+  /** Edge tab colour: who holds this row; `none` draws no tab. */
   kind?: StripKind
   /** Pulled out of the rack: a person has to act on it. */
   waiting?: boolean
@@ -36,15 +36,15 @@ export function Strip({
       )}
       {...props}
     >
-      <span
-        aria-hidden="true"
-        className={cn(
-          'absolute inset-y-0 left-0 w-[5px] rounded-l-[2px]',
-          kind === 'agent' && 'bg-agent',
-          kind === 'person' && 'bg-person',
-          kind === 'none' && 'bg-border',
-        )}
-      />
+      {kind !== 'none' && (
+        <span
+          aria-hidden="true"
+          className={cn(
+            'absolute inset-y-0 left-0 w-[5px] rounded-l-[2px]',
+            kind === 'agent' ? 'bg-agent' : 'bg-person',
+          )}
+        />
+      )}
       {children}
     </div>
   )

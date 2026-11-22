@@ -10,7 +10,9 @@ export type BoardView = 'all' | 'waiting'
 
 interface BoardHeaderProps {
   taskCount: number
-  activeAgents: number
+  agentCount: number
+  /** Agents with a live session; null when the runtime can't tell (standalone). */
+  liveAgents: number | null
   waitingCount: number
   view: BoardView
   onViewChange: (view: BoardView) => void
@@ -27,7 +29,8 @@ interface BoardHeaderProps {
 /** Title row of the board: counts, the waiting view, and the board's own actions. */
 export function BoardHeader({
   taskCount,
-  activeAgents,
+  agentCount,
+  liveAgents,
   waitingCount,
   view,
   onViewChange,
@@ -57,7 +60,9 @@ export function BoardHeader({
       <div className="flex items-baseline gap-3 min-w-0">
         <h1 className="text-2xl font-semibold leading-none">{t('title')}</h1>
         <p className="text-sm text-muted whitespace-nowrap">
-          {t('summary', { tasks: taskCount, agents: activeAgents })}
+          {liveAgents === null
+            ? t('summaryStandalone', { tasks: taskCount, agents: agentCount })
+            : t('summary', { tasks: taskCount, agents: liveAgents })}
           <span className="mx-1.5" aria-hidden="true">
             ·
           </span>

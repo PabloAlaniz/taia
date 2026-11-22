@@ -61,7 +61,7 @@ export function SearchBar({ tasks, agents, onSelectTask, onClose }: SearchBarPro
   const getAgentName = (agentId?: string) => {
     if (!agentId) return ''
     const agent = agents.find((a) => a.id === agentId)
-    return agent ? `${agent.avatar} ${agent.name}` : ''
+    return agent ? agent.name : ''
   }
 
   return (

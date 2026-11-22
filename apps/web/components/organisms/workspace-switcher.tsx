@@ -48,7 +48,9 @@ export function WorkspaceSwitcher({ onCreateWorkspace }: WorkspaceSwitcherProps)
         className="flex items-center gap-2 rounded border border-rack-line px-2.5 py-1 text-sm font-medium text-[#e6eaed] hover:border-on-rack-muted focus-visible:outline-2 focus-visible:outline-white"
       >
         <span aria-hidden="true" className="w-2 h-2 rounded-[2px] bg-agent" />
-        <span className="max-w-[140px] truncate">{activeWorkspace?.name || 'Default'}</span>
+        <span className="max-w-[96px] sm:max-w-[140px] truncate">
+          {activeWorkspace?.name || 'Default'}
+        </span>
         <ChevronDown size={14} className="text-on-rack-muted" aria-hidden="true" />
       </button>
 

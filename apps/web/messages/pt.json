@@ -449,11 +449,20 @@
       "abort": "Não foi possível descartar o worktree.",
       "diff": "Não foi possível carregar as alterações. Você pode fazer o merge mesmo assim, mas sem ver o que entra.",
       "network": "Sem conexão com o TAIA. Tente de novo."
+    },
+    "status": {
+      "creating": "criando",
+      "active": "ativo",
+      "reviewing": "em revisão",
+      "merging": "fazendo merge",
+      "merged": "merge feito",
+      "failed": "falhou",
+      "cleanup": "limpando"
     }
   },
   "boardHeader": {
     "title": "Quadro",
-    "summary": "{tasks, plural, one {# tarefa} other {# tarefas}} · {agents, plural, one {# agente ativo} other {# agentes ativos}}",
+    "summary": "{tasks, plural, one {# tarea} other {# tareas}} · {agents, plural, =0 {ningún agente trabajando} one {# agente trabajando} other {# agentes trabajando}}",
     "live": "ao vivo",
     "polling": "sem tempo real, atualizando a cada 30 s",
     "syncing": "atualizando…",
@@ -468,7 +477,8 @@
     "hideActivity": "Ocultar atividade",
     "showAgents": "Mostrar agentes",
     "hideAgents": "Ocultar agentes",
-    "newTask": "Nova tarefa"
+    "newTask": "Nova tarefa",
+    "summaryStandalone": "{tasks, plural, one {# tarefa} other {# tarefas}} · {agents, plural, one {# agente} other {# agentes}}"
   },
   "shell": {
     "waiting": "{count, plural, one {espera você} other {esperam você}}",
@@ -497,7 +507,8 @@
     "theme": {
       "toLight": "Mudar para tema claro",
       "toDark": "Mudar para tema escuro"
-    }
+    },
+    "waitingAria": "{count, plural, one {# item espera você} other {# itens esperam você}}"
   },
   "pageTitles": {
     "settings": "Configurações",
@@ -561,7 +572,7 @@
     "intro": "Agentes e pessoas pegam tarefas do mesmo quadro. Abra uma linha para ver o horário, as execuções e o contexto.",
     "agentsSection": "Agentes",
     "peopleSection": "Pessoas",
-    "working": "{count, plural, =0 {ninguém trabalhando} one {# trabalhando} other {# trabalhando}}",
+    "working": "{count, plural, =0 {ninguém com tarefas em andamento} one {# com tarefas em andamento} other {# com tarefas em andamento}}",
     "noAgents": "Ainda não há agentes",
     "noAgentsHint": "Adicione um agente para que ele pegue tarefas do quadro ou via MCP.",
     "noPeople": "Ainda não há pessoas na equipe",
@@ -658,7 +669,7 @@
     "priority": "Prioridade",
     "assignedTo": "Atribuída a",
     "unassigned": "Sem responsável",
-    "agentStatus": "{status, select, IDLE {livre} WORKING {trabalhando} BLOCKED {bloqueado} OFFLINE {desconectado} other {{status}}}",
+    "agentStatus": "{status, select, IDLE {sem tarefas em andamento} WORKING {com tarefas em andamento} BLOCKED {bloqueado} OFFLINE {desconectado} other {{status}}}",
     "createdBy": "Criada por",
     "project": "Projeto",
     "noProject": "Sem projeto",
