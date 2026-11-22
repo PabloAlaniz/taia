@@ -48,7 +48,7 @@ TAIA puede avisar a otros sistemas cuando pasan cosas en un workspace (tareas cr
 
 - Sin `events` (o con `"*"`), se mandan todos.
 - Cada entrega lleva los headers `x-taia-event` y `x-taia-workspace-id` y, si hay secreto, `x-taia-signature: sha256=<HMAC del body>`.
-- Los fallos se reintentan. Las entregas que agotan los reintentos quedan como *dead letter*: `GET /api/webhooks/outgoing` las lista y `POST /api/webhooks/outgoing` con `delivery_id` las reenvía.
+- Los fallos que pueden cambiar se reintentan hasta 3 veces: errores de red, timeouts, `408`, `425`, `429` y `5xx`. Otro `4xx` no se reintenta. Si el receptor manda `Retry-After`, se espera eso; si pide más de 10 segundos, la entrega pasa directo a *dead letter* con `nextRetryAt` indicando cuándo reenviarla. Las entregas que agotan los reintentos quedan como *dead letter*: `GET /api/webhooks/outgoing` las lista y `POST /api/webhooks/outgoing` con `delivery_id` las reenvía.
 
 - `GET /api/webhooks/outgoing` y `GET /api/settings` no devuelven los secretos: los endpoints se listan con `hasSecret`.
 

@@ -2,6 +2,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { DomainEvent } from '@taia/core/events/event-bus'
 import {
   deliverOutgoingWebhook,
+  isRetryableAttempt,
+  parseRetryAfter,
   handleOutgoingWebhookEvent,
   listOutgoingWebhookDiagnostics,
   replayOutgoingWebhookDelivery,
@@ -36,7 +38,7 @@ describe('outgoing webhook service', () => {
     vi.useFakeTimers()
     vi.setSystemTime(new Date('2027-01-15T10:00:00.000Z'))
     vi.clearAllMocks()
-    mockFetch.mockResolvedValue({ ok: true, status: 204 })
+    mockFetch.mockResolvedValue(new Response(null, { status: 204 }))
     vi.stubGlobal('fetch', mockFetch)
     // The fixtures deliver to a loopback receiver.
     process.env.TAIA_WEBHOOK_ALLOW_PRIVATE = '1'
@@ -74,7 +76,7 @@ describe('outgoing webhook service', () => {
   })
 
   it('does not follow redirects', async () => {
-    mockFetch.mockResolvedValue({ ok: false, status: 302 })
+    mockFetch.mockResolvedValue(new Response(null, { status: 302 }))
 
     const pending = deliverOutgoingWebhook({
       workspaceId: 'ws-1',
@@ -134,7 +136,7 @@ describe('outgoing webhook service', () => {
   })
 
   it('retries failed HTTP deliveries with bounded attempts and records the final error', async () => {
-    mockFetch.mockResolvedValue({ ok: false, status: 503 })
+    mockFetch.mockResolvedValue(new Response(null, { status: 503 }))
 
     const deliveryPromise = deliverOutgoingWebhook({
       workspaceId: 'ws-1',
@@ -161,6 +163,57 @@ describe('outgoing webhook service', () => {
         metadata: expect.objectContaining({ last_error: 'HTTP 503', attempts: 3 }),
       }),
     )
+  })
+
+  it('does not retry a failure that will not change, such as a 404', async () => {
+    mockFetch.mockResolvedValue(new Response(null, { status: 404 }))
+
+    const delivery = await deliverOutgoingWebhook({
+      workspaceId: 'ws-1',
+      endpoint: { id: 'local', url: 'http://127.0.0.1:59999/hook' },
+      event,
+    })
+
+    expect(mockFetch).toHaveBeenCalledTimes(1)
+    expect(delivery.status).toBe('dead_letter')
+    expect(delivery.attempts[0]?.nextRetryAt).toBeUndefined()
+  })
+
+  it('waits the Retry-After the receiver asks for, when it is short', async () => {
+    mockFetch
+      .mockResolvedValueOnce(new Response(null, { status: 429, headers: { 'retry-after': '5' } }))
+      .mockResolvedValueOnce(new Response(null, { status: 204 }))
+
+    const deliveryPromise = deliverOutgoingWebhook({
+      workspaceId: 'ws-1',
+      endpoint: { id: 'local', url: 'http://127.0.0.1:59999/hook' },
+      event,
+    })
+    await vi.advanceTimersByTimeAsync(4_000)
+    expect(mockFetch).toHaveBeenCalledTimes(1)
+    await vi.advanceTimersByTimeAsync(1_000)
+    const delivery = await deliveryPromise
+
+    expect(mockFetch).toHaveBeenCalledTimes(2)
+    expect(delivery.status).toBe('success')
+    expect(delivery.attempts[0]).toMatchObject({ statusCode: 429, retryAfterMs: 5_000 })
+  })
+
+  it('dead-letters at once when Retry-After is longer than it waits in line, saying when to replay', async () => {
+    mockFetch.mockResolvedValue(
+      new Response(null, { status: 503, headers: { 'retry-after': '120' } }),
+    )
+
+    const delivery = await deliverOutgoingWebhook({
+      workspaceId: 'ws-1',
+      endpoint: { id: 'local', url: 'http://127.0.0.1:59999/hook' },
+      event,
+    })
+
+    expect(mockFetch).toHaveBeenCalledTimes(1)
+    expect(delivery.status).toBe('dead_letter')
+    const next = new Date(delivery.attempts[0]!.nextRetryAt!).getTime()
+    expect(next - Date.now()).toBeGreaterThan(110_000)
   })
 
   it('exposes configured endpoints and stored deliveries as workspace diagnostics', async () => {
@@ -195,7 +248,7 @@ describe('outgoing webhook service', () => {
   })
 
   it('does not resend an already successful delivery with the same idempotency key', async () => {
-    mockFetch.mockResolvedValue({ ok: true, status: 204 })
+    mockFetch.mockResolvedValue(new Response(null, { status: 204 }))
     const first = await deliverOutgoingWebhook({
       workspaceId: 'ws-1',
       endpoint: { id: 'local', url: 'http://127.0.0.1:59999/hook' },
@@ -250,7 +303,7 @@ describe('outgoing webhook service', () => {
       if (key.endsWith('.deliveries')) return JSON.stringify({ 'delivery-1': deadLetter })
       return null
     })
-    mockFetch.mockResolvedValue({ ok: true, status: 202 })
+    mockFetch.mockResolvedValue(new Response(null, { status: 202 }))
 
     const result = await replayOutgoingWebhookDelivery({
       workspaceId: 'ws-1',
@@ -270,5 +323,24 @@ describe('outgoing webhook service', () => {
     expect(mockLogActivity).toHaveBeenCalledWith(
       expect.objectContaining({ type: 'webhook.outgoing.replayed' }),
     )
+  })
+})
+
+describe('parseRetryAfter and isRetryableAttempt', () => {
+  it('parses delta seconds and HTTP dates', () => {
+    const now = Date.parse('2026-11-22T12:00:00Z')
+    expect(parseRetryAfter('30', now)).toBe(30_000)
+    expect(parseRetryAfter('Sun, 22 Nov 2026 12:01:00 GMT', now)).toBe(60_000)
+    expect(parseRetryAfter('Sun, 22 Nov 2026 11:00:00 GMT', now)).toBe(0)
+    expect(parseRetryAfter('soon', now)).toBeUndefined()
+    expect(parseRetryAfter(null, now)).toBeUndefined()
+  })
+
+  it('retries network errors, 408, 425, 429 and 5xx only', () => {
+    expect(isRetryableAttempt({})).toBe(true)
+    for (const code of [408, 425, 429, 500, 503])
+      expect(isRetryableAttempt({ statusCode: code })).toBe(true)
+    for (const code of [302, 400, 401, 404, 410, 422])
+      expect(isRetryableAttempt({ statusCode: code })).toBe(false)
   })
 })
