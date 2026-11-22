@@ -30,7 +30,7 @@
     "next": "^16.4.6",
     "next-intl": "^4.15.1",
     "next-themes": "^0.4.6",
-    "omnilimit": "^0.4.0",
+    "omnilimit": "^0.5.0",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",
     "tailwind-merge": "^3.7.0",

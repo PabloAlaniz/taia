@@ -39,7 +39,7 @@
     "@taia/runtime": "workspace:*",
     "@taia/types": "workspace:*",
     "jszip": "^3.10.1",
-    "omnilimit": "^0.4.0",
+    "omnilimit": "^0.5.0",
     "pg": "^8.23.1",
     "ws": "^8.23.0",
     "zod": "^4.6.7"
