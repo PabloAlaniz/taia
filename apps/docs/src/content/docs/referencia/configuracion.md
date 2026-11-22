@@ -64,6 +64,9 @@ Dentro de los contenedores, los puertos son siempre los mismos. Fuera de Docker,
 | `TAIA_MCP_RATE_LIMIT` | `600/minute` | Pedidos a `POST /mcp` por cliente (por dirección; detrás del mismo host, todos juntos), contados antes de chequear el token |
 | `TAIA_MCP_RATE_LIMIT_MODE` | `shadow` | `shadow` deja pasar todo y loguea lo que rechazaría, `enforce` responde `429` con un error JSON-RPC, `off` lo desactiva |
 | `TAIA_AGENT_RUN_LOCK` | `shadow` | Una corrida a la vez por agente al dispararlo a mano: `enforce` fusiona un disparo en la corrida en curso, `shadow` sólo lo deja en el log, `off` lo desactiva. Ver [Cron y heartbeats](/taia/guias/cron-y-heartbeats/#una-corrida-a-la-vez) |
+| `TAIA_WEBHOOK_MAX_BYTES` | `26214400` (25 MiB, el máximo de GitHub) | Tamaño máximo del cuerpo de una entrega a `POST /api/webhooks/incoming`; más grande responde `413` sin leerla entera |
+| `TAIA_WS_MAX_CLIENTS` | `200` | Conexiones de WebSocket abiertas a la vez; las siguientes reciben `503` |
+| `TAIA_WS_MAX_BROADCAST_BYTES` | `1048576` (1 MiB) | Tamaño máximo de un evento que la app manda al servidor de WebSocket para reenviar |
 | `TAIA_WEBHOOK_RATE_LIMIT` | `120/minute` | Cuántas entregas acepta `POST /api/webhooks/incoming` por cliente (por IP con `TAIA_TRUSTED_PROXIES`, si no todas juntas) antes de responder `429`. Formato `<cantidad>/<unidad>`, como `30/minute` o `1000/hour` |
 | `TAIA_WEBHOOK_ALLOW_PRIVATE` | desactivado | Con `1`, los webhooks salientes pueden ir a `localhost` y a redes privadas |
 

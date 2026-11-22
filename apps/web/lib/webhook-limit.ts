@@ -52,3 +52,12 @@ export function checkWebhookLimit(bucket: string): Promise<Decision> {
 export function resetWebhookLimit(): void {
   limiter = null
 }
+
+/** GitHub caps webhook payloads at 25 MB, so a smaller default would refuse real deliveries. */
+export const DEFAULT_WEBHOOK_MAX_BYTES = 25 * 1024 * 1024
+
+/** `TAIA_WEBHOOK_MAX_BYTES`, the largest delivery body accepted; the default if unset or invalid. */
+export function webhookMaxBytes(env: Record<string, string | undefined> = process.env): number {
+  const value = Number(env.TAIA_WEBHOOK_MAX_BYTES)
+  return Number.isInteger(value) && value > 0 ? value : DEFAULT_WEBHOOK_MAX_BYTES
+}

@@ -14,6 +14,20 @@ const BROADCAST_PORT = Number(process.env.BROADCAST_PORT) || 13335
 // compose publishes the ports on 127.0.0.1).
 const HOST = process.env.TAIA_BIND_HOST || '127.0.0.1'
 
+/** A positive integer from the environment, or `fallback`. */
+function positiveInt(value, fallback) {
+  const number = Number(value)
+  return Number.isInteger(number) && number > 0 ? number : fallback
+}
+
+// Browsers beyond this many connections are turned away (503): each open
+// socket costs memory and a send per broadcast.
+const MAX_CLIENTS = positiveInt(process.env.TAIA_WS_MAX_CLIENTS, 200)
+// Clients only receive, so a message from one is never larger than a ping.
+const MAX_CLIENT_MESSAGE_BYTES = 4 * 1024
+// The app's broadcasts are small events; anything bigger is refused (413).
+const MAX_BROADCAST_BYTES = positiveInt(process.env.TAIA_WS_MAX_BROADCAST_BYTES, 1024 * 1024)
+
 // Optional access token (see packages/core/src/auth.ts, which this mirrors:
 // this script runs on plain Node, outside the app). With it set, browsers
 // connect with the ticket /api/config/client hands them and the app posts
@@ -103,8 +117,15 @@ async function main() {
   const wss = new WebSocketServer({
     host: HOST,
     port: PORT,
-    verifyClient: ({ req }, done) =>
-      clientAllowed(req) ? done(true) : done(false, 401, 'Unauthorized'),
+    maxPayload: MAX_CLIENT_MESSAGE_BYTES,
+    verifyClient: ({ req }, done) => {
+      if (!clientAllowed(req)) return done(false, 401, 'Unauthorized')
+      if (clients.size >= MAX_CLIENTS) {
+        console.warn(`[WS] Refused a client: already ${clients.size} (TAIA_WS_MAX_CLIENTS)`)
+        return done(false, 503, 'Too many connections')
+      }
+      return done(true)
+    },
   })
 
   wss.on('error', (err) => handlePortError(err, PORT, 'WebSocket server'))
@@ -145,8 +166,22 @@ async function main() {
         return
       }
       let body = ''
-      req.on('data', (chunk) => (body += chunk))
+      let size = 0
+      let refused = false
+      req.on('data', (chunk) => {
+        if (refused) return
+        size += chunk.length
+        if (size > MAX_BROADCAST_BYTES) {
+          refused = true
+          res.writeHead(413, { 'Content-Type': 'application/json', Connection: 'close' })
+          res.end(JSON.stringify({ error: 'Broadcast too large' }))
+          req.destroy()
+          return
+        }
+        body += chunk
+      })
       req.on('end', () => {
+        if (refused) return
         try {
           const message = JSON.parse(body)
           const data = JSON.stringify(message)

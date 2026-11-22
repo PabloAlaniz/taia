@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { apiError } from '@taia/core/errors'
 import { handleIncomingWebhook } from '@taia/core/services/incoming-webhook.service'
 import { clientBucket } from '@/lib/client-bucket'
-import { checkWebhookLimit } from '@/lib/webhook-limit'
+import { BodyTooLargeError, readTextWithin } from '@/lib/read-body'
+import { checkWebhookLimit, webhookMaxBytes } from '@/lib/webhook-limit'
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
@@ -23,7 +24,16 @@ export async function POST(request: NextRequest) {
       request.headers.get('x-workspace-id') ||
       ''
 
-    const rawBody = await request.text()
+    let rawBody: string
+    try {
+      rawBody = await readTextWithin(request, webhookMaxBytes())
+    } catch (error) {
+      if (!(error instanceof BodyTooLargeError)) throw error
+      return NextResponse.json(
+        { ok: false, code: 'PAYLOAD_TOO_LARGE', error: error.message },
+        { status: 413 },
+      )
+    }
     let payload
     try {
       payload = rawBody ? JSON.parse(rawBody) : {}
