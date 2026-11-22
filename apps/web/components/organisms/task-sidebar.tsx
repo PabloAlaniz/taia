@@ -8,15 +8,15 @@ import {
   TaskPriority,
   Project,
   TaskCostBreakdown,
-  Worktree,
   TaskDependencyDetail,
 } from '@taia/types'
-import { Select, Badge, Input, CostBadge, WorktreeBadge, Button, GitHubIcon } from '../atoms'
+import { Select, Badge, Input, CostBadge, Button, GitHubIcon } from '../atoms'
 import { Dropdown } from '../molecules/dropdown'
 import { PRIORITY_COLORS, formatRelativeTime } from '../../lib/utils'
 import { formatMinutes, isOverdue, parseTimeInput } from '../../lib/task-utils'
 import { useStore } from '../../lib/store'
 import { api } from '../../lib/api'
+import { WorktreePanel } from './worktree-panel'
 import { shortTaskId } from '@taia/domain/domain/task/task-id'
 
 const TAG_PRESET_COLORS = [
@@ -69,8 +69,6 @@ export const TaskSidebar = forwardRef<TaskSidebarHandle, TaskSidebarProps>(funct
   const [newTag, setNewTag] = useState('')
   const [colorPickerTag, setColorPickerTag] = useState<string | null>(null)
   const [taskCost, setTaskCost] = useState<TaskCostBreakdown | null>(null)
-  const [worktree, setWorktree] = useState<Worktree | null>(null)
-  const [worktreeLoading, setWorktreeLoading] = useState(false)
   const [blockers, setBlockers] = useState<TaskDependencyDetail[]>([])
   const [dependents, setDependents] = useState<TaskDependencyDetail[]>([])
   const [depSearch, setDepSearch] = useState('')
@@ -125,46 +123,6 @@ export const TaskSidebar = forwardRef<TaskSidebarHandle, TaskSidebarProps>(funct
       setBlockers((prev) => prev.filter((b) => b.depends_on_task_id !== dependsOnTaskId))
     } catch (e) {
       console.error('Failed to remove dependency:', e)
-    }
-  }
-
-  useEffect(() => {
-    api.worktrees
-      .list(task.id)
-      .then((data) => {
-        const active = (data.worktrees || []).find(
-          (w: Worktree) => !['merged', 'failed', 'cleanup'].includes(w.status),
-        )
-        setWorktree(active || null)
-      })
-      .catch(() => setWorktree(null))
-  }, [task.id])
-
-  const handleCreateWorktree = async () => {
-    setWorktreeLoading(true)
-    try {
-      const data = await api.worktrees.create({ task_id: task.id })
-      if (data.worktree) setWorktree(data.worktree)
-    } catch (e) {
-      console.error('Failed to create worktree:', e)
-    } finally {
-      setWorktreeLoading(false)
-    }
-  }
-
-  const handleWorktreeAction = async (action: string) => {
-    if (!worktree) return
-    setWorktreeLoading(true)
-    try {
-      const data = await api.worktrees.action(worktree.id, action)
-      if (data.worktree) {
-        const isTerminal = ['merged', 'failed', 'cleanup'].includes(data.worktree.status)
-        setWorktree(isTerminal ? null : data.worktree)
-      }
-    } catch (e) {
-      console.error('Worktree action failed:', e)
-    } finally {
-      setWorktreeLoading(false)
     }
   }
 
@@ -321,95 +279,7 @@ export const TaskSidebar = forwardRef<TaskSidebarHandle, TaskSidebarProps>(funct
         )}
       </div>
 
-      {/* Git Worktree */}
-      {(task.repo_url || task.primary_repo_url) && (
-        <div>
-          <label className="text-xs font-medium text-muted block mb-2">Git Worktree</label>
-          {!worktree ? (
-            <Button
-              variant="primary"
-              size="sm"
-              onClick={handleCreateWorktree}
-              disabled={worktreeLoading}
-            >
-              {worktreeLoading ? 'Creating...' : 'Create Worktree'}
-            </Button>
-          ) : (
-            <div className="space-y-2">
-              <div className="flex items-center gap-2">
-                <WorktreeBadge status={worktree.status} />
-                <span className="text-xs text-muted truncate" title={worktree.branch_name}>
-                  {worktree.branch_name}
-                </span>
-              </div>
-              {worktree.diff_stats && (
-                <div className="text-2xs text-muted">
-                  {worktree.diff_stats.files_changed} files
-                  <span className="text-green-400 ml-1">+{worktree.diff_stats.insertions}</span>
-                  <span className="text-red-400 ml-1">-{worktree.diff_stats.deletions}</span>
-                </div>
-              )}
-              <div className="flex flex-wrap gap-1">
-                {worktree.status === 'active' && (
-                  <>
-                    <Button
-                      variant="secondary"
-                      size="xs"
-                      onClick={() => handleWorktreeAction('review')}
-                      disabled={worktreeLoading}
-                    >
-                      Review
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="xs"
-                      onClick={() => handleWorktreeAction('merge')}
-                      disabled={worktreeLoading}
-                      className="bg-green-500/20 text-green-400 hover:bg-green-500/30"
-                    >
-                      Merge
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="xs"
-                      onClick={() => handleWorktreeAction('abort')}
-                      disabled={worktreeLoading}
-                      className="bg-red-500/20 text-red-400 hover:bg-red-500/30"
-                    >
-                      Abort
-                    </Button>
-                  </>
-                )}
-                {worktree.status === 'reviewing' && (
-                  <>
-                    <Button
-                      variant="ghost"
-                      size="xs"
-                      onClick={() => handleWorktreeAction('merge')}
-                      disabled={worktreeLoading}
-                      className="bg-green-500/20 text-green-400 hover:bg-green-500/30"
-                    >
-                      Merge
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="xs"
-                      onClick={() => handleWorktreeAction('abort')}
-                      disabled={worktreeLoading}
-                      className="bg-red-500/20 text-red-400 hover:bg-red-500/30"
-                    >
-                      Abort
-                    </Button>
-                  </>
-                )}
-              </div>
-              {worktree.error_message && (
-                <p className="text-2xs text-red-400">{worktree.error_message}</p>
-              )}
-            </div>
-          )}
-        </div>
-      )}
+      {(task.repo_url || task.primary_repo_url) && <WorktreePanel taskId={task.id} />}
 
       {/* Dependencies */}
       <div>
