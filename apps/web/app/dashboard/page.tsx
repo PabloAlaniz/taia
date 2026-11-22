@@ -6,13 +6,15 @@ import Link from 'next/link'
 import { Task, Agent, Activity, CostDashboardMetrics } from '@taia/types'
 import { cn } from '../../lib/utils'
 import { Button, Select, ProgressBar, ParticipantMark } from '../../components/atoms'
-import { Card } from '@/components/molecules/card'
+import { RackSection } from '@/components/molecules/rack-section'
 import { PageHeader } from '@/components/molecules/page-header'
 import { StatCard } from '@/components/molecules/stat-card'
 import { computeDailyCompletions, getAgentColor } from '../../lib/dashboard-utils'
 import { useResource } from '@/lib/use-resource'
 import { formatTokens } from '@/lib/format'
 import { useStore } from '../../lib/store'
+import { useWaiting } from '@/lib/use-shell-signals'
+import { useActivityText } from '@/lib/use-activity-text'
 
 type PeriodFilter = '24h' | 'week' | 'month' | 'all'
 
@@ -234,6 +236,11 @@ export default function DashboardPage() {
   const usageMetrics = data?.usageMetrics ?? null
   const rawTasks = useMemo(() => data?.tasks ?? [], [data])
   const rawAgents = data?.agents ?? []
+  const agentsList = rawAgents
+  // Names the way the board shows them, never raw ids.
+  const agentName = (id?: string | null) => rawAgents.find((a) => a.id === id)?.name ?? id ?? '—'
+  const waitingCount = Object.keys(useWaiting()).length
+  const describe = useActivityText()
 
   const dailyCompletions = useMemo(() => computeDailyCompletions(rawTasks), [rawTasks])
 
@@ -285,7 +292,7 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="min-h-full bg-background">
+    <div className="min-h-full">
       <PageHeader title={t('title')}>
         <Select
           value={period}
@@ -304,107 +311,88 @@ export default function DashboardPage() {
       </PageHeader>
 
       <div className="px-4 md:px-6 pt-5 pb-10 max-w-6xl mx-auto">
-        {/* Overview Cards — hero size for primary metrics */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-10">
-          <StatCard label={t('totalTasks')} value={stats.totalTasks} size="hero" />
-          <StatCard label={t('completedToday')} value={stats.completedToday} size="hero" />
-          <StatCard label={t('thisWeek')} value={stats.completedThisWeek} size="hero" />
-          <StatCard label={t('avgTime')} value={formatTime(stats.avgTimeMinutes)} size="hero" />
+        <div className="space-y-5 mb-8">
+          {/* Now: what needs a person, what moves, what's stuck. */}
+          <RackSection title={tu('nowSection')}>
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
+              <StatCard
+                label={tu('waiting')}
+                value={waitingCount}
+                tone={waitingCount > 0 ? 'waiting' : 'default'}
+              />
+              <StatCard label={t('inProgress')} value={stats.inProgress} />
+              <StatCard label={t('inReview')} value={stats.inReview} />
+              <StatCard
+                label={t('blocked')}
+                value={stats.blocked}
+                tone={stats.blocked > 0 ? 'alert' : 'default'}
+              />
+              <StatCard
+                label={t('stale')}
+                value={stats.staleTasks.length}
+                tone={stats.staleTasks.length > 0 ? 'waiting' : 'default'}
+              />
+            </div>
+          </RackSection>
+
+          {/* Pace: what got done and how long it took. */}
+          <RackSection
+            title={tu('flowSection')}
+            aside={
+              usageMetrics ? (
+                <a
+                  href={`/api/usage-analytics?${getUsageAnalyticsParams(period, activeWorkspaceId, 'csv')}`}
+                  download="usage-analytics.csv"
+                  aria-label={tu('exportCsvLabel')}
+                  className="rounded border border-rack-line px-2.5 py-1 text-xs font-semibold text-on-rack no-underline hover:text-white hover:border-on-rack-muted"
+                >
+                  {tu('exportCsv')}
+                </a>
+              ) : undefined
+            }
+          >
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+              <StatCard label={t('completedToday')} value={stats.completedToday} />
+              <StatCard label={t('thisWeek')} value={stats.completedThisWeek} />
+              <StatCard label={t('avgTime')} value={formatTime(stats.avgTimeMinutes)} />
+              {usageMetrics && (
+                <StatCard
+                  label={tu('p95Aging')}
+                  value={tu('days', {
+                    days: format.number(usageMetrics.aging.p95_age_days, {
+                      maximumFractionDigits: 1,
+                    }),
+                  })}
+                />
+              )}
+            </div>
+            {usageMetrics && (
+              <p className="text-xs text-on-rack-muted max-w-prose mt-1">{tu('agingNote')}</p>
+            )}
+          </RackSection>
+
+          {/* Spend, when there is any. */}
+          {costMetrics && costMetrics.totals.total_tokens > 0 && (
+            <RackSection title={t('costSection')}>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                <StatCard
+                  label={t('totalCost')}
+                  value={formatCost(locale, costMetrics.totals.total_cost_usd)}
+                />
+                <StatCard
+                  label={t('totalTokens')}
+                  value={formatTokens(costMetrics.totals.total_tokens)}
+                />
+                <StatCard label={t('sessionCount')} value={costMetrics.totals.session_count} />
+                <StatCard label={t('models')} value={costMetrics.by_model.length} />
+              </div>
+            </RackSection>
+          )}
         </div>
-
-        {/* Usage Analytics */}
-        {usageMetrics && (
-          <>
-            <div className="flex items-center justify-between gap-3 mb-3">
-              <h2 className="text-xs font-medium text-muted uppercase tracking-wider">
-                {tu('flowSection')}
-              </h2>
-              <a
-                href={`/api/usage-analytics?${getUsageAnalyticsParams(period, activeWorkspaceId, 'csv')}`}
-                download="usage-analytics.csv"
-                aria-label={tu('exportCsvLabel')}
-                className={cn(
-                  'rounded-md font-medium transition-colors cursor-pointer',
-                  'focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-1 focus-visible:ring-offset-background focus-visible:outline-hidden',
-                  'bg-background border border-border text-foreground hover:bg-card px-2.5 py-1 text-xs',
-                )}
-              >
-                {tu('exportCsv')}
-              </a>
-            </div>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-2">
-              <StatCard label={tu('throughput')} value={usageMetrics.throughput.completed_count} />
-              <StatCard
-                label={tu('avgAging')}
-                value={tu('days', {
-                  days: format.number(usageMetrics.aging.average_age_days, {
-                    maximumFractionDigits: 1,
-                  }),
-                })}
-              />
-              <StatCard
-                label={tu('p95Aging')}
-                value={tu('days', {
-                  days: format.number(usageMetrics.aging.p95_age_days, {
-                    maximumFractionDigits: 1,
-                  }),
-                })}
-              />
-              <StatCard
-                label={tu('trackedTime')}
-                value={formatTime(
-                  usageMetrics.time_by_column.reduce((sum, row) => sum + row.total_minutes, 0),
-                )}
-              />
-            </div>
-            <p className="text-xs text-muted mb-10 max-w-prose">{tu('agingNote')}</p>
-          </>
-        )}
-
-        {/* Status Overview */}
-        <h2 className="text-xs font-medium text-muted uppercase tracking-wider mb-3">
-          {t('statusSection')}
-        </h2>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-10">
-          <StatCard label={t('inProgress')} value={stats.inProgress} />
-          <StatCard
-            label={t('blocked')}
-            value={stats.blocked}
-            tone={stats.blocked > 0 ? 'alert' : 'default'}
-          />
-          <StatCard label={t('inReview')} value={stats.inReview} />
-          <StatCard
-            label={t('stale')}
-            value={stats.staleTasks.length}
-            tone={stats.staleTasks.length > 0 ? 'waiting' : 'default'}
-          />
-        </div>
-
-        {/* Cost Overview */}
-        {costMetrics && costMetrics.totals.total_tokens > 0 && (
-          <>
-            <h2 className="text-xs font-medium text-muted uppercase tracking-wider mb-3">
-              {t('costSection')}
-            </h2>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-              <StatCard
-                label={t('totalCost')}
-                value={formatCost(locale, costMetrics.totals.total_cost_usd)}
-              />
-              <StatCard
-                label={t('totalTokens')}
-                value={formatTokens(costMetrics.totals.total_tokens)}
-              />
-              <StatCard label={t('sessionCount')} value={costMetrics.totals.session_count} />
-              <StatCard label={t('models')} value={costMetrics.by_model.length} />
-            </div>
-          </>
-        )}
 
         {/* Daily Completions Stacked Bar Chart */}
         {dailyCompletions.length > 0 && (
-          <Card padding="md" className="rounded-lg mb-8">
-            <h2 className="text-sm font-medium mb-3">{t('chartTitle')}</h2>
+          <Panel title={t('chartTitle')} className="mb-5">
             {chartAgentIds.length > 0 ? (
               <>
                 {/* Legend */}
@@ -464,18 +452,15 @@ export default function DashboardPage() {
             ) : (
               <p className="text-muted text-sm">{t('noCompletions')}</p>
             )}
-          </Card>
+          </Panel>
         )}
 
         <div className="grid md:grid-cols-2 gap-6">
           {/* By Agent */}
-          <Card padding="md" className="rounded-lg">
-            <h2 className="text-sm font-medium mb-4">
-              {t('byAgent')}
-              {stats.agentSource === 'database-fallback' && (
-                <span className="ml-2 text-xs text-person-ink">{t('offlineMode')}</span>
-              )}
-            </h2>
+          <Panel
+            title={t('byAgent')}
+            aside={stats.agentSource === 'database-fallback' ? t('offlineMode') : undefined}
+          >
             {stats.byAgent.length === 0 ? (
               <p className="text-muted text-sm">{t('noAgentData')}</p>
             ) : (
@@ -518,11 +503,10 @@ export default function DashboardPage() {
                 ))}
               </div>
             )}
-          </Card>
+          </Panel>
 
           {/* By Project */}
-          <Card padding="md" className="rounded-lg">
-            <h2 className="text-sm font-medium mb-4">{t('byProject')}</h2>
+          <Panel title={t('byProject')}>
             {stats.byProject.length === 0 ? (
               <p className="text-muted text-sm">{t('noProjects')}</p>
             ) : (
@@ -543,32 +527,31 @@ export default function DashboardPage() {
                 ))}
               </div>
             )}
-          </Card>
+          </Panel>
 
           {/* Stale Tasks */}
           {stats.staleTasks.length > 0 && (
-            <Card padding="md" className="rounded-lg">
-              <h2 className="text-sm font-medium mb-4 text-person-ink">{t('staleTasks')}</h2>
+            <Panel title={t('staleTasks')}>
               <div className="space-y-2">
                 {stats.staleTasks.slice(0, 5).map((task) => (
                   <Link
                     key={task.id}
-                    href={`/?task=${task.id}`}
-                    className="block p-2 rounded-sm hover:bg-background transition-colors"
+                    href={`/task/${task.id}`}
+                    className="block p-2 rounded-sm no-underline text-foreground hover:bg-card transition-colors"
                   >
                     <div className="text-sm truncate">{task.title}</div>
                     <div className="text-xs text-muted">
-                      {task.assigned_to} · {format.relativeTime(new Date(task.updated_at), now)}
+                      {agentName(task.assigned_to)} ·{' '}
+                      {format.relativeTime(new Date(task.updated_at), now)}
                     </div>
                   </Link>
                 ))}
               </div>
-            </Card>
+            </Panel>
           )}
 
           {/* Recent Activity */}
-          <Card padding="md" className="rounded-lg">
-            <h2 className="text-sm font-medium mb-4">{t('recentActivity')}</h2>
+          <Panel title={t('recentActivity')}>
             {stats.recentActivity.length === 0 ? (
               <p className="text-muted text-sm">{tu('noActivity')}</p>
             ) : (
@@ -578,24 +561,28 @@ export default function DashboardPage() {
                     <div className="text-muted">
                       {format.relativeTime(new Date(activity.created_at), now)}
                     </div>
-                    <div className="truncate">{activity.message}</div>
+                    <div className="truncate">{describe(activity)}</div>
                   </div>
                 ))}
               </div>
             )}
-          </Card>
+          </Panel>
 
           {/* Cost by Agent */}
           {costMetrics && costMetrics.by_agent.length > 0 && (
-            <Card padding="md" className="rounded-lg">
-              <h2 className="text-sm font-medium mb-4">{t('costByAgent')}</h2>
+            <Panel title={t('costByAgent')}>
               <div className="space-y-3">
                 {costMetrics.by_agent.map((agent) => {
                   const maxCost = costMetrics.by_agent[0]?.total_cost_usd || 1
                   return (
                     <div key={agent.agent_id} className="flex items-center gap-3">
                       <div className="flex-1 min-w-0">
-                        <div className="text-sm font-medium truncate">{agent.agent_id}</div>
+                        <div className="text-sm font-medium truncate flex items-center gap-2">
+                          <ParticipantMark
+                            agent={agentsList.find((a) => a.id === agent.agent_id)}
+                          />
+                          {agentName(agent.agent_id)}
+                        </div>
                         <div className="text-xs text-muted">
                           {tu('agentSessions', {
                             count: agent.session_count,
@@ -626,13 +613,12 @@ export default function DashboardPage() {
                   )
                 })}
               </div>
-            </Card>
+            </Panel>
           )}
 
           {/* Daily Cost Trend */}
           {costMetrics && costMetrics.daily_trend.length > 0 && (
-            <Card padding="md" className="rounded-lg">
-              <h2 className="text-sm font-medium mb-4">{t('dailyCostTrend')}</h2>
+            <Panel title={t('dailyCostTrend')}>
               <div className="space-y-2">
                 {costMetrics.daily_trend.slice(0, 14).map((day) => {
                   const maxDailyCost =
@@ -657,10 +643,31 @@ export default function DashboardPage() {
                   )
                 })}
               </div>
-            </Card>
+            </Panel>
           )}
         </div>
       </div>
     </div>
+  )
+}
+
+/** A rack holding one strip of content: the dashboard's panels. */
+function Panel({
+  title,
+  aside,
+  className,
+  children,
+}: {
+  title: string
+  aside?: React.ReactNode
+  className?: string
+  children: React.ReactNode
+}) {
+  return (
+    <RackSection title={title} aside={aside} className={className}>
+      <div className="rounded-[2px] bg-strip p-3.5 shadow-[0_1px_0_rgba(0,0,0,0.25)]">
+        {children}
+      </div>
+    </RackSection>
   )
 }

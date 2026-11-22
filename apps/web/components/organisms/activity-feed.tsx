@@ -5,6 +5,7 @@ import { useFormatter, useNow, useTranslations } from 'next-intl'
 import { Activity, Agent, Task } from '@taia/types'
 import { cn } from '../../lib/utils'
 import { participantKind } from '../../lib/format'
+import { useActivityText } from '../../lib/use-activity-text'
 
 interface ActivityFeedProps {
   activities: Activity[]
@@ -15,6 +16,7 @@ interface ActivityFeedProps {
 export function ActivityFeed({ activities, agents }: ActivityFeedProps) {
   const t = useTranslations('activity')
   const format = useFormatter()
+  const describe = useActivityText()
   // One clock per minute, so relative times stay current without re-rendering per second.
   const now = useNow({ updateInterval: 60_000 })
 
@@ -55,7 +57,9 @@ export function ActivityFeed({ activities, agents }: ActivityFeedProps) {
                     {format.relativeTime(new Date(activity.created_at), now)}
                   </time>
                 </div>
-                <p className="text-sm leading-snug text-foreground/90 mt-0.5">{activity.message}</p>
+                <p className="text-sm leading-snug text-foreground/90 mt-0.5">
+                  {describe(activity)}
+                </p>
               </>
             )
             return (
@@ -63,7 +67,7 @@ export function ActivityFeed({ activities, agents }: ActivityFeedProps) {
                 {activity.task_id ? (
                   <Link
                     href={`/task/${activity.task_id}`}
-                    aria-label={t('openTaskAria', { message: activity.message })}
+                    aria-label={t('openTaskAria', { message: describe(activity) })}
                     className="block rounded px-2 py-2 no-underline text-foreground hover:bg-strip focus-visible:outline-2 focus-visible:outline-accent"
                   >
                     {body}

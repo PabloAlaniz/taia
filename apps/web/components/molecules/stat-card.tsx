@@ -1,5 +1,4 @@
 import { cn } from '../../lib/utils'
-import { Card } from './card'
 
 export interface StatCardProps {
   label: string
@@ -13,21 +12,23 @@ export interface StatCardProps {
   size?: 'default' | 'hero'
 }
 
+/** A number on a strip: sits in a rack next to its siblings. Zero reads quiet. */
 export function StatCard({ label, value, tone = 'default', size = 'default' }: StatCardProps) {
-  const isHero = size === 'hero'
+  const zero = value === 0 || value === '0'
   return (
-    <Card padding={isHero ? 'lg' : 'md'}>
+    <div className="rounded-[2px] bg-strip px-3.5 py-3 shadow-[0_1px_0_rgba(0,0,0,0.25)]">
       <div className="text-xs font-semibold tracking-[0.08em] uppercase text-muted">{label}</div>
       <div
         className={cn(
           'mt-1.5 font-semibold tabular-nums leading-none',
-          isHero ? 'text-4xl' : 'text-3xl',
-          tone === 'alert' && 'text-alert',
-          tone === 'waiting' && 'text-person-ink',
+          size === 'hero' ? 'text-4xl' : 'text-3xl',
+          zero && 'text-muted font-medium',
+          !zero && tone === 'alert' && 'text-alert',
+          !zero && tone === 'waiting' && 'text-person-ink',
         )}
       >
         {value}
       </div>
-    </Card>
+    </div>
   )
 }

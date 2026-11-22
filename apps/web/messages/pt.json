@@ -1221,7 +1221,9 @@
     "days": "{days} d",
     "agentSessions": "{count, plural, one {# sessão} other {# sessões}} · {models}",
     "tokens": "{count} tokens",
-    "noActivity": "Ainda não há atividade."
+    "noActivity": "Ainda não há atividade.",
+    "nowSection": "Agora",
+    "waiting": "Esperam você"
   },
   "sessionCard": {
     "tokens": "{count} tokens"
@@ -1270,5 +1272,19 @@
     "help": "Mostrar estes atalhos",
     "close": "Fechar",
     "taskPage": "Numa tarefa: E edita o título, D a descrição, S o estado; Esc volta ao quadro."
+  },
+  "activityText": {
+    "taskCreated": "Criou «{title}»",
+    "taskMoved": "Moveu «{title}» de {from} para {to}",
+    "taskCompleted": "Concluiu «{title}» ({to})",
+    "taskAssigned": "Atribuiu «{title}» a {who}",
+    "taskUpdated": "Editou «{title}» ({count, plural, one {# alteração} other {# alterações}})",
+    "taskDeleted": "Apagou «{title}»",
+    "taskTagged": "Marcou «{title}» com #{tag}",
+    "taskUntagged": "Removeu #{tag} de «{title}»",
+    "subtaskCreated": "Adicionou uma subtarefa a «{title}»",
+    "subtaskCompleted": "Concluiu a subtarefa «{subtask}»",
+    "subtaskReopened": "Reabriu a subtarefa «{subtask}»",
+    "projectCreated": "Criou o projeto «{name}»"
   }
 }

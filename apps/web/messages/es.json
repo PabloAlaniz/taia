@@ -1221,7 +1221,9 @@
     "days": "{days} d",
     "agentSessions": "{count, plural, one {# sesión} other {# sesiones}} · {models}",
     "tokens": "{count} tokens",
-    "noActivity": "Todavía no hay actividad."
+    "noActivity": "Todavía no hay actividad.",
+    "nowSection": "Ahora",
+    "waiting": "Te esperan"
   },
   "sessionCard": {
     "tokens": "{count} tokens"
@@ -1270,5 +1272,19 @@
     "help": "Mostrar estos atajos",
     "close": "Cerrar",
     "taskPage": "En una tarea: E edita el título, D la descripción, S el estado; Esc vuelve al tablero."
+  },
+  "activityText": {
+    "taskCreated": "Creó «{title}»",
+    "taskMoved": "Movió «{title}» de {from} a {to}",
+    "taskCompleted": "Terminó «{title}» ({to})",
+    "taskAssigned": "Asignó «{title}» a {who}",
+    "taskUpdated": "Editó «{title}» ({count, plural, one {# cambio} other {# cambios}})",
+    "taskDeleted": "Borró «{title}»",
+    "taskTagged": "Etiquetó «{title}» con #{tag}",
+    "taskUntagged": "Quitó #{tag} de «{title}»",
+    "subtaskCreated": "Agregó una subtarea a «{title}»",
+    "subtaskCompleted": "Completó la subtarea «{subtask}»",
+    "subtaskReopened": "Reabrió la subtarea «{subtask}»",
+    "projectCreated": "Creó el proyecto «{name}»"
   }
 }
