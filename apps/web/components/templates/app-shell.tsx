@@ -22,14 +22,23 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const hidden = useChromeStore((s) => s.hidden > 0)
   const [creatingWorkspace, setCreatingWorkspace] = useState(false)
 
-  if (hidden || BARE.some((p) => pathname.startsWith(p))) return <>{children}</>
+  // Children keep the same position in the tree whether or not the chrome
+  // shows: hiding it must never remount the page (and reset its state).
+  const bare = hidden || BARE.some((p) => pathname.startsWith(p))
 
   return (
-    <div className="flex flex-col h-dvh">
-      <TopBar onCreateWorkspace={() => setCreatingWorkspace(true)} />
-      <div className="flex-1 min-h-0 overflow-auto pb-14 md:pb-0">{children}</div>
-      <MobileNav pathname={pathname} />
-      <CreateWorkspaceModal open={creatingWorkspace} onClose={() => setCreatingWorkspace(false)} />
+    <div className={bare ? undefined : 'flex flex-col h-dvh'}>
+      {!bare && <TopBar onCreateWorkspace={() => setCreatingWorkspace(true)} />}
+      <div className={bare ? undefined : 'flex-1 min-h-0 overflow-auto pb-14 md:pb-0'}>
+        {children}
+      </div>
+      {!bare && <MobileNav pathname={pathname} />}
+      {!bare && (
+        <CreateWorkspaceModal
+          open={creatingWorkspace}
+          onClose={() => setCreatingWorkspace(false)}
+        />
+      )}
     </div>
   )
 }
