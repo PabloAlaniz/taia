@@ -55,7 +55,7 @@ interface KnowledgeRef {
 }
 ```
 
-Vive en tabla `projects`. Un agente apunta a un proyecto vía `agents.project_id`. Multi-proyecto soportado de fábrica.
+Vive en tabla `projects`. La capa sale del **proyecto de la tarea en curso**: un mismo agente recibe el contexto de un proyecto u otro según la tarea que trabaja. Si la tarea no tiene proyecto, se usa la versión fijada en `agent_context` o el proyecto del agente (`agents.project_id`). Una versión fijada que pertenece al proyecto de la tarea se respeta.
 
 ### `UserProfile` — con quién habla
 
@@ -130,7 +130,7 @@ La memoria semántica (búsqueda vectorial) está [diferida](/taia/arquitectura/
 | Capa | Origen |
 |------|--------|
 | `bundle.agent` | `agent_context.agent_identity_version_id` → `agent_identity_versions.content` |
-| `bundle.project` | `projects` table via `agents.project_id` FK (versionado en `project_context_versions`) |
+| `bundle.project` | `projects` de la tarea en curso (`tasks.project_id`); si no tiene, la versión fijada o `agents.project_id` (versionado en `project_context_versions`) |
 | `bundle.user` | La última versión de `user_profile_versions` del usuario `default` |
 | `bundle.task` | `tasks` (FK por `assigned_to`) + `worktrees` + `agent_working_state` |
 | `bundle.memory.archival` | Referencias a `agent_memory` (paths), no contenido inline |

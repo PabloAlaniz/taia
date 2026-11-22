@@ -210,6 +210,125 @@ describe('loadAgentContextBundle', () => {
     expect(bundle!.project.name).toBe('Project Alpha')
   })
 
+  describe('project layer follows the current task', () => {
+    const projectRow = (id: string, name: string) => ({
+      id,
+      name,
+      description: `${name} description`,
+      glossary: { term: `${name} term` },
+      knowledge_refs: null,
+      created_at: '',
+      updated_at: '',
+    })
+
+    beforeEach(() => {
+      mockGetProjectByIdFull.mockImplementation(async (id: string) =>
+        id === 'p-client' ? projectRow('p-client', 'Client') : projectRow('p-home', 'Home'),
+      )
+    })
+
+    it("uses the task's project over the agent's own project", async () => {
+      mockGetAgentById.mockResolvedValueOnce({ id: 'alex', name: 'Alex', project_id: 'p-home' })
+      withIdentity()
+      mockGetAllTasks.mockResolvedValueOnce([
+        {
+          id: 't1',
+          title: 'T',
+          status: 'IN_PROGRESS',
+          assigned_to: 'alex',
+          project_id: 'p-client',
+        },
+      ])
+
+      const bundle = await loadAgentContextBundle('alex')
+      expect(bundle!.project.id).toBe('p-client')
+      expect(bundle!.project.glossary).toEqual({ term: 'Client term' })
+    })
+
+    it("uses the task's project over a pin to another project", async () => {
+      mockGetAgentById.mockResolvedValueOnce({ id: 'alex', name: 'Alex' })
+      withIdentity()
+      mockGetAgentContext.mockResolvedValue({
+        agent_id: 'alex',
+        agent_identity_version_id: 'v_id',
+        project_context_version_id: 'v_home',
+        user_profile_version_id: null,
+        updated_at: '',
+      })
+      mockGetProjectContextVersion.mockResolvedValue({
+        id: 'v_home',
+        project_id: 'p-home',
+        content: { id: 'p-home', name: 'Home pinned' },
+      })
+      mockGetAllTasks.mockResolvedValueOnce([
+        {
+          id: 't1',
+          title: 'T',
+          status: 'IN_PROGRESS',
+          assigned_to: 'alex',
+          project_id: 'p-client',
+        },
+      ])
+
+      const bundle = await loadAgentContextBundle('alex')
+      expect(bundle!.project.name).toBe('Client')
+    })
+
+    it("keeps a pin that is a version of the task's project", async () => {
+      mockGetAgentById.mockResolvedValueOnce({ id: 'alex', name: 'Alex' })
+      withIdentity()
+      mockGetAgentContext.mockResolvedValue({
+        agent_id: 'alex',
+        agent_identity_version_id: 'v_id',
+        project_context_version_id: 'v_client_old',
+        user_profile_version_id: null,
+        updated_at: '',
+      })
+      mockGetProjectContextVersion.mockResolvedValue({
+        id: 'v_client_old',
+        project_id: 'p-client',
+        content: { id: 'p-client', name: 'Client (pinned version)' },
+      })
+      mockGetAllTasks.mockResolvedValueOnce([
+        {
+          id: 't1',
+          title: 'T',
+          status: 'IN_PROGRESS',
+          assigned_to: 'alex',
+          project_id: 'p-client',
+        },
+      ])
+
+      const bundle = await loadAgentContextBundle('alex')
+      expect(bundle!.project.name).toBe('Client (pinned version)')
+    })
+
+    it("falls back to the agent's project when the task has none", async () => {
+      mockGetAgentById.mockResolvedValueOnce({ id: 'alex', name: 'Alex', project_id: 'p-home' })
+      withIdentity()
+      mockGetAllTasks.mockResolvedValueOnce([
+        { id: 't1', title: 'T', status: 'IN_PROGRESS', assigned_to: 'alex', project_id: null },
+      ])
+
+      const bundle = await loadAgentContextBundle('alex')
+      expect(bundle!.project.id).toBe('p-home')
+    })
+
+    it("falls back to the agent's project when the task's project was deleted", async () => {
+      mockGetAgentById.mockResolvedValueOnce({ id: 'alex', name: 'Alex', project_id: 'p-home' })
+      withIdentity()
+      mockGetProjectByIdFull.mockImplementation(async (id: string) =>
+        id === 'p-home' ? projectRow('p-home', 'Home') : undefined,
+      )
+      mockGetAllTasks.mockResolvedValueOnce([
+        { id: 't1', title: 'T', status: 'IN_PROGRESS', assigned_to: 'alex', project_id: 'p-gone' },
+      ])
+
+      const bundle = await loadAgentContextBundle('alex')
+      expect(bundle!.project.id).toBe('p-home')
+    })
+  })
+
   it('prefers an in-progress task over the most recent one', async () => {
     mockGetAgentById.mockResolvedValueOnce({ id: 'alex', name: 'Alex' })
     mockGetAgentWorkingState.mockResolvedValue({ content: 'Halfway through file 3.' })

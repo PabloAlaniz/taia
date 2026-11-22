@@ -7,10 +7,13 @@
 //   2. No identity → return null. The adapter falls back to its default
 //      (per-agent system prompt or adapter-level default).
 //
-// Project resolution:
-//   - If agent_context.project_context_version_id is set, that version wins.
-//   - Else, the agent's `project_id` (or the default workspace's project as
-//     fallback) is read via getProjectByIdFull and shaped on the fly.
+// Project resolution (projects cut across workspaces, so the task decides):
+//   1. The current task's project: the agent's pinned version if it belongs
+//      to that project, else the project row (glossary and knowledge refs
+//      are synced into it by saveProjectContext).
+//   2. No task project → agent_context.project_context_version_id.
+//   3. Else the agent's `project_id`, read via getProjectByIdFull.
+//   4. Else the default workspace as a stand-in, else a static default.
 //
 // User resolution:
 //   - If agent_context.user_profile_version_id is set, use that version.
@@ -71,15 +74,9 @@ export async function loadAgentContextBundle(agentId: string): Promise<AgentCont
   if (!identityRow) return null
   const identity = identityRow.content
 
-  // 3. Project — pinned version wins; otherwise resolve via agent.project_id
-  //    or the default workspace.
-  const project = await resolveProjectContext(ctx?.project_context_version_id ?? null, agent)
-
-  // 4. User — pinned version, then latest 'default' version, then singleton.
-  const user = await resolveUserProfile(ctx?.user_profile_version_id ?? null)
-
-  // 5. Task — the in-progress task (else the most recent one), the agent's
-  //    progress notes and the task's active worktree. Not versioned.
+  // 3. Task — the in-progress task (else the most recent one), the agent's
+  //    progress notes and the task's active worktree. Not versioned. Read
+  //    before the project: the task's project decides the project layer.
   const [workingRow, allTasks, memories] = await Promise.all([
     getAgentWorkingState(agentId),
     getAllTasks(),
@@ -118,6 +115,16 @@ export async function loadAgentContextBundle(agentId: string): Promise<AgentCont
         workingState: working || undefined,
       }
 
+  // 4. Project — the task's project, then the agent's pin / project_id.
+  const project = await resolveProjectContext(
+    candidate?.project_id ?? null,
+    ctx?.project_context_version_id ?? null,
+    agent,
+  )
+
+  // 5. User — pinned version, then latest 'default' version, then singleton.
+  const user = await resolveUserProfile(ctx?.user_profile_version_id ?? null)
+
   const archival: ArchivalRef[] = memories.map((m) => ({ uri: m.path }))
 
   return {
@@ -134,28 +141,24 @@ export async function loadAgentContextBundle(agentId: string): Promise<AgentCont
 }
 
 async function resolveProjectContext(
-  versionId: string | null,
+  taskProjectId: string | null,
+  pinnedVersionId: string | null,
   agent: { project_id?: string | null },
 ): Promise<ProjectContext> {
-  if (versionId) {
-    const v = await getProjectContextVersion(versionId)
-    if (v) return v.content
+  const pinned = pinnedVersionId ? await getProjectContextVersion(pinnedVersionId) : null
+
+  if (taskProjectId) {
+    // An explicit pin still wins when it is a version of the task's project.
+    if (pinned && pinned.project_id === taskProjectId) return pinned.content
+    const fromTask = await readProject(taskProjectId)
+    if (fromTask) return fromTask
   }
-  // No pinned version — derive from the agent's project_id, or fallback to
-  // the default workspace as a stand-in until the workspace itself is
-  // promoted to a Project (out of scope here).
+  if (pinned) return pinned.content
+
   const projectId = agent.project_id ?? null
   if (projectId) {
-    const project = await getProjectByIdFull(projectId)
-    if (project) {
-      return {
-        id: project.id,
-        name: project.name,
-        description: project.description ?? DEFAULT_PROJECT.description,
-        glossary: project.glossary ?? undefined,
-        knowledgeRefs: project.knowledge_refs ?? undefined,
-      }
-    }
+    const project = await readProject(projectId)
+    if (project) return project
   }
   const workspace = await getDefaultWorkspace()
   if (workspace) {
@@ -166,6 +169,19 @@ async function resolveProjectContext(
     }
   }
   return DEFAULT_PROJECT
+}
+
+/** A project row shaped as a ProjectContext; undefined if it does not exist. */
+async function readProject(projectId: string): Promise<ProjectContext | undefined> {
+  const project = await getProjectByIdFull(projectId)
+  if (!project) return undefined
+  return {
+    id: project.id,
+    name: project.name,
+    description: project.description ?? DEFAULT_PROJECT.description,
+    glossary: project.glossary ?? undefined,
+    knowledgeRefs: project.knowledge_refs ?? undefined,
+  }
 }
 
 async function resolveUserProfile(versionId: string | null): Promise<UserProfile> {
