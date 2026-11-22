@@ -29,14 +29,14 @@
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^1.8.0",
-    "@openclaw/gateway-client": "2026.11.3",
-    "@openclaw/gateway-protocol": "2026.11.3",
+    "@openclaw/gateway-client": "2026.11.5",
+    "@openclaw/gateway-protocol": "2026.11.5",
     "@taia/types": "workspace:*",
     "ws": "^8.23.0"
   },
   "devDependencies": {
     "@types/ws": "^8.18.2",
-    "@vitest/coverage-v8": "^5.1.0",
-    "vitest": "^5.1.0"
+    "@vitest/coverage-v8": "^5.1.1",
+    "vitest": "^5.1.1"
   }
 }
