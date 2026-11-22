@@ -42,6 +42,8 @@
     "db:down": "docker compose down",
     "db:logs": "docker compose logs -f postgres",
     "db:test:up": "docker compose up -d test-db",
+    "db:export": "bash scripts/db/export.sh",
+    "db:import": "bash scripts/db/import.sh",
     "compose:up": "docker compose up -d --build",
     "migrate": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/migrate.mts",
     "mcp": "pnpm -F @taia/mcp start",
