@@ -113,7 +113,10 @@ function ProfileVersionDrawer({
             <div className="text-muted text-sm">{t('noVersions')}</div>
           )}
           {versions?.map((v, i) => (
-            <div key={v.versionId} className="border border-border rounded-lg p-3">
+            <div
+              key={v.versionId}
+              className="bg-strip rounded-[2px] p-3 shadow-[0_1px_0_rgba(0,0,0,0.25)]"
+            >
               <div className="flex items-start justify-between gap-2">
                 <div className="text-sm">
                   <div className="font-medium">
@@ -364,7 +367,7 @@ export default function UserProfilePage() {
                   {prefs.map(([k, v], i) => (
                     <li
                       key={`${i}-${k}`}
-                      className="flex items-center gap-2 text-sm bg-card rounded p-2"
+                      className="flex items-center gap-2 text-sm bg-strip rounded-[2px] p-2"
                     >
                       <span className="font-medium">{k}</span>
                       <span className="text-muted">→</span>
@@ -491,7 +494,7 @@ function ListField({
           {items.map((item, i) => (
             <li
               key={`${i}-${item}`}
-              className="flex items-center gap-2 text-sm bg-card rounded p-2"
+              className="flex items-center gap-2 text-sm bg-strip rounded-[2px] p-2"
             >
               <span className="flex-1">{item}</span>
               <Button

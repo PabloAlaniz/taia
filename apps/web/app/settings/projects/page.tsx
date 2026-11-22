@@ -2,13 +2,14 @@
 
 import { useTranslations } from 'next-intl'
 import { useState, useEffect } from 'react'
-import { ChevronDown, ChevronRight, Circle, Plus, Star } from 'lucide-react'
+import { ChevronDown, ChevronRight, Circle, FolderPlus, Plus, Star } from 'lucide-react'
 import { api } from '@/lib/api'
 import type { Project, Repository } from '@taia/types'
-import { Alert, Button, Checkbox, Input } from '@/components/atoms'
-import { Card } from '@/components/molecules/card'
+import { Alert, Button, Checkbox, Input, Strip } from '@/components/atoms'
 import { ConfirmDialog } from '@/components/molecules/confirm-dialog'
+import { EmptyState } from '@/components/molecules/empty-state'
 import { PageHeader } from '@/components/molecules/page-header'
+import { RackSection } from '@/components/molecules/rack-section'
 import { SectionCard } from '@/components/molecules/section-card'
 import { ProjectContextEditor } from './_components/project-context-editor'
 
@@ -219,17 +220,27 @@ export default function ProjectsSettingsPage() {
     setDeletingRepoId(null)
   }
 
-  const inputClass =
-    'w-full px-3 py-2 bg-background border border-border rounded-md text-foreground text-sm focus:outline-hidden focus:border-accent'
-
   if (loading) {
     return (
-      <div className="min-h-full bg-background flex items-center justify-center">
-        <span className="text-sm text-muted animate-pulse" role="status">
-          {tCommon('loading')}
-        </span>
+      <div className="min-h-full bg-background">
+        <PageHeader
+          width="form"
+          title={tp('projects')}
+          backHref="/settings"
+          backLabel={tp('settings')}
+        />
+        <div className="px-4 md:px-6 pt-5 pb-10 max-w-2xl mx-auto">
+          <span className="text-sm text-muted" role="status">
+            {tCommon('loading')}
+          </span>
+        </div>
       </div>
     )
+  }
+
+  const openNewForm = () => {
+    resetForm()
+    setShowForm(true)
   }
 
   return (
@@ -239,239 +250,256 @@ export default function ProjectsSettingsPage() {
         title={tp('projects')}
         backHref="/settings"
         backLabel={tp('settings')}
-      />
+      >
+        {!showForm && (
+          <Button
+            variant="primary"
+            size="md"
+            onClick={openNewForm}
+            className="inline-flex items-center gap-1.5"
+          >
+            <Plus size={15} aria-hidden="true" />
+            {t('add')}
+          </Button>
+        )}
+      </PageHeader>
 
-      <div className="px-4 md:px-6 pt-5 pb-10 max-w-2xl mx-auto space-y-8">
-        {/* Project List */}
-        <Card padding="none" className="rounded-lg">
-          <div className="p-4 border-b border-border flex items-center justify-between">
-            <div>
-              <h2 className="font-semibold">{t('listTitle')}</h2>
-              <p className="text-sm text-muted mt-1">{t('listDesc')}</p>
-            </div>
-            {!showForm && (
-              <Button
-                variant="primary"
-                size="md"
-                onClick={() => {
-                  resetForm()
-                  setShowForm(true)
-                }}
-              >
-                <Plus className="w-4 h-4" aria-hidden="true" />
-                {t('add')}
-              </Button>
-            )}
-          </div>
+      <div className="px-4 md:px-6 pt-5 pb-10 max-w-2xl mx-auto space-y-6">
+        <p className="text-sm text-muted max-w-prose">{t('listDesc')}</p>
 
-          {projects.length === 0 && !showForm ? (
-            <div className="p-8 text-center text-sm text-muted">{t('empty')}</div>
+        <RackSection id="settings-projects" title={t('listTitle')} count={projects.length}>
+          {projects.length === 0 ? (
+            <EmptyState
+              onRack
+              className="py-4 px-0"
+              icon={<FolderPlus size={20} aria-hidden="true" />}
+              title={t('emptyTitle')}
+              description={t('emptyHint')}
+              action={
+                !showForm && (
+                  <Button variant="secondary" size="md" onClick={openNewForm}>
+                    {t('add')}
+                  </Button>
+                )
+              }
+            />
           ) : (
-            <div className="divide-y divide-border">
-              {projects.map((project) => (
-                <div key={project.id}>
-                  <div className="p-4 flex items-center gap-3">
-                    <Button
-                      variant="ghost"
-                      size="xs"
-                      onClick={() => toggleExpand(project.id)}
-                      className="text-muted hover:text-foreground"
-                      aria-expanded={expandedId === project.id}
-                      aria-label={
-                        expandedId === project.id
-                          ? t('collapse', { name: project.name })
-                          : t('expand', { name: project.name })
-                      }
-                    >
-                      {expandedId === project.id ? (
-                        <ChevronDown className="w-3.5 h-3.5" aria-hidden="true" />
-                      ) : (
-                        <ChevronRight className="w-3.5 h-3.5" aria-hidden="true" />
-                      )}
-                    </Button>
-                    <div className="flex-1 min-w-0">
-                      <div className="font-medium text-sm">{project.name}</div>
-                      {project.description && (
-                        <div className="text-xs text-muted truncate">{project.description}</div>
-                      )}
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Button variant="secondary" size="xs" onClick={() => startEdit(project)}>
-                        {tCommon('edit')}
-                      </Button>
+            <ul className="flex flex-col gap-1.5">
+              {projects.map((project) => {
+                const expanded = expandedId === project.id
+                return (
+                  <li key={project.id} className="flex flex-col gap-1.5">
+                    <Strip className="flex items-center gap-2 pl-2 py-2">
                       <Button
-                        variant="danger"
-                        size="xs"
-                        onClick={() => {
-                          setDeleteError(null)
-                          setConfirmProject(project)
-                        }}
-                        disabled={deletingId === project.id}
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => toggleExpand(project.id)}
+                        className="px-1.5 text-muted hover:text-foreground"
+                        aria-expanded={expanded}
+                        aria-label={
+                          expanded
+                            ? t('collapse', { name: project.name })
+                            : t('expand', { name: project.name })
+                        }
                       >
-                        {deletingId === project.id ? t('deleting') : tCommon('delete')}
+                        {expanded ? (
+                          <ChevronDown size={15} aria-hidden="true" />
+                        ) : (
+                          <ChevronRight size={15} aria-hidden="true" />
+                        )}
                       </Button>
-                    </div>
-                  </div>
-
-                  {/* Expanded: Context + Repositories */}
-                  {expandedId === project.id && (
-                    <div className="bg-background border-t border-border px-6 py-3 space-y-6">
-                      <div className="space-y-3">
-                        <span className="text-xs font-medium text-muted uppercase">
-                          {t('contextHeading')}
-                        </span>
-                        <ProjectContextEditor key={project.id} projectId={project.id} />
-                      </div>
-
-                      <div className="flex items-center justify-between border-t border-border pt-3">
-                        <span className="text-xs font-medium text-muted uppercase">
-                          {t('reposHeading')}
-                        </span>
-                        {!showRepoForm && (
-                          <Button
-                            variant="ghost"
-                            size="xs"
-                            onClick={() => {
-                              resetRepoForm()
-                              setShowRepoForm(true)
-                            }}
-                            className="text-accent hover:underline"
-                          >
-                            <Plus className="w-3.5 h-3.5" aria-hidden="true" />
-                            {t('addRepo')}
-                          </Button>
+                      <div className="flex-1 min-w-0">
+                        <div className="text-sm font-semibold truncate">{project.name}</div>
+                        {project.description && (
+                          <div className="text-mid text-muted truncate">{project.description}</div>
                         )}
                       </div>
+                      <div className="flex items-center gap-1 shrink-0">
+                        <Button variant="ghost" size="sm" onClick={() => startEdit(project)}>
+                          {tCommon('edit')}
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => {
+                            setDeleteError(null)
+                            setConfirmProject(project)
+                          }}
+                          disabled={deletingId === project.id}
+                        >
+                          {deletingId === project.id ? t('deleting') : tCommon('delete')}
+                        </Button>
+                      </div>
+                    </Strip>
 
-                      {loadingRepos ? (
-                        <div className="text-xs text-muted animate-pulse" role="status">
-                          {t('loadingRepos')}
-                        </div>
-                      ) : repos.length === 0 && !showRepoForm ? (
-                        <div className="text-xs text-muted">{t('noRepos')}</div>
-                      ) : (
-                        <div className="space-y-2">
-                          {repos.map((repo) => (
-                            <div key={repo.id} className="flex items-center gap-2 text-sm">
-                              {repo.is_primary ? (
-                                <Star
-                                  className="w-3 h-3 shrink-0 text-muted fill-current"
-                                  aria-hidden="true"
-                                />
-                              ) : (
-                                <Circle
-                                  className="w-3 h-3 shrink-0 text-muted"
-                                  aria-hidden="true"
-                                />
-                              )}
-                              <span className="font-medium text-xs">{repo.name}</span>
-                              <a
-                                href={repo.url}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="text-xs text-accent hover:underline truncate flex-1"
-                              >
-                                {repo.url}
-                              </a>
-                              {repo.is_primary && (
-                                <span className="text-2xs bg-accent/20 text-accent px-1.5 py-0.5 rounded-sm">
-                                  {t('primary')}
-                                </span>
-                              )}
+                    {/* Expanded: context and repositories, on card paper under the strip */}
+                    {expanded && (
+                      <div className="bg-card rounded-[2px] ml-4 p-4 space-y-6 text-foreground">
+                        <section className="space-y-3">
+                          <h3 className="text-sm font-semibold">{t('contextHeading')}</h3>
+                          <ProjectContextEditor key={project.id} projectId={project.id} />
+                        </section>
+
+                        <section className="space-y-3 border-t border-border pt-4">
+                          <div className="flex items-center justify-between gap-3">
+                            <h3 className="text-sm font-semibold">{t('reposHeading')}</h3>
+                            {!showRepoForm && (
                               <Button
                                 variant="secondary"
-                                size="xs"
-                                onClick={() => startEditRepo(repo)}
-                                className="text-2xs"
-                              >
-                                {tCommon('edit')}
-                              </Button>
-                              <Button
-                                variant="danger"
-                                size="xs"
+                                size="sm"
                                 onClick={() => {
-                                  setDeleteError(null)
-                                  setConfirmRepo(repo)
+                                  resetRepoForm()
+                                  setShowRepoForm(true)
                                 }}
-                                disabled={deletingRepoId === repo.id}
-                                className="text-2xs"
+                                className="inline-flex items-center gap-1"
                               >
-                                {deletingRepoId === repo.id ? t('deleting') : tCommon('delete')}
+                                <Plus size={13} aria-hidden="true" />
+                                {t('addRepo')}
                               </Button>
-                            </div>
-                          ))}
-                        </div>
-                      )}
+                            )}
+                          </div>
 
-                      {/* Repo Form */}
-                      {showRepoForm && (
-                        <Card padding="none" className="p-3 space-y-3">
-                          <div className="grid grid-cols-2 gap-3">
-                            <div>
-                              <label htmlFor="repo-name" className="text-xs text-muted block mb-1">
-                                {t('repoNameLabel')} *
-                              </label>
-                              <Input
-                                id="repo-name"
-                                value={repoName}
-                                onChange={(e) => setRepoName(e.target.value)}
-                                placeholder={t('repoNamePlaceholder')}
-                                className={inputClass}
-                              />
+                          {loadingRepos ? (
+                            <div className="text-mid text-muted" role="status">
+                              {t('loadingRepos')}
                             </div>
-                            <div>
-                              <label htmlFor="repo-url" className="text-xs text-muted block mb-1">
-                                {t('repoUrlLabel')} *
+                          ) : repos.length === 0 && !showRepoForm ? (
+                            <div className="text-mid text-muted">{t('noRepos')}</div>
+                          ) : (
+                            <ul className="flex flex-col gap-1.5">
+                              {repos.map((repo) => (
+                                <li key={repo.id}>
+                                  <Strip className="flex flex-wrap items-center gap-x-2 gap-y-1 py-1.5">
+                                    {repo.is_primary ? (
+                                      <Star
+                                        size={12}
+                                        className="shrink-0 text-muted fill-current"
+                                        aria-hidden="true"
+                                      />
+                                    ) : (
+                                      <Circle
+                                        size={12}
+                                        className="shrink-0 text-muted"
+                                        aria-hidden="true"
+                                      />
+                                    )}
+                                    <span className="text-sm font-semibold">{repo.name}</span>
+                                    {repo.is_primary && (
+                                      <span className="text-xxs font-semibold text-foreground bg-card border border-border px-1.5 py-px rounded-[3px]">
+                                        {t('primary')}
+                                      </span>
+                                    )}
+                                    <a
+                                      href={repo.url}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="text-mid text-accent hover:underline truncate flex-1 min-w-0 basis-40"
+                                    >
+                                      {repo.url}
+                                    </a>
+                                    <span className="flex items-center gap-1 ml-auto">
+                                      <Button
+                                        variant="ghost"
+                                        size="xs"
+                                        onClick={() => startEditRepo(repo)}
+                                      >
+                                        {tCommon('edit')}
+                                      </Button>
+                                      <Button
+                                        variant="ghost"
+                                        size="xs"
+                                        onClick={() => {
+                                          setDeleteError(null)
+                                          setConfirmRepo(repo)
+                                        }}
+                                        disabled={deletingRepoId === repo.id}
+                                      >
+                                        {deletingRepoId === repo.id
+                                          ? t('deleting')
+                                          : tCommon('delete')}
+                                      </Button>
+                                    </span>
+                                  </Strip>
+                                </li>
+                              ))}
+                            </ul>
+                          )}
+
+                          {/* Repo Form */}
+                          {showRepoForm && (
+                            <div className="border border-border rounded-[2px] p-3 space-y-3">
+                              <div className="grid sm:grid-cols-2 gap-3">
+                                <div>
+                                  <label
+                                    htmlFor="repo-name"
+                                    className="text-xs text-muted block mb-1"
+                                  >
+                                    {t('repoNameLabel')} *
+                                  </label>
+                                  <Input
+                                    id="repo-name"
+                                    value={repoName}
+                                    onChange={(e) => setRepoName(e.target.value)}
+                                    placeholder={t('repoNamePlaceholder')}
+                                  />
+                                </div>
+                                <div>
+                                  <label
+                                    htmlFor="repo-url"
+                                    className="text-xs text-muted block mb-1"
+                                  >
+                                    {t('repoUrlLabel')} *
+                                  </label>
+                                  <Input
+                                    id="repo-url"
+                                    value={repoUrl}
+                                    onChange={(e) => setRepoUrl(e.target.value)}
+                                    placeholder="https://github.com/org/repo"
+                                  />
+                                </div>
+                              </div>
+                              <label className="flex items-center gap-2 text-xs text-muted">
+                                <Checkbox
+                                  checked={repoPrimary}
+                                  onChange={(e) => setRepoPrimary(e.target.checked)}
+                                />
+                                {t('repoPrimaryLabel')}
                               </label>
-                              <Input
-                                id="repo-url"
-                                value={repoUrl}
-                                onChange={(e) => setRepoUrl(e.target.value)}
-                                placeholder="https://github.com/org/repo"
-                                className={inputClass}
-                              />
+                              <div className="flex items-center gap-2 justify-end">
+                                <Button variant="ghost" size="sm" onClick={resetRepoForm}>
+                                  {tCommon('cancel')}
+                                </Button>
+                                <Button
+                                  variant="primary"
+                                  size="sm"
+                                  onClick={handleSaveRepo}
+                                  disabled={savingRepo}
+                                >
+                                  {savingRepo
+                                    ? tc('saving')
+                                    : editingRepoId
+                                      ? t('repoUpdate')
+                                      : t('repoCreate')}
+                                </Button>
+                              </div>
                             </div>
-                          </div>
-                          <label className="flex items-center gap-2 text-xs text-muted">
-                            <Checkbox
-                              checked={repoPrimary}
-                              onChange={(e) => setRepoPrimary(e.target.checked)}
-                            />
-                            {t('repoPrimaryLabel')}
-                          </label>
-                          <div className="flex items-center gap-2 justify-end">
-                            <Button variant="ghost" size="xs" onClick={resetRepoForm}>
-                              {tCommon('cancel')}
-                            </Button>
-                            <Button
-                              variant="primary"
-                              size="md"
-                              onClick={handleSaveRepo}
-                              disabled={savingRepo}
-                              className="text-xs"
-                            >
-                              {savingRepo
-                                ? tc('saving')
-                                : editingRepoId
-                                  ? t('repoUpdate')
-                                  : t('repoCreate')}
-                            </Button>
-                          </div>
-                        </Card>
-                      )}
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
+                          )}
+                        </section>
+                      </div>
+                    )}
+                  </li>
+                )
+              })}
+            </ul>
           )}
-        </Card>
+        </RackSection>
 
         {error && !showForm && <Alert variant="error">{error}</Alert>}
 
         {/* Add/Edit Project Form */}
         {showForm && (
           <SectionCard
+            className="rounded-md"
             title={
               editingId
                 ? t('editTitle', {
@@ -489,7 +517,6 @@ export default function ProjectsSettingsPage() {
                 value={formName}
                 onChange={(e) => setFormName(e.target.value)}
                 placeholder={t('namePlaceholder')}
-                className={inputClass}
               />
             </div>
             <div>
@@ -501,7 +528,6 @@ export default function ProjectsSettingsPage() {
                 value={formDesc}
                 onChange={(e) => setFormDesc(e.target.value)}
                 placeholder={t('descPlaceholder')}
-                className={inputClass}
               />
             </div>
 

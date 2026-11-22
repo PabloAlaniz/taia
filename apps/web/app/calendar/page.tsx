@@ -2,14 +2,17 @@
 
 import { useTranslations } from 'next-intl'
 import { useState, useEffect } from 'react'
+import { RefreshCw } from 'lucide-react'
 import { Task } from '@taia/types'
 import { CalendarView } from '../../components/organisms/calendar-view'
-import { Button } from '../../components/atoms'
+import { IconButton } from '../../components/atoms'
 import { PageHeader } from '@/components/molecules/page-header'
 import { api } from '@/lib/api'
 
 export default function CalendarPage() {
   const tp = useTranslations('pageTitles')
+  const t = useTranslations('calendarUi')
+  const tc = useTranslations('common')
   const [tasks, setTasks] = useState<Task[]>([])
   const [loading, setLoading] = useState(true)
 
@@ -31,27 +34,27 @@ export default function CalendarPage() {
 
   const tasksWithDueDate = tasks.filter((t) => t.due_date)
 
-  if (loading) {
-    return (
-      <div className="h-[calc(100vh/1.1)] bg-background flex items-center justify-center">
-        <span className="text-2xl">⏳</span>
-      </div>
-    )
-  }
-
   return (
-    <div className="h-[calc(100vh/1.1)] bg-background flex flex-col overflow-hidden">
-      {/* Header */}
-      <PageHeader title={tp('calendar')} backHref="/" backLabel={tp('board')}>
-        <span className="text-xs text-muted">{tasksWithDueDate.length} tasks with due dates</span>
-        <Button variant="secondary" size="sm" onClick={fetchTasks}>
-          🔄 Refresh
-        </Button>
+    <div className="min-h-full">
+      <PageHeader title={tp('calendar')} width="data" backHref="/" backLabel={tp('board')}>
+        {!loading && (
+          <span className="text-mid text-muted tabular-nums">
+            {t('dueCount', { count: tasksWithDueDate.length })}
+          </span>
+        )}
+        <IconButton variant="secondary" size="sm" onClick={fetchTasks} aria-label={t('refresh')}>
+          <RefreshCw size={15} aria-hidden />
+        </IconButton>
       </PageHeader>
 
-      {/* Calendar Content - fills remaining space */}
-      <div className="flex-1 p-4 overflow-hidden">
-        <CalendarView tasks={tasks} />
+      <div className="px-4 md:px-6 pt-4 pb-10 max-w-6xl mx-auto">
+        {loading ? (
+          <p role="status" className="text-sm text-muted">
+            {tc('loading')}
+          </p>
+        ) : (
+          <CalendarView tasks={tasks} />
+        )}
       </div>
     </div>
   )

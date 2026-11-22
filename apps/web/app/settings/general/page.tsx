@@ -62,15 +62,14 @@ export default function GeneralSettingsPage() {
     setSaving(false)
   }
 
-  const inputClass =
-    'w-full px-3 py-2 bg-background border border-border rounded-md text-foreground text-sm focus:outline-hidden focus:border-accent'
-
   if (loading) {
     return (
-      <div className="min-h-full bg-background flex items-center justify-center">
-        <span className="text-muted text-sm" role="status">
-          {tc('loadingPage')}
-        </span>
+      <div className="min-h-full bg-background">
+        <div className="px-4 md:px-6 pt-5 pb-10 max-w-2xl mx-auto">
+          <span className="text-muted text-sm" role="status">
+            {tc('loadingPage')}
+          </span>
+        </div>
       </div>
     )
   }
@@ -86,7 +85,11 @@ export default function GeneralSettingsPage() {
 
       <div className="px-4 md:px-6 pt-5 pb-10 max-w-2xl mx-auto space-y-8">
         {/* WebSocket Section */}
-        <SectionCard title={t('websocketTitle')} description={t('websocketDesc')}>
+        <SectionCard
+          className="rounded-md"
+          title={t('websocketTitle')}
+          description={t('websocketDesc')}
+        >
           <div>
             <label htmlFor="settings-ws-url" className="text-xs text-muted block mb-1">
               {t('wsUrlLabel')}
@@ -96,7 +99,6 @@ export default function GeneralSettingsPage() {
               value={wsUrl}
               onChange={(e) => setWsUrl(e.target.value)}
               placeholder="ws://localhost:13334"
-              className={inputClass}
             />
             <p className="text-xs text-muted mt-1">
               {t('wsUrlHelp', { default: 'ws://localhost:13334' })}
@@ -105,7 +107,11 @@ export default function GeneralSettingsPage() {
         </SectionCard>
 
         {/* Timezone Section */}
-        <SectionCard title={t('timezoneTitle')} description={t('timezoneDesc')}>
+        <SectionCard
+          className="rounded-md"
+          title={t('timezoneTitle')}
+          description={t('timezoneDesc')}
+        >
           <div>
             <label htmlFor="settings-default-tz" className="text-xs text-muted block mb-1">
               {t('timezoneLabel')}
@@ -115,14 +121,17 @@ export default function GeneralSettingsPage() {
               value={defaultTz}
               onChange={(e) => setDefaultTz(e.target.value)}
               placeholder="UTC"
-              className={inputClass}
             />
             <p className="text-xs text-muted mt-1">{t('timezoneHelp')}</p>
           </div>
         </SectionCard>
 
         {/* AI Planning Section */}
-        <SectionCard title={t('planningTitle')} description={t('planningDesc')}>
+        <SectionCard
+          className="rounded-md"
+          title={t('planningTitle')}
+          description={t('planningDesc')}
+        >
           <p className="text-xs text-muted">
             {t.rich('planningBody', {
               link: (chunks) => (

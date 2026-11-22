@@ -94,15 +94,14 @@ export default function WorktreeSettingsPage() {
     setSaving(false)
   }
 
-  const inputClass =
-    'w-full px-3 py-2 bg-background border border-border rounded-md text-foreground text-sm focus:outline-hidden focus:border-accent'
-
   if (loading) {
     return (
-      <div className="min-h-full bg-background flex items-center justify-center">
-        <span className="text-muted text-sm" role="status">
-          {tc('loadingPage')}
-        </span>
+      <div className="min-h-full bg-background">
+        <div className="px-4 md:px-6 pt-5 pb-10 max-w-2xl mx-auto">
+          <span className="text-muted text-sm" role="status">
+            {tc('loadingPage')}
+          </span>
+        </div>
       </div>
     )
   }
@@ -118,7 +117,7 @@ export default function WorktreeSettingsPage() {
 
       <div className="px-4 md:px-6 pt-5 pb-10 max-w-2xl mx-auto space-y-8">
         {/* Paths Section */}
-        <SectionCard title={t('pathsTitle')} description={t('pathsDesc')}>
+        <SectionCard className="rounded-md" title={t('pathsTitle')} description={t('pathsDesc')}>
           <div>
             <label htmlFor="worktree-base-path" className="text-xs text-muted block mb-1">
               {t('basePathLabel')}
@@ -128,7 +127,6 @@ export default function WorktreeSettingsPage() {
               value={basePath}
               onChange={(e) => setBasePath(e.target.value)}
               placeholder="/tmp/taia-worktrees"
-              className={inputClass}
             />
             <p className="text-xs text-muted mt-1">{t('basePathHelp')}</p>
           </div>
@@ -142,14 +140,17 @@ export default function WorktreeSettingsPage() {
               value={repoClonePath}
               onChange={(e) => setRepoClonePath(e.target.value)}
               placeholder="/tmp/taia-repos"
-              className={inputClass}
             />
             <p className="text-xs text-muted mt-1">{t('repoPathHelp')}</p>
           </div>
         </SectionCard>
 
         {/* Cleanup Section */}
-        <SectionCard title={t('cleanupTitle')} description={t('cleanupDesc')}>
+        <SectionCard
+          className="rounded-md"
+          title={t('cleanupTitle')}
+          description={t('cleanupDesc')}
+        >
           <div>
             <label htmlFor="worktree-cleanup-hours" className="text-xs text-muted block mb-1">
               {t('cleanupHoursLabel')}
@@ -160,7 +161,6 @@ export default function WorktreeSettingsPage() {
               value={cleanupHours}
               onChange={(e) => setCleanupHours(e.target.value)}
               placeholder="72"
-              className={inputClass}
             />
             <p className="text-xs text-muted mt-1">{t('cleanupHoursHelp')}</p>
           </div>
@@ -174,7 +174,7 @@ export default function WorktreeSettingsPage() {
         </SectionCard>
 
         {/* Automation Section */}
-        <SectionCard title={t('automationTitle')}>
+        <SectionCard className="rounded-md" title={t('automationTitle')}>
           <div>
             <label htmlFor="worktree-setup-command" className="text-xs text-muted block mb-1">
               {t('setupCommandLabel')}
@@ -184,7 +184,6 @@ export default function WorktreeSettingsPage() {
               value={setupCommand}
               onChange={(e) => setSetupCommand(e.target.value)}
               placeholder="npm install"
-              className={inputClass}
             />
             <p className="text-xs text-muted mt-1">{t('setupCommandHelp')}</p>
           </div>

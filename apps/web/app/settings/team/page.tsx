@@ -2,11 +2,12 @@
 
 import { useTranslations } from 'next-intl'
 import { useState, useEffect } from 'react'
-import { Plus } from 'lucide-react'
-import { Button, Input, ParticipantMark } from '@/components/atoms'
-import { Card } from '@/components/molecules/card'
+import { Plus, Users } from 'lucide-react'
+import { Button, Input, Strip } from '@/components/atoms'
 import { ConfirmDialog } from '@/components/molecules/confirm-dialog'
+import { EmptyState } from '@/components/molecules/empty-state'
 import { PageHeader } from '@/components/molecules/page-header'
+import { RackSection } from '@/components/molecules/rack-section'
 import { SectionCard } from '@/components/molecules/section-card'
 
 interface HumanAgent {
@@ -15,6 +16,15 @@ interface HumanAgent {
   role?: string
   avatar: string
   type: 'human'
+}
+
+/**
+ * A person's role as typed, or nothing. Older records were saved with the
+ * agent fallback "Agent" as their role; people are never shown as agents.
+ */
+function personRole(role?: string): string {
+  const trimmed = role?.trim() ?? ''
+  return /^agent$/i.test(trimmed) ? '' : trimmed
 }
 
 export default function TeamSettingsPage() {
@@ -73,7 +83,7 @@ export default function TeamSettingsPage() {
     setEditingId(member.id)
     setFormId(member.id)
     setFormName(member.name)
-    setFormRole(member.role || '')
+    setFormRole(personRole(member.role))
     setFormAvatar(member.avatar)
     setShowForm(true)
     setError('')
@@ -158,84 +168,108 @@ export default function TeamSettingsPage() {
     setDeletingId(null)
   }
 
-  const inputClass =
-    'w-full px-3 py-2 bg-background border border-border rounded-md text-foreground text-sm focus:outline-hidden focus:border-accent'
-
   if (loading) {
     return (
-      <div className="min-h-full bg-background flex items-center justify-center">
-        <span className="text-sm text-muted" role="status">
-          {tCommon('loading')}
-        </span>
+      <div className="min-h-full bg-background">
+        <PageHeader
+          width="form"
+          title={tp('team')}
+          backHref="/settings"
+          backLabel={tp('settings')}
+        />
+        <div className="px-4 md:px-6 pt-5 pb-10 max-w-2xl mx-auto">
+          <span className="text-sm text-muted" role="status">
+            {tCommon('loading')}
+          </span>
+        </div>
       </div>
     )
   }
 
+  const openNewForm = () => {
+    resetForm()
+    setShowForm(true)
+  }
+
   return (
     <div className="min-h-full bg-background">
-      <PageHeader width="form" title={tp('team')} backHref="/settings" backLabel={tp('settings')} />
+      <PageHeader width="form" title={tp('team')} backHref="/settings" backLabel={tp('settings')}>
+        {!showForm && (
+          <Button
+            variant="primary"
+            size="md"
+            onClick={openNewForm}
+            className="inline-flex items-center gap-1.5"
+          >
+            <Plus size={15} aria-hidden="true" />
+            {t('add')}
+          </Button>
+        )}
+      </PageHeader>
 
-      <div className="px-4 md:px-6 pt-5 pb-10 max-w-2xl mx-auto space-y-8">
-        {/* Member List */}
-        <Card padding="none" className="rounded-lg">
-          <div className="p-4 border-b border-border flex items-center justify-between">
-            <div>
-              <h2 className="font-semibold">{t('listTitle')}</h2>
-              <p className="text-sm text-muted mt-1">{t('listDesc')}</p>
-            </div>
-            {!showForm && (
-              <Button
-                variant="primary"
-                size="md"
-                onClick={() => {
-                  resetForm()
-                  setShowForm(true)
-                }}
-              >
-                <Plus className="w-4 h-4" aria-hidden="true" />
-                {t('add')}
-              </Button>
-            )}
-          </div>
+      <div className="px-4 md:px-6 pt-5 pb-10 max-w-2xl mx-auto space-y-6">
+        <p className="text-sm text-muted max-w-prose">{t('listDesc')}</p>
 
-          {members.length === 0 && !showForm ? (
-            <div className="p-8 text-center text-sm text-muted">{t('empty')}</div>
+        <RackSection id="team-people" title={t('listTitle')} count={members.length}>
+          {members.length === 0 ? (
+            <EmptyState
+              onRack
+              className="py-4 px-0"
+              icon={<Users size={20} aria-hidden="true" />}
+              title={t('emptyTitle')}
+              description={t('emptyHint')}
+              action={
+                !showForm && (
+                  <Button variant="secondary" size="md" onClick={openNewForm}>
+                    {t('add')}
+                  </Button>
+                )
+              }
+            />
           ) : (
-            <div className="divide-y divide-border">
-              {members.map((member) => (
-                <div key={member.id} className="p-4 flex items-center gap-3">
-                  <ParticipantMark agent={{ type: 'human' }} className="h-8" />
-                  <div className="flex-1 min-w-0">
-                    <div className="font-medium text-sm">{member.name}</div>
-                    <div className="text-xs text-muted truncate">
-                      {member.role || t('noRole')} · <code className="text-2xs">{member.id}</code>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Button variant="secondary" size="xs" onClick={() => startEdit(member)}>
-                      {tCommon('edit')}
-                    </Button>
-                    <Button
-                      variant="danger"
-                      size="xs"
-                      onClick={() => {
-                        setDeleteError(null)
-                        setConfirmMember(member)
-                      }}
-                      disabled={deletingId === member.id}
-                    >
-                      {deletingId === member.id ? t('deleting') : tCommon('delete')}
-                    </Button>
-                  </div>
-                </div>
-              ))}
-            </div>
+            <ul className="flex flex-col gap-1.5">
+              {members.map((member) => {
+                const role = personRole(member.role)
+                return (
+                  <li key={member.id}>
+                    <Strip kind="person" className="flex items-center gap-3 py-2.5">
+                      <div className="flex-1 min-w-0">
+                        <div className="text-sm font-semibold text-person-ink truncate">
+                          {member.name}
+                        </div>
+                        <div className="text-mid text-muted truncate">
+                          {role && <>{role} · </>}
+                          <code className="font-mono text-xxs">{member.id}</code>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-1 shrink-0">
+                        <Button variant="ghost" size="sm" onClick={() => startEdit(member)}>
+                          {tCommon('edit')}
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => {
+                            setDeleteError(null)
+                            setConfirmMember(member)
+                          }}
+                          disabled={deletingId === member.id}
+                        >
+                          {deletingId === member.id ? t('deleting') : tCommon('delete')}
+                        </Button>
+                      </div>
+                    </Strip>
+                  </li>
+                )
+              })}
+            </ul>
           )}
-        </Card>
+        </RackSection>
 
         {/* Add/Edit Form */}
         {showForm && (
           <SectionCard
+            className="rounded-md"
             title={
               editingId
                 ? t('editTitle', {
@@ -254,7 +288,7 @@ export default function TeamSettingsPage() {
                 onChange={(e) => setFormId(e.target.value)}
                 placeholder={t('idPlaceholder')}
                 disabled={!!editingId}
-                className={`${inputClass} ${editingId ? 'opacity-50' : ''}`}
+                className="disabled:bg-strip disabled:text-muted"
               />
               <p className="text-xs text-muted mt-1">{t('idHelp')}</p>
             </div>
@@ -268,7 +302,6 @@ export default function TeamSettingsPage() {
                 value={formName}
                 onChange={(e) => setFormName(e.target.value)}
                 placeholder={t('namePlaceholder')}
-                className={inputClass}
               />
             </div>
 
@@ -281,20 +314,6 @@ export default function TeamSettingsPage() {
                 value={formRole}
                 onChange={(e) => setFormRole(e.target.value)}
                 placeholder={t('rolePlaceholder')}
-                className={inputClass}
-              />
-            </div>
-
-            <div>
-              <label htmlFor="team-member-avatar" className="text-xs text-muted block mb-1">
-                {t('avatarLabel')}
-              </label>
-              <Input
-                id="team-member-avatar"
-                value={formAvatar}
-                onChange={(e) => setFormAvatar(e.target.value)}
-                placeholder="👤"
-                className={inputClass}
               />
             </div>
 

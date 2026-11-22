@@ -1,11 +1,13 @@
 'use client'
 
 import { useFormatter, useNow, useTranslations } from 'next-intl'
-import { useCallback, useEffect, useState } from 'react'
-import { Button } from '@/components/atoms/button'
-import { Input } from '@/components/atoms/input'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import { ScrollText } from 'lucide-react'
+import { Alert, Button, Select, Strip } from '@/components/atoms'
+import { EmptyState } from '@/components/molecules/empty-state'
 import { PageHeader } from '@/components/molecules/page-header'
-import { Card } from '@/components/molecules/card'
+import { RackSection } from '@/components/molecules/rack-section'
+import { useStore } from '@/lib/store'
 
 type AuditEvent = {
   id: string
@@ -27,17 +29,6 @@ type LoadStatus =
 
 const DEFAULT_WORKSPACE_ID = 'ws-default'
 
-const COLUMNS = [
-  'time',
-  'key',
-  'resource',
-  'operation',
-  'actor',
-  'origin',
-  'result',
-  'message',
-] as const
-
 export default function SettingsAuditPage() {
   const tp = useTranslations('pageTitles')
   const t = useTranslations('settingsAudit')
@@ -46,6 +37,21 @@ export default function SettingsAuditPage() {
   const [workspaceId, setWorkspaceId] = useState(DEFAULT_WORKSPACE_ID)
   const [events, setEvents] = useState<AuditEvent[]>([])
   const [status, setStatus] = useState<LoadStatus>({ kind: 'loading' })
+  const workspaces = useStore((s) => s.workspaces)
+  const fetchWorkspaces = useStore((s) => s.fetchWorkspaces)
+
+  useEffect(() => {
+    if (workspaces.length === 0) void fetchWorkspaces()
+  }, [workspaces.length, fetchWorkspaces])
+
+  // The chosen id stays an option even before (or without) the list loading.
+  const workspaceOptions = useMemo(
+    () =>
+      workspaces.some((w) => w.id === workspaceId)
+        ? workspaces
+        : [{ id: workspaceId, name: workspaceId }, ...workspaces],
+    [workspaces, workspaceId],
+  )
 
   const load = useCallback(async () => {
     setStatus({ kind: 'loading' })
@@ -74,87 +80,129 @@ export default function SettingsAuditPage() {
 
   return (
     <div className="min-h-full bg-background">
-      <PageHeader title={tp('audit')} backHref="/settings" backLabel={tp('settings')} />
-      <div className="px-4 md:px-6 pt-5 pb-10 max-w-5xl mx-auto space-y-4">
-        <Card padding="md" className="rounded-lg space-y-3">
-          <p className="text-sm text-muted">{t('intro')}</p>
-          <div className="flex gap-2">
-            <Input
-              aria-label={t('workspaceLabel')}
-              className="flex-1 rounded border border-border bg-background px-3 py-2 text-sm"
+      <PageHeader
+        width="data"
+        title={tp('audit')}
+        backHref="/settings"
+        backLabel={tp('settings')}
+      />
+      <div className="px-4 md:px-6 pt-5 pb-10 max-w-6xl mx-auto space-y-4">
+        <p className="text-sm text-muted max-w-prose">{t('intro')}</p>
+
+        <div className="flex flex-wrap items-end gap-2">
+          <div className="min-w-0 flex-1 max-w-sm">
+            <label htmlFor="audit-workspace" className="text-xs text-muted block mb-1">
+              {t('workspaceSelectLabel')}
+            </label>
+            <Select
+              id="audit-workspace"
               value={workspaceId}
               onChange={(event) => setWorkspaceId(event.target.value)}
-            />
-            <Button variant="primary" size="lg" onClick={load}>
-              {t('refresh')}
-            </Button>
+            >
+              {workspaceOptions.map((workspace) => (
+                <option key={workspace.id} value={workspace.id}>
+                  {workspace.name}
+                </option>
+              ))}
+            </Select>
           </div>
-          <div role="status" className="text-sm">
-            {status.kind === 'loading' && <span className="text-muted">{t('loading')}</span>}
-            {status.kind === 'loaded' && (
-              <span className="text-muted">{t('count', { count: status.total })}</span>
-            )}
-            {status.kind === 'error' && (
-              <>
-                <span className="text-alert">{t('loadFailed')}</span>
-                {status.detail && (
-                  <span className="block text-xs text-muted font-mono mt-1">{status.detail}</span>
-                )}
-              </>
-            )}
-          </div>
-        </Card>
+          <Button variant="secondary" size="lg" onClick={load}>
+            {t('refresh')}
+          </Button>
+        </div>
 
-        <Card padding="md" className="rounded-lg overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="text-left text-muted border-b border-border">
-                {COLUMNS.map((column) => (
-                  <th key={column} className="py-2 pr-3">
-                    {t(`columns.${column}`)}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
+        {status.kind === 'error' && (
+          <Alert variant="error">
+            <p>{t('loadFailed')}</p>
+            {status.detail && (
+              <p className="text-xs text-muted font-normal font-mono mt-1">{status.detail}</p>
+            )}
+          </Alert>
+        )}
+
+        <RackSection
+          id="settings-audit"
+          title={t('rackTitle')}
+          aside={
+            <span role="status">
+              {status.kind === 'loading' && t('loading')}
+              {status.kind === 'loaded' && t('count', { count: status.total })}
+            </span>
+          }
+        >
+          {events.length === 0 && status.kind === 'loaded' && (
+            <EmptyState
+              onRack
+              className="py-4 px-0"
+              icon={<ScrollText size={20} aria-hidden="true" />}
+              title={t('empty')}
+            />
+          )}
+          {events.length > 0 && (
+            <ul className="flex flex-col gap-1.5">
               {events.map((event) => {
                 const createdAt = new Date(event.created_at)
                 return (
-                  <tr key={event.id} className="border-b border-border/60">
-                    <td className="py-2 pr-3 whitespace-nowrap">
-                      <time
-                        dateTime={event.created_at}
-                        title={format.dateTime(createdAt, {
-                          dateStyle: 'medium',
-                          timeStyle: 'short',
-                        })}
-                      >
-                        {format.relativeTime(
-                          new Date(Math.min(createdAt.getTime(), now.getTime())),
-                          now,
-                        )}
-                      </time>
-                    </td>
-                    <td className="py-2 pr-3 font-mono">{event.setting_key}</td>
-                    <td className="py-2 pr-3">{event.resource_type}</td>
-                    <td className="py-2 pr-3">{event.operation}</td>
-                    <td className="py-2 pr-3">{event.actor}</td>
-                    <td className="py-2 pr-3">{event.origin}</td>
-                    <td className="py-2 pr-3">{event.result}</td>
-                    <td className="py-2 pr-3 text-muted">{event.message || '—'}</td>
-                  </tr>
+                  <li key={event.id}>
+                    <Strip className="py-2">
+                      <div className="flex flex-wrap items-baseline gap-x-3 gap-y-0.5">
+                        <span className="font-mono text-xs text-foreground break-all">
+                          <span className="sr-only">{t('columns.key')}: </span>
+                          {event.setting_key}
+                        </span>
+                        <span className="text-sm font-semibold">
+                          <span className="sr-only">{t('columns.operation')}: </span>
+                          {event.operation}
+                        </span>
+                        <span
+                          className={
+                            event.result === 'failure'
+                              ? 'text-sm font-semibold text-alert'
+                              : 'text-sm text-muted'
+                          }
+                        >
+                          <span className="sr-only">{t('columns.result')}: </span>
+                          {event.result}
+                        </span>
+                        <span className="ml-auto text-mid text-muted whitespace-nowrap">
+                          <span className="sr-only">{t('columns.time')}: </span>
+                          <time
+                            dateTime={event.created_at}
+                            title={format.dateTime(createdAt, {
+                              dateStyle: 'medium',
+                              timeStyle: 'short',
+                            })}
+                          >
+                            {format.relativeTime(
+                              new Date(Math.min(createdAt.getTime(), now.getTime())),
+                              now,
+                            )}
+                          </time>
+                        </span>
+                      </div>
+                      <div className="text-mid text-muted">
+                        <span className="sr-only">{t('columns.actor')}: </span>
+                        <span className="text-foreground">{event.actor}</span>
+                        {' · '}
+                        <span className="sr-only">{t('columns.origin')}: </span>
+                        {event.origin}
+                        {' · '}
+                        <span className="sr-only">{t('columns.resource')}: </span>
+                        {event.resource_type}
+                      </div>
+                      {event.message && (
+                        <p className="text-mid text-muted mt-0.5">
+                          <span className="sr-only">{t('columns.message')}: </span>
+                          {event.message}
+                        </p>
+                      )}
+                    </Strip>
+                  </li>
                 )
               })}
-              {events.length === 0 && status.kind === 'loaded' && (
-                <tr>
-                  <td colSpan={COLUMNS.length} className="py-8 text-center text-muted">
-                    {t('empty')}
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </Card>
+            </ul>
+          )}
+        </RackSection>
       </div>
     </div>
   )

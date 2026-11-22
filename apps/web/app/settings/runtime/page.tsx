@@ -29,9 +29,9 @@ export default function RuntimeSettingsPage() {
       <PageHeader width="form" title={t('title')} backHref="/settings" backLabel={tp('settings')} />
 
       <div className="px-4 md:px-6 pt-5 pb-10 max-w-2xl mx-auto">
-        <SectionCard title={t('title')} description={t('pageDesc')}>
+        <SectionCard className="rounded-md" title={t('title')} description={t('pageDesc')}>
           {settings === null ? (
-            <span className="text-sm text-muted animate-pulse" role="status" aria-busy="true">
+            <span className="text-sm text-muted" role="status" aria-busy="true">
               {tc('loadingPage')}
             </span>
           ) : (

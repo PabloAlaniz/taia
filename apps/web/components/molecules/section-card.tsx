@@ -19,7 +19,7 @@ export function SectionCard({
   className,
 }: SectionCardProps) {
   return (
-    <Card padding="none" className={cn('rounded-lg', className)}>
+    <Card padding="none" className={cn('rounded-md', className)}>
       <div className="p-4 border-b border-border flex items-center justify-between gap-4">
         <div>
           <h2 className="font-semibold">{title}</h2>

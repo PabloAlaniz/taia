@@ -228,7 +228,7 @@ export function ProjectContextEditor({ projectId }: { projectId: string }) {
             {glossary.map(([k, v], i) => (
               <li
                 key={`${i}-${k}`}
-                className="flex items-center gap-2 text-xs bg-background rounded p-2"
+                className="flex items-center gap-2 text-mid bg-strip rounded-[2px] p-2"
               >
                 <span className="font-medium">{k}</span>
                 <span className="text-muted">→</span>
@@ -283,14 +283,14 @@ export function ProjectContextEditor({ projectId }: { projectId: string }) {
             {refs.map((r, i) => (
               <li
                 key={`${i}-${r.uri}`}
-                className="flex items-center gap-2 text-xs bg-background rounded p-2"
+                className="flex items-center gap-2 text-mid bg-strip rounded-[2px] p-2"
               >
-                <span className="text-muted text-2xs uppercase">{t(`kinds.${r.kind}`)}</span>
+                <span className="text-muted text-xxs font-semibold">{t(`kinds.${r.kind}`)}</span>
                 <span className="font-medium truncate max-w-[200px]">{r.uri}</span>
                 <span className="text-muted">—</span>
                 <span className="flex-1 truncate">{r.description}</span>
                 {r.cacheable && (
-                  <span className="text-2xs bg-accent/20 text-accent px-1.5 py-0.5 rounded-sm">
+                  <span className="text-xxs font-semibold text-foreground bg-card border border-border px-1.5 py-px rounded-[3px]">
                     {t('cacheableBadge')}
                   </span>
                 )}
@@ -306,7 +306,7 @@ export function ProjectContextEditor({ projectId }: { projectId: string }) {
             ))}
           </ul>
         )}
-        <div className="space-y-2 bg-background rounded p-2 border border-border">
+        <div className="space-y-2 rounded-[2px] p-2 border border-border">
           <div className="grid grid-cols-[120px_1fr] gap-2">
             <Select
               aria-label={t('kindLabel')}
