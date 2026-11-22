@@ -12,9 +12,12 @@ import {
   createRepository,
   updateRepository,
   deleteRepository,
+  getAllTasks,
+  getAllWorkspaces,
+  getColumnsForWorkspace,
 } from '../db/index'
 import { logProjectCreated, logProjectUpdated, logProjectDeleted } from './activity.service'
-import type { Project, Repository, Task } from '@taia/types'
+import type { Project, ProjectOverview, Repository, Task } from '@taia/types'
 
 // === Projects ===
 
@@ -107,6 +110,45 @@ export async function updateExistingRepository(
 
 export async function deleteExistingRepository(id: string): Promise<boolean> {
   return deleteRepository(id)
+}
+
+// === Overview ===
+
+/**
+ * Everything a project spans: its tasks grouped by the workspace (flow) they
+ * live in. Undefined when the project does not exist.
+ */
+export async function getProjectOverview(projectId: string): Promise<ProjectOverview | undefined> {
+  const project = await getProjectById(projectId)
+  if (!project) return undefined
+
+  const [repositories, allTasks, workspaces] = await Promise.all([
+    getRepositoriesForProject(projectId),
+    getAllTasks(),
+    getAllWorkspaces(),
+  ])
+
+  const tasksByWorkspace = new Map<string, Task[]>()
+  for (const task of allTasks) {
+    if (task.project_id !== projectId) continue
+    const wsId = task.workspace_id ?? 'ws-default'
+    const list = tasksByWorkspace.get(wsId) ?? []
+    list.push(task)
+    tasksByWorkspace.set(wsId, list)
+  }
+
+  const groups = await Promise.all(
+    workspaces
+      .filter((ws) => tasksByWorkspace.has(ws.id))
+      .map(async (ws) => ({
+        workspace: { id: ws.id, name: ws.name, icon: ws.icon, color: ws.color },
+        columns: await getColumnsForWorkspace(ws.id),
+        tasks: tasksByWorkspace.get(ws.id) ?? [],
+      })),
+  )
+  groups.sort((a, b) => a.workspace.name.localeCompare(b.workspace.name))
+
+  return { project, repositories, workspaces: groups }
 }
 
 // === Helpers ===

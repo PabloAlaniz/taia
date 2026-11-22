@@ -22,7 +22,8 @@
     "settings": "Configuración",
     "settingsShort": "Config",
     "mainNav": "Navegación principal",
-    "mobileNav": "Navegación móvil"
+    "mobileNav": "Navegación móvil",
+    "projects": "Proyectos"
   },
   "header": {
     "planWizard": "Asistente de planificación IA",
@@ -346,5 +347,21 @@
     "invalid": "El token no es correcto.",
     "throttled": "Demasiados intentos fallidos. Esperá unos minutos y probá de nuevo.",
     "failed": "No se pudo verificar el token. Probá de nuevo."
+  },
+  "projectsPage": {
+    "title": "Proyectos",
+    "intro": "Un proyecto agrupa el trabajo para un cliente o producto y le da contexto a los agentes. Sus tareas pueden estar en cualquier workspace.",
+    "empty": "Todavía no hay proyectos.",
+    "new": "Nuevo proyecto",
+    "name": "Nombre",
+    "description": "Descripción",
+    "create": "Crear",
+    "cancel": "Cancelar",
+    "manage": "Editar contexto y repos",
+    "notFound": "Proyecto no encontrado.",
+    "repositories": "Repositorios",
+    "glossaryTerms": "{count, plural, one {# término en el glosario} other {# términos en el glosario}}",
+    "taskCount": "{count, plural, one {# tarea} other {# tareas}}",
+    "noTasks": "Este proyecto todavía no tiene tareas. Asignale el proyecto a una tarea desde cualquier workspace."
   }
 }

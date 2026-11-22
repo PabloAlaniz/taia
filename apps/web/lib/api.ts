@@ -8,6 +8,7 @@ import type {
   Message,
   Activity,
   Project,
+  ProjectOverview,
   Repository,
   TaskCostBreakdown,
   AgentCostSummary,
@@ -350,6 +351,8 @@ export const api = {
   projects: {
     list: () => request<{ ok: boolean; projects: Project[] }>('/api/projects'),
     get: (id: string) => request<{ ok: boolean; project: Project }>(`/api/projects/${id}`),
+    overview: (id: string) =>
+      request<{ ok: boolean } & ProjectOverview>(`/api/projects/${id}/overview`),
     create: (data: { name: string; description?: string }) =>
       post<{ ok: boolean; project: Project }>('/api/projects', data),
     update: (id: string, data: Partial<{ name: string; description: string }>) =>
