@@ -6,6 +6,10 @@ El formato se basa en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/
 
 ## [Sin publicar]
 
+### Webhooks
+
+- Los webhooks salientes no reintentan los errores que no van a cambiar (`4xx` salvo `408`, `425` y `429`) y respetan el `Retry-After` del receptor. Si pide esperar más de 10 segundos, la entrega pasa a *dead letter* con la hora en que se puede reenviar.
+
 ### Agentes
 
 - Disparar a mano un agente que ya está corriendo no lanza otra corrida: devuelve la que está en curso (`coalesced: true`), y `?force=1` lanza otra igual. Arranca en modo sombra (`TAIA_AGENT_RUN_LOCK=shadow`, sólo loguea); `enforce` lo activa.
@@ -15,6 +19,8 @@ El formato se basa en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/
 
 - El freno de la pantalla de ingreso guarda la cuenta en Postgres, así que un reinicio no da intentos nuevos, y nunca verifica más tokens a la vez que los que quedan en el cupo. Si la base no puede contar, responde `503`.
 - `POST /api/webhooks/incoming`, abierto sin token, admite 120 entregas por minuto por cliente (`TAIA_WEBHOOK_RATE_LIMIT`) y responde `429` antes de leer el cuerpo o tocar la base.
+- `POST /api/webhooks/incoming` rechaza con `413` los cuerpos de más de 25 MiB (`TAIA_WEBHOOK_MAX_BYTES`) sin leerlos enteros.
+- El servidor de WebSocket admite hasta 200 conexiones (`TAIA_WS_MAX_CLIENTS`), corta a los clientes que le mandan mensajes de más de 4 KiB y rechaza los broadcasts internos de más de 1 MiB (`TAIA_WS_MAX_BROADCAST_BYTES`).
 - `POST /mcp` tiene un límite por cliente (600 por minuto, `TAIA_MCP_RATE_LIMIT`), contado antes del token para frenar también una ráfaga de tokens equivocados. Arranca en modo sombra (`TAIA_MCP_RATE_LIMIT_MODE=shadow`); `enforce` responde `429`.
 
 ## [v1.0.0-alpha.3] - 2026-11-21

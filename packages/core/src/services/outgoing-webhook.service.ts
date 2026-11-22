@@ -9,6 +9,35 @@ export const OUTGOING_WEBHOOK_MAX_REPLAY_ATTEMPTS = 2
 export const OUTGOING_WEBHOOK_TIMEOUT_MS = 2_000
 export const OUTGOING_WEBHOOK_BACKOFF_MS = [0, 250, 1_000] as const
 export const OUTGOING_WEBHOOK_LEDGER_LIMIT = 100
+/**
+ * The longest `Retry-After` a delivery waits for in line. A receiver asking
+ * for more gets no more retries now: the delivery is dead-lettered with
+ * `nextRetryAt` set to when it may be replayed.
+ */
+export const OUTGOING_WEBHOOK_MAX_RETRY_AFTER_MS = 10_000
+
+/**
+ * Whether a failed attempt is worth retrying: a network error or timeout, or a
+ * status that says "later" (408, 425, 429, 5xx). Any other 4xx will fail the
+ * same way again.
+ */
+export function isRetryableAttempt(attempt: Pick<OutgoingWebhookAttempt, 'statusCode'>): boolean {
+  const code = attempt.statusCode
+  if (code === undefined) return true
+  return code === 408 || code === 425 || code === 429 || code >= 500
+}
+
+/** `Retry-After` in milliseconds, from delta seconds or an HTTP date; `undefined` if absent or invalid. */
+export function parseRetryAfter(
+  value: string | null | undefined,
+  now: number = Date.now(),
+): number | undefined {
+  if (!value) return undefined
+  const trimmed = value.trim()
+  if (/^\d+$/.test(trimmed)) return Number(trimmed) * 1000
+  const date = Date.parse(trimmed)
+  return Number.isNaN(date) ? undefined : Math.max(0, date - now)
+}
 
 export interface OutgoingWebhookEndpoint {
   id: string
@@ -26,6 +55,8 @@ export interface OutgoingWebhookAttempt {
   attemptedAt: string
   durationMs: number
   nextRetryAt?: string
+  /** What the receiver asked for in `Retry-After`, in milliseconds. */
+  retryAfterMs?: number
 }
 
 export interface OutgoingWebhookDelivery {
@@ -151,6 +182,9 @@ async function postDeliveryAttempt(args: {
       OUTGOING_WEBHOOK_TIMEOUT_MS,
     )
     const attemptedAt = new Date().toISOString()
+    const retryAfterMs = response.ok
+      ? undefined
+      : parseRetryAfter(response.headers.get('retry-after'))
     return {
       attempt: args.attemptNumber,
       status: response.ok ? 'success' : 'failed',
@@ -158,6 +192,7 @@ async function postDeliveryAttempt(args: {
       error: response.ok ? undefined : `HTTP ${response.status}`,
       attemptedAt,
       durationMs: Date.now() - started,
+      ...(retryAfterMs === undefined ? {} : { retryAfterMs }),
     }
   } catch (error) {
     return {
@@ -240,12 +275,13 @@ export async function deliverOutgoingWebhook(args: {
     ? `sha256=${createHmac('sha256', args.endpoint.secret).update(body).digest('hex')}`
     : undefined
 
+  let waitMs = 0
   for (
     let attempt = delivery.attempts.length + 1;
     attempt <= OUTGOING_WEBHOOK_MAX_ATTEMPTS;
     attempt++
   ) {
-    if (attempt > 1) await sleep(OUTGOING_WEBHOOK_BACKOFF_MS[attempt - 1] ?? 1_000)
+    if (attempt > 1) await sleep(waitMs)
     const attemptRecord = await postDeliveryAttempt({
       endpoint: args.endpoint,
       eventType: args.event.type,
@@ -255,20 +291,34 @@ export async function deliverOutgoingWebhook(args: {
       attemptNumber: attempt,
     })
     const success = attemptRecord.status === 'success'
+    // The receiver's Retry-After wins over our backoff when it asks for longer.
+    waitMs = Math.max(
+      OUTGOING_WEBHOOK_BACKOFF_MS[attempt] ?? 1_000,
+      attemptRecord.retryAfterMs ?? 0,
+    )
+    const retryNow =
+      !success &&
+      attempt < OUTGOING_WEBHOOK_MAX_ATTEMPTS &&
+      isRetryableAttempt(attemptRecord) &&
+      waitMs <= OUTGOING_WEBHOOK_MAX_RETRY_AFTER_MS
+    // A wait too long to hold in line still says when a replay may succeed.
+    const replayLater =
+      !success &&
+      !retryNow &&
+      isRetryableAttempt(attemptRecord) &&
+      attemptRecord.retryAfterMs !== undefined
     attemptRecord.nextRetryAt =
-      success || attempt >= OUTGOING_WEBHOOK_MAX_ATTEMPTS
-        ? undefined
-        : new Date(Date.now() + (OUTGOING_WEBHOOK_BACKOFF_MS[attempt] ?? 1_000)).toISOString()
+      retryNow || replayLater ? new Date(Date.now() + waitMs).toISOString() : undefined
     delivery.attempts.push(attemptRecord)
     delivery.status = success ? 'success' : 'failed'
-    if (!success && attempt >= OUTGOING_WEBHOOK_MAX_ATTEMPTS) {
+    if (!success && !retryNow) {
       delivery.status = 'dead_letter'
       delivery.deadLetteredAt = attemptRecord.attemptedAt
     }
     delivery.updatedAt = attemptRecord.attemptedAt
     ledger[id] = delivery
     await writeLedger(args.workspaceId, ledger)
-    if (success) break
+    if (!retryNow) break
   }
 
   await logActivity({
