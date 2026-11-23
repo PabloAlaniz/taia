@@ -1,18 +1,41 @@
+import {
+  ConfigurationError,
+  MemoryDeliveryLedger,
+  SendWebhook,
+  type TransportRequest,
+  type TransportResponse,
+} from 'omniwebhook'
+import { standardSigner } from 'omniwebhook/standard'
+import { Webhook } from 'standardwebhooks'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import type { OutboxMessage } from '@taia/core/db/repositories/webhook-outbox.repository'
 import type { DomainEvent } from '@taia/core/events/event-bus'
 import {
-  deliverOutgoingWebhook,
-  isRetryableAttempt,
-  parseRetryAfter,
+  dispatchDueWebhooks,
   handleOutgoingWebhookEvent,
   listOutgoingWebhookDiagnostics,
+  OutgoingWebhookReplayError,
+  outgoingEndpointsProblem,
+  PRIVATE_NETWORKS,
   replayOutgoingWebhookDelivery,
+  type SenderFactory,
+  startWebhookDispatcher,
+  WEBHOOK_DISPATCH_INTERVAL_MS,
+  webhookAllowedNetworks,
 } from '@taia/core/services/outgoing-webhook.service'
 
 const mockGetSetting = vi.fn()
 const mockSetSetting = vi.fn()
 const mockLogActivity = vi.fn()
-const mockFetch = vi.fn()
+const outbox = {
+  enqueue: vi.fn(),
+  claim: vi.fn(),
+  settle: vi.fn(),
+  find: vi.fn(),
+  requeue: vi.fn(),
+  list: vi.fn(),
+  attempts: vi.fn(),
+}
 
 vi.mock('@taia/core/db/repositories/setting.repository', () => ({
   getSetting: (...args: unknown[]) => mockGetSetting(...args),
@@ -23,324 +46,424 @@ vi.mock('@taia/core/db', () => ({
   logActivity: (...args: unknown[]) => mockLogActivity(...args),
 }))
 
+vi.mock('@taia/core/db/repositories/webhook-outbox.repository', () => ({
+  enqueueOutboxMessages: (...args: unknown[]) => outbox.enqueue(...args),
+  claimDueOutboxMessages: (...args: unknown[]) => outbox.claim(...args),
+  settleOutboxMessage: (...args: unknown[]) => outbox.settle(...args),
+  findOutboxMessage: (...args: unknown[]) => outbox.find(...args),
+  requeueOutboxMessage: (...args: unknown[]) => outbox.requeue(...args),
+  listOutboxMessages: (...args: unknown[]) => outbox.list(...args),
+  listOutboxAttempts: (...args: unknown[]) => outbox.attempts(...args),
+  purgeSettledOutboxMessages: vi.fn(),
+}))
+
+// Synthetic secret, only for these tests.
+const SECRET = 'whsec_dGFpYS13ZWJob29rLXNhbGllbnRlLXNpbnRldGljby0wMQ=='
+const NOW = 1_800_000_000
+const PUBLIC = '93.184.216.34'
+
+const endpoint = {
+  id: 'ci',
+  url: 'https://hooks.example.test/taia',
+  secret: SECRET,
+  active: true,
+}
+
 const event: DomainEvent = {
   type: 'task:updated',
   actor: 'web-ui',
-  timestamp: 1_800_000_000_000,
-  payload: {
-    task: { id: 'task-1', workspace_id: 'ws-1', title: 'Task 1' },
-    changes: { title: { from: 'Old', to: 'Task 1' } },
-  },
+  timestamp: NOW * 1000,
+  payload: { task: { id: 'task-1', workspace_id: 'ws-1', title: 'Task 1' } },
 }
 
-describe('outgoing webhook service', () => {
-  beforeEach(() => {
-    vi.useFakeTimers()
-    vi.setSystemTime(new Date('2027-01-15T10:00:00.000Z'))
-    vi.clearAllMocks()
-    mockFetch.mockResolvedValue(new Response(null, { status: 204 }))
-    vi.stubGlobal('fetch', mockFetch)
-    // The fixtures deliver to a loopback receiver.
-    process.env.TAIA_WEBHOOK_ALLOW_PRIVATE = '1'
-    mockGetSetting.mockImplementation(async (key: string) => {
-      if (key.endsWith('.endpoints')) {
-        return JSON.stringify([
-          { id: 'local', url: 'http://127.0.0.1:59999/hook', events: ['task:updated'] },
-        ])
-      }
-      if (key.endsWith('.deliveries')) return null
-      return null
+function setEndpoints(endpoints: unknown[]) {
+  mockGetSetting.mockImplementation(async (key: string) =>
+    key === 'webhooks.outgoing.ws-1.endpoints' ? JSON.stringify(endpoints) : null,
+  )
+}
+
+function message(overrides: Partial<OutboxMessage> = {}): OutboxMessage {
+  return {
+    id: 7,
+    workspaceId: 'ws-1',
+    endpointId: 'ci',
+    messageId: 'msg_abc',
+    event: 'task:updated',
+    payload: '{"type":"task:updated"}',
+    attempt: 1,
+    state: 'pending',
+    nextAt: new Date(NOW * 1000),
+    lastResult: null,
+    lastStatus: null,
+    replays: 0,
+    createdAt: new Date(NOW * 1000),
+    updatedAt: new Date(NOW * 1000),
+    ...overrides,
+  }
+}
+
+/** A real omniwebhook sender over a fake network: what it sends is captured. */
+function fakeSender(
+  response: TransportResponse,
+  addresses: readonly string[] = [PUBLIC],
+  options: { allowedNetworks?: string[] } = {},
+) {
+  const sent: TransportRequest[] = []
+  const senderFor: SenderFactory = (secret) =>
+    new SendWebhook({
+      signer: standardSigner({ secrets: [secret] }),
+      transport: {
+        post: async (request) => {
+          sent.push(request)
+          return response
+        },
+      },
+      resolver: { resolve: async () => addresses },
+      ledger: new MemoryDeliveryLedger(),
+      clock: { now: () => NOW },
+      timer: { nowMs: () => 0 },
+      random: { next: () => 0 },
+      allowHttp: true,
+      ...(options.allowedNetworks ? { allowedNetworks: options.allowedNetworks } : {}),
+    })
+  return { senderFor, sent }
+}
+
+beforeEach(() => {
+  vi.clearAllMocks()
+  setEndpoints([endpoint])
+})
+
+describe('handleOutgoingWebhookEvent', () => {
+  it('queues one message per endpoint that wants the event, without sending anything', async () => {
+    setEndpoints([
+      endpoint,
+      { ...endpoint, id: 'off', active: false },
+      { ...endpoint, id: 'other-events', events: ['task:created'] },
+      { ...endpoint, id: 'all', events: ['*'] },
+      { id: 'broken' },
+    ])
+
+    const queued = await handleOutgoingWebhookEvent(event)
+
+    expect(queued).toBe(2)
+    const [rows] = outbox.enqueue.mock.calls[0] as [Array<Record<string, string>>]
+    expect(rows.map((row) => row.endpointId)).toEqual(['ci', 'all'])
+    expect(new Set(rows.map((row) => row.messageId)).size).toBe(2)
+    expect(JSON.parse(rows[0]!.payload)).toEqual({
+      type: 'task:updated',
+      timestamp: new Date(NOW * 1000).toISOString(),
+      workspace_id: 'ws-1',
+      actor: 'web-ui',
+      data: event.payload,
     })
   })
 
+  it('an event without a workspace queues nothing', async () => {
+    expect(await handleOutgoingWebhookEvent({ ...event, payload: {} })).toBe(0)
+    expect(outbox.enqueue).not.toHaveBeenCalled()
+  })
+})
+
+describe('dispatchDueWebhooks', () => {
+  it('delivers with a Standard Webhooks signature the receiver can verify', async () => {
+    outbox.claim.mockResolvedValue([message()])
+    const { senderFor, sent } = fakeSender({ status: 200, retryAfter: null })
+
+    expect(await dispatchDueWebhooks(senderFor)).toBe(1)
+
+    const [request] = sent
+    expect(request).toMatchObject({ url: endpoint.url, address: PUBLIC })
+    const headers = request!.headers
+    expect(headers['webhook-id']).toBe('msg_abc')
+    // The receiver checks the signed timestamp against its own clock.
+    vi.useFakeTimers({ toFake: ['Date'], now: NOW * 1000 })
+    expect(() =>
+      new Webhook(SECRET).verify(new TextDecoder().decode(request!.body), {
+        'webhook-id': headers['webhook-id']!,
+        'webhook-timestamp': headers['webhook-timestamp']!,
+        'webhook-signature': headers['webhook-signature']!,
+      }),
+    ).not.toThrow()
+    vi.useRealTimers()
+    expect(outbox.settle).toHaveBeenCalledWith(7, {
+      state: 'delivered',
+      result: 'delivered',
+      status: 200,
+    })
+    expect(mockLogActivity).toHaveBeenCalledWith(
+      expect.objectContaining({ type: 'webhook.outgoing.delivered' }),
+    )
+  })
+
+  it('a retryable failure goes back to pending for the time omniwebhook gives', async () => {
+    outbox.claim.mockResolvedValue([message({ attempt: 2 })])
+    const { senderFor } = fakeSender({ status: 503, retryAfter: '900' })
+
+    await dispatchDueWebhooks(senderFor)
+
+    expect(outbox.settle).toHaveBeenCalledWith(7, {
+      state: 'pending',
+      result: 'pending',
+      status: 503,
+      attempt: 3,
+      // The schedule says 300 s after the second attempt; the receiver asked for more.
+      nextAt: new Date((NOW + 900) * 1000),
+    })
+    expect(mockLogActivity).not.toHaveBeenCalled()
+  })
+
+  it('410 Gone fails the message and disables the endpoint', async () => {
+    outbox.claim.mockResolvedValue([message()])
+    const { senderFor } = fakeSender({ status: 410, retryAfter: null })
+
+    await dispatchDueWebhooks(senderFor)
+
+    expect(outbox.settle).toHaveBeenCalledWith(7, { state: 'failed', result: 'gone', status: 410 })
+    expect(mockSetSetting).toHaveBeenCalledWith(
+      'webhooks.outgoing.ws-1.endpoints',
+      JSON.stringify([{ ...endpoint, active: false }]),
+    )
+    expect(mockLogActivity).toHaveBeenCalledWith(
+      expect.objectContaining({ type: 'webhook.outgoing.endpoint_disabled' }),
+    )
+  })
+
+  it('a name that resolves to a private address is blocked without sending', async () => {
+    outbox.claim.mockResolvedValue([message()])
+    const { senderFor, sent } = fakeSender({ status: 200, retryAfter: null }, ['10.0.0.5'])
+
+    await dispatchDueWebhooks(senderFor)
+
+    expect(sent).toHaveLength(0)
+    expect(outbox.settle).toHaveBeenCalledWith(7, {
+      state: 'failed',
+      result: 'blocked:blocked_address',
+      status: null,
+    })
+  })
+
+  it('an allowed private network is delivered to', async () => {
+    outbox.claim.mockResolvedValue([message()])
+    const { senderFor, sent } = fakeSender({ status: 204, retryAfter: null }, ['192.168.1.20'], {
+      allowedNetworks: [...PRIVATE_NETWORKS],
+    })
+
+    await dispatchDueWebhooks(senderFor)
+
+    expect(sent[0]?.address).toBe('192.168.1.20')
+    expect(outbox.settle).toHaveBeenCalledWith(7, expect.objectContaining({ state: 'delivered' }))
+  })
+
+  it('a message whose endpoint is gone or inactive fails without sending', async () => {
+    setEndpoints([{ ...endpoint, id: 'off', active: false }])
+    outbox.claim.mockResolvedValue([
+      message({ id: 1, endpointId: 'removed' }),
+      message({ id: 2, endpointId: 'off' }),
+    ])
+    const { senderFor, sent } = fakeSender({ status: 200, retryAfter: null })
+
+    await dispatchDueWebhooks(senderFor)
+
+    expect(sent).toHaveLength(0)
+    expect(outbox.settle).toHaveBeenCalledWith(
+      1,
+      expect.objectContaining({ result: 'endpoint_missing' }),
+    )
+    expect(outbox.settle).toHaveBeenCalledWith(
+      2,
+      expect.objectContaining({ result: 'endpoint_inactive' }),
+    )
+  })
+
+  it('a secret that cannot sign fails the message as misconfigured', async () => {
+    outbox.claim.mockResolvedValue([message()])
+    const senderFor: SenderFactory = () =>
+      ({
+        execute: async () => {
+          throw new ConfigurationError('no se puede firmar el mensaje: unconfigured')
+        },
+      }) as unknown as SendWebhook
+
+    await dispatchDueWebhooks(senderFor)
+
+    expect(outbox.settle).toHaveBeenCalledWith(7, {
+      state: 'failed',
+      result: 'misconfigured',
+      status: null,
+    })
+  })
+
+  it('an unexpected error leaves the message locked for a later round', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    outbox.claim.mockResolvedValue([message()])
+    const senderFor: SenderFactory = () =>
+      ({
+        execute: async () => {
+          throw new Error('db down')
+        },
+      }) as unknown as SendWebhook
+
+    await dispatchDueWebhooks(senderFor)
+
+    expect(outbox.settle).not.toHaveBeenCalled()
+    expect(warn).toHaveBeenCalled()
+    warn.mockRestore()
+  })
+
+  it('nothing due, nothing done', async () => {
+    outbox.claim.mockResolvedValue([])
+
+    const { senderFor } = fakeSender({ status: 200, retryAfter: null })
+    expect(await dispatchDueWebhooks(senderFor)).toBe(0)
+    expect(mockGetSetting).not.toHaveBeenCalled()
+  })
+})
+
+describe('startWebhookDispatcher', () => {
   afterEach(() => {
     vi.useRealTimers()
-    vi.unstubAllGlobals()
-    delete process.env.TAIA_WEBHOOK_ALLOW_PRIVATE
   })
 
-  it('does not call a private or loopback receiver without the operator opt-in', async () => {
-    delete process.env.TAIA_WEBHOOK_ALLOW_PRIVATE
-
-    const pending = deliverOutgoingWebhook({
-      workspaceId: 'ws-1',
-      endpoint: { id: 'meta', url: 'http://169.254.169.254/latest/meta-data/' },
-      event,
-    })
-    await vi.runAllTimersAsync()
-    const delivery = await pending
-
-    expect(mockFetch).not.toHaveBeenCalled()
-    expect(delivery.status).toBe('dead_letter')
-    expect(delivery.attempts[0].error).toContain('not a public address')
-  })
-
-  it('does not follow redirects', async () => {
-    mockFetch.mockResolvedValue(new Response(null, { status: 302 }))
-
-    const pending = deliverOutgoingWebhook({
-      workspaceId: 'ws-1',
-      endpoint: { id: 'local', url: 'http://127.0.0.1:59999/hook' },
-      event,
-    })
-    await vi.runAllTimersAsync()
-    const delivery = await pending
-
-    expect(mockFetch.mock.calls[0][1]).toMatchObject({ redirect: 'manual' })
-    expect(delivery.status).toBe('dead_letter')
-  })
-
-  it('lists endpoints without their signing secret', async () => {
-    mockGetSetting.mockImplementation(async (key: string) =>
-      key.endsWith('.endpoints')
-        ? JSON.stringify([{ id: 'signed', url: 'https://example.com/hook', secret: 's3cret' }])
-        : null,
-    )
-
-    const { endpoints } = await listOutgoingWebhookDiagnostics('ws-1')
-
-    expect(endpoints).toEqual([{ id: 'signed', url: 'https://example.com/hook', hasSecret: true }])
-    expect(JSON.stringify(endpoints)).not.toContain('s3cret')
-  })
-
-  it('posts matching workspace events and persists delivery attempts for diagnostics', async () => {
-    const deliveries = await handleOutgoingWebhookEvent(event)
-
-    expect(deliveries).toHaveLength(1)
-    expect(deliveries[0]).toMatchObject({
-      status: 'success',
-      endpointId: 'local',
-      attempts: [{ status: 'success', statusCode: 204 }],
-    })
-    expect(mockFetch).toHaveBeenCalledWith(
-      'http://127.0.0.1:59999/hook',
-      expect.objectContaining({
-        method: 'POST',
-        headers: expect.objectContaining({
-          'x-taia-event': 'task:updated',
-          'x-taia-workspace-id': 'ws-1',
+  it('runs a round at once and then every interval, never two at a time', async () => {
+    vi.useFakeTimers()
+    let release: () => void = () => {}
+    const round = vi.fn(
+      () =>
+        new Promise<number>((resolve) => {
+          release = () => resolve(0)
         }),
+    )
+
+    const stop = startWebhookDispatcher(round)
+    await vi.advanceTimersByTimeAsync(WEBHOOK_DISPATCH_INTERVAL_MS * 3)
+    expect(round).toHaveBeenCalledTimes(1)
+
+    release()
+    await vi.advanceTimersByTimeAsync(WEBHOOK_DISPATCH_INTERVAL_MS)
+    expect(round).toHaveBeenCalledTimes(2)
+    stop()
+  })
+})
+
+describe('outgoingEndpointsProblem', () => {
+  it('accepts well-formed endpoints', () => {
+    expect(outgoingEndpointsProblem(JSON.stringify([endpoint]))).toBeNull()
+    expect(
+      outgoingEndpointsProblem(
+        JSON.stringify([{ ...endpoint, url: 'http://192.168.1.20:5678/hook', events: ['*'] }]),
+      ),
+    ).toBeNull()
+  })
+
+  it.each([
+    ['not JSON', '{'],
+    ['an object, not an array', JSON.stringify(endpoint)],
+    ['no secret', JSON.stringify([{ ...endpoint, secret: undefined }])],
+    ['a secret that is not whsec_', JSON.stringify([{ ...endpoint, secret: 'hunter2' }])],
+    ['credentials in the URL', JSON.stringify([{ ...endpoint, url: 'https://a:b@hooks.test/' }])],
+    ['another scheme', JSON.stringify([{ ...endpoint, url: 'ftp://hooks.test/' }])],
+    ['a short-form IP', JSON.stringify([{ ...endpoint, url: 'https://127.1/' }])],
+    ['a slash in the id', JSON.stringify([{ ...endpoint, id: 'a/b' }])],
+    ['repeated ids', JSON.stringify([endpoint, endpoint])],
+  ])('refuses %s', (_name, value) => {
+    expect(outgoingEndpointsProblem(value)).toEqual(expect.any(String))
+  })
+})
+
+describe('webhookAllowedNetworks', () => {
+  it('is empty by default', () => {
+    expect(webhookAllowedNetworks({})).toEqual([])
+  })
+
+  it('TAIA_WEBHOOK_ALLOW_PRIVATE=1 opens loopback and private ranges, plus any listed', () => {
+    expect(
+      webhookAllowedNetworks({
+        TAIA_WEBHOOK_ALLOW_PRIVATE: '1',
+        TAIA_WEBHOOK_ALLOWED_NETWORKS: ' 100.64.0.0/10 , ',
       }),
-    )
-    expect(mockSetSetting).toHaveBeenCalledWith(
-      'webhooks.outgoing.ws-1.deliveries',
-      expect.stringContaining('task:updated'),
-    )
-    expect(mockLogActivity).toHaveBeenCalledWith(
-      expect.objectContaining({
-        type: 'webhook.outgoing.delivered',
-        workspace_id: 'ws-1',
-        message: expect.stringContaining('Outgoing webhook success'),
-      }),
-    )
+    ).toEqual([...PRIVATE_NETWORKS, '100.64.0.0/10'])
   })
 
-  it('retries failed HTTP deliveries with bounded attempts and records the final error', async () => {
-    mockFetch.mockResolvedValue(new Response(null, { status: 503 }))
-
-    const deliveryPromise = deliverOutgoingWebhook({
-      workspaceId: 'ws-1',
-      endpoint: { id: 'local', url: 'http://127.0.0.1:59999/hook' },
-      event,
-    })
-    await vi.runAllTimersAsync()
-    const delivery = await deliveryPromise
-
-    expect(mockFetch).toHaveBeenCalledTimes(3)
-    expect(delivery.status).toBe('dead_letter')
-    expect(delivery.deadLetteredAt).toBeDefined()
-    expect(delivery.payload).toMatchObject({ id: delivery.id, type: 'task:updated' })
-    expect(delivery.attempts).toHaveLength(3)
-    expect(delivery.attempts[0]).toMatchObject({
-      status: 'failed',
-      statusCode: 503,
-      error: 'HTTP 503',
-    })
-    expect(delivery.attempts[2].nextRetryAt).toBeUndefined()
-    expect(mockLogActivity).toHaveBeenCalledWith(
-      expect.objectContaining({
-        type: 'webhook.outgoing.failed',
-        metadata: expect.objectContaining({ last_error: 'HTTP 503', attempts: 3 }),
-      }),
-    )
-  })
-
-  it('does not retry a failure that will not change, such as a 404', async () => {
-    mockFetch.mockResolvedValue(new Response(null, { status: 404 }))
-
-    const delivery = await deliverOutgoingWebhook({
-      workspaceId: 'ws-1',
-      endpoint: { id: 'local', url: 'http://127.0.0.1:59999/hook' },
-      event,
-    })
-
-    expect(mockFetch).toHaveBeenCalledTimes(1)
-    expect(delivery.status).toBe('dead_letter')
-    expect(delivery.attempts[0]?.nextRetryAt).toBeUndefined()
-  })
-
-  it('waits the Retry-After the receiver asks for, when it is short', async () => {
-    mockFetch
-      .mockResolvedValueOnce(new Response(null, { status: 429, headers: { 'retry-after': '5' } }))
-      .mockResolvedValueOnce(new Response(null, { status: 204 }))
-
-    const deliveryPromise = deliverOutgoingWebhook({
-      workspaceId: 'ws-1',
-      endpoint: { id: 'local', url: 'http://127.0.0.1:59999/hook' },
-      event,
-    })
-    await vi.advanceTimersByTimeAsync(4_000)
-    expect(mockFetch).toHaveBeenCalledTimes(1)
-    await vi.advanceTimersByTimeAsync(1_000)
-    const delivery = await deliveryPromise
-
-    expect(mockFetch).toHaveBeenCalledTimes(2)
-    expect(delivery.status).toBe('success')
-    expect(delivery.attempts[0]).toMatchObject({ statusCode: 429, retryAfterMs: 5_000 })
-  })
-
-  it('dead-letters at once when Retry-After is longer than it waits in line, saying when to replay', async () => {
-    mockFetch.mockResolvedValue(
-      new Response(null, { status: 503, headers: { 'retry-after': '120' } }),
-    )
-
-    const delivery = await deliverOutgoingWebhook({
-      workspaceId: 'ws-1',
-      endpoint: { id: 'local', url: 'http://127.0.0.1:59999/hook' },
-      event,
-    })
-
-    expect(mockFetch).toHaveBeenCalledTimes(1)
-    expect(delivery.status).toBe('dead_letter')
-    const next = new Date(delivery.attempts[0]!.nextRetryAt!).getTime()
-    expect(next - Date.now()).toBeGreaterThan(110_000)
-  })
-
-  it('exposes configured endpoints and stored deliveries as workspace diagnostics', async () => {
-    mockGetSetting.mockImplementation(async (key: string) => {
-      if (key.endsWith('.endpoints'))
-        return JSON.stringify([{ id: 'local', url: 'http://localhost/hook' }])
-      if (key.endsWith('.deliveries')) {
-        return JSON.stringify({
-          'delivery-1': {
-            id: 'delivery-1',
-            endpointId: 'local',
-            event: 'task:updated',
-            workspaceId: 'ws-1',
-            url: 'http://localhost/hook',
-            payloadHash: 'abc',
-            status: 'dead_letter',
-            deadLetteredAt: '2027-01-15T09:00:00.000Z',
-            createdAt: '2027-01-15T09:00:00.000Z',
-            updatedAt: '2027-01-15T09:00:00.000Z',
-            attempts: [],
-          },
-        })
-      }
-      return null
-    })
-
-    await expect(listOutgoingWebhookDiagnostics('ws-1')).resolves.toMatchObject({
-      endpoints: [{ id: 'local' }],
-      deliveries: [{ id: 'delivery-1', status: 'dead_letter' }],
-      deadLetters: [{ id: 'delivery-1', status: 'dead_letter' }],
-    })
-  })
-
-  it('does not resend an already successful delivery with the same idempotency key', async () => {
-    mockFetch.mockResolvedValue(new Response(null, { status: 204 }))
-    const first = await deliverOutgoingWebhook({
-      workspaceId: 'ws-1',
-      endpoint: { id: 'local', url: 'http://127.0.0.1:59999/hook' },
-      event,
-    })
-    mockGetSetting.mockImplementation(async (key: string) => {
-      if (key.endsWith('.deliveries')) return JSON.stringify({ [first.id]: first })
-      if (key.endsWith('.endpoints')) return JSON.stringify([])
-      return null
-    })
-    mockFetch.mockClear()
-
-    const second = await deliverOutgoingWebhook({
-      workspaceId: 'ws-1',
-      endpoint: { id: 'local', url: 'http://127.0.0.1:59999/hook' },
-      event,
-    })
-
-    expect(second).toEqual(first)
-    expect(mockFetch).not.toHaveBeenCalled()
-  })
-
-  it('replays a dead-letter delivery once and records replay activity', async () => {
-    const deadLetter = {
-      id: 'delivery-1',
-      endpointId: 'local',
-      event: 'task:updated',
-      workspaceId: 'ws-1',
-      url: 'http://127.0.0.1:59999/hook',
-      payloadHash: 'abc',
-      status: 'dead_letter',
-      createdAt: '2027-01-15T09:00:00.000Z',
-      updatedAt: '2027-01-15T09:00:00.000Z',
-      deadLetteredAt: '2027-01-15T09:00:00.000Z',
-      replayAttempts: 0,
-      payload: { id: 'delivery-1', type: 'task:updated', workspace_id: 'ws-1' },
-      attempts: [
-        {
-          attempt: 1,
-          status: 'failed',
-          statusCode: 503,
-          error: 'HTTP 503',
-          attemptedAt: '2027-01-15T09:00:00.000Z',
-          durationMs: 1,
-        },
-      ],
-    }
-    mockGetSetting.mockImplementation(async (key: string) => {
-      if (key.endsWith('.endpoints')) {
-        return JSON.stringify([{ id: 'local', url: 'http://127.0.0.1:59999/hook' }])
-      }
-      if (key.endsWith('.deliveries')) return JSON.stringify({ 'delivery-1': deadLetter })
-      return null
-    })
-    mockFetch.mockResolvedValue(new Response(null, { status: 202 }))
-
-    const result = await replayOutgoingWebhookDelivery({
-      workspaceId: 'ws-1',
-      deliveryId: 'delivery-1',
-    })
-
-    expect(result.replayed).toBe(true)
-    expect(result.delivery).toMatchObject({ status: 'success', replayAttempts: 1 })
-    expect(mockFetch).toHaveBeenCalledWith(
-      'http://127.0.0.1:59999/hook',
-      expect.objectContaining({ body: JSON.stringify(deadLetter.payload) }),
-    )
-    expect(mockSetSetting).toHaveBeenLastCalledWith(
-      'webhooks.outgoing.ws-1.deliveries',
-      expect.stringContaining('replayAttempts'),
-    )
-    expect(mockLogActivity).toHaveBeenCalledWith(
-      expect.objectContaining({ type: 'webhook.outgoing.replayed' }),
+  it('a malformed network is a configuration error', () => {
+    expect(() => webhookAllowedNetworks({ TAIA_WEBHOOK_ALLOWED_NETWORKS: '10.0.0.1/8' })).toThrow(
+      ConfigurationError,
     )
   })
 })
 
-describe('parseRetryAfter and isRetryableAttempt', () => {
-  it('parses delta seconds and HTTP dates', () => {
-    const now = Date.parse('2026-11-22T12:00:00Z')
-    expect(parseRetryAfter('30', now)).toBe(30_000)
-    expect(parseRetryAfter('Sun, 22 Nov 2026 12:01:00 GMT', now)).toBe(60_000)
-    expect(parseRetryAfter('Sun, 22 Nov 2026 11:00:00 GMT', now)).toBe(0)
-    expect(parseRetryAfter('soon', now)).toBeUndefined()
-    expect(parseRetryAfter(null, now)).toBeUndefined()
+describe('diagnostics and replay', () => {
+  it('lists deliveries with their attempts, failed ones as dead letters, and never secrets', async () => {
+    outbox.list.mockResolvedValue([
+      message({ messageId: 'msg_ok', state: 'delivered' }),
+      message({ messageId: 'msg_ko', state: 'failed', lastResult: 'exhausted' }),
+    ])
+    outbox.attempts.mockResolvedValue([
+      {
+        messageId: 'msg_ko',
+        attempt: 1,
+        at: new Date(NOW * 1000),
+        state: 'exhausted',
+        status: 503,
+        problem: null,
+        durationMs: 12,
+      },
+    ])
+
+    const diagnostics = await listOutgoingWebhookDiagnostics('ws-1')
+
+    expect(diagnostics.endpoints).toEqual([
+      { id: 'ci', url: endpoint.url, active: true, hasSecret: true },
+    ])
+    expect(JSON.stringify(diagnostics)).not.toContain(SECRET)
+    expect(diagnostics.deliveries.map((d) => d.id)).toEqual(['msg_ok', 'msg_ko'])
+    expect(diagnostics.deadLetters).toEqual([
+      expect.objectContaining({
+        id: 'msg_ko',
+        attempts: [expect.objectContaining({ attempt: 1, status: 503 })],
+      }),
+    ])
   })
 
-  it('retries network errors, 408, 425, 429 and 5xx only', () => {
-    expect(isRetryableAttempt({})).toBe(true)
-    for (const code of [408, 425, 429, 500, 503])
-      expect(isRetryableAttempt({ statusCode: code })).toBe(true)
-    for (const code of [302, 400, 401, 404, 410, 422])
-      expect(isRetryableAttempt({ statusCode: code })).toBe(false)
+  it('queues a failed delivery again with the same message id', async () => {
+    outbox.find.mockResolvedValue(message({ state: 'failed' }))
+    outbox.requeue.mockResolvedValue(true)
+
+    const result = await replayOutgoingWebhookDelivery({
+      workspaceId: 'ws-1',
+      deliveryId: 'msg_abc',
+    })
+
+    expect(result.replayed).toBe(true)
+    expect(result.delivery.id).toBe('msg_abc')
+    expect(outbox.requeue).toHaveBeenCalledWith(7, 2)
+  })
+
+  it('leaves a delivered one alone', async () => {
+    outbox.find.mockResolvedValue(message({ state: 'delivered' }))
+
+    const result = await replayOutgoingWebhookDelivery({
+      workspaceId: 'ws-1',
+      deliveryId: 'msg_abc',
+    })
+
+    expect(result.replayed).toBe(false)
+    expect(outbox.requeue).not.toHaveBeenCalled()
+  })
+
+  it.each([
+    ['unknown', null, false, 404],
+    ['out of replays', message({ state: 'failed', replays: 2 }), false, 409],
+  ])('refuses a delivery that is %s', async (_name, found, requeued, status) => {
+    outbox.find.mockResolvedValue(found)
+    outbox.requeue.mockResolvedValue(requeued)
+
+    const error = await replayOutgoingWebhookDelivery({
+      workspaceId: 'ws-1',
+      deliveryId: 'msg_abc',
+    }).catch((caught: unknown) => caught)
+
+    expect(error).toBeInstanceOf(OutgoingWebhookReplayError)
+    expect(error).toMatchObject({ status })
   })
 })

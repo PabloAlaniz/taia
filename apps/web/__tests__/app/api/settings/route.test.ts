@@ -96,6 +96,44 @@ describe('GET /api/settings', () => {
 })
 
 describe('PUT /api/settings', () => {
+  const putSettings = (settings: Record<string, string>) =>
+    PUT(
+      new NextRequest('http://localhost/api/settings', {
+        method: 'PUT',
+        body: JSON.stringify({ settings }),
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    )
+  // Synthetic secret, only for these tests.
+  const webhookEndpoint = {
+    id: 'n8n',
+    url: 'http://192.168.1.20:5678/webhook/taia',
+    secret: 'whsec_dGFpYS13ZWJob29rLXNhbGllbnRlLXNpbnRldGljby0wMQ==',
+  }
+
+  it('saves well-formed outgoing webhook endpoints', async () => {
+    const value = JSON.stringify([webhookEndpoint])
+
+    const res = await putSettings({ 'webhooks.outgoing.ws-1.endpoints': value })
+
+    expect(res.status).toBe(200)
+    expect(mockSetSetting).toHaveBeenCalledWith('webhooks.outgoing.ws-1.endpoints', value)
+  })
+
+  it.each([
+    ['a secret that is not whsec_', [{ ...webhookEndpoint, secret: 'hunter2' }]],
+    ['a URL with credentials', [{ ...webhookEndpoint, url: 'https://a:b@hooks.test/' }]],
+  ])('refuses outgoing webhook endpoints with %s, saving nothing', async (_name, endpoints) => {
+    const res = await putSettings({
+      'openclaw.gateway_url': 'http://new-url:4000',
+      'webhooks.outgoing.ws-1.endpoints': JSON.stringify(endpoints),
+    })
+
+    expect(res.status).toBe(400)
+    expect((await res.json()).error).toMatch(/outgoing webhook endpoint/i)
+    expect(mockSetSetting).not.toHaveBeenCalled()
+  })
+
   it('saves settings via setSetting', async () => {
     mockSetSetting.mockResolvedValue(undefined)
 

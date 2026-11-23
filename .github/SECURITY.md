@@ -43,7 +43,8 @@ Lo que viene cerrado por default, con o sin token:
 - Los comandos de shell que corre el servidor (pasos del QA pipeline y comando de setup de worktrees) salen del entorno (`TAIA_QA_STEPS`, `WORKTREE_SETUP_CMD`). La API y la UI solo pueden fijarlos con `TAIA_ALLOW_REMOTE_COMMANDS=1`, pensado para un host de confianza de un solo usuario.
 - Fuera de Docker (`pnpm dev`, `pnpm start`, `pnpm mcp`), la app, el WebSocket, el broadcast interno y el servidor MCP escuchan solo en `127.0.0.1`. `TAIA_BIND_HOST` (o `MCP_HOST` para el MCP) lo cambia; la imagen de Docker lo pone en `0.0.0.0` porque los puertos los publica compose.
 - Las rutas donde el servidor clona repos y crea worktrees salen del entorno (`WORKTREE_BASE_PATH`, `WORKTREE_REPO_PATH`). Igual que los comandos, la API y la UI solo pueden cambiarlas con `TAIA_ALLOW_REMOTE_COMMANDS=1`.
-- Los webhooks salientes solo se entregan a direcciones públicas: se rechazan loopback, redes privadas, link-local (incluido el endpoint de metadata de las nubes) y los redirects. `TAIA_WEBHOOK_ALLOW_PRIVATE=1` permite receptores en el mismo host o en la red local.
+- Los webhooks salientes solo se entregan a direcciones públicas: se rechazan loopback, redes privadas, link-local (incluido el endpoint de metadata de las nubes) y los redirects. La conexión va a la dirección que se validó, sin volver a resolver el nombre. `TAIA_WEBHOOK_ALLOW_PRIVATE=1` o `TAIA_WEBHOOK_ALLOWED_NETWORKS` permiten receptores en el mismo host o en la red local; las direcciones de metadatos de las nubes siguen bloqueadas.
+- Los webhooks salientes se firman con Standard Webhooks (id, timestamp y firma), así que el receptor puede rechazar una entrega vieja o repetida.
 - La API no devuelve los secretos de webhooks (ni el de los entrantes ni los de firma de los salientes).
 - El WebSocket no reenvía mensajes entre clientes.
 - `/api/runtime-target` no revela usuario, host ni nombre de la base.
@@ -52,7 +53,6 @@ Límites conocidos:
 
 - No hay usuarios ni permisos: el token de acceso es todo o nada.
 - La URL de un runtime (por ejemplo un gateway) no se filtra: lo normal es que esté en `localhost` o en la red local. Quien pueda configurar un runtime puede hacer que el servidor se conecte a una dirección interna.
-- El filtro de webhooks resuelve el nombre antes de enviar; un DNS que responda distinto entre el chequeo y el envío puede esquivarlo. Si eso te importa, sumá una política de red en el host.
 - Sin `TAIA_SECRET_KEY`, los secretos se guardan sin cifrar en la base (ver abajo).
 - `GET /api/settings?reveal=<clave>` devuelve el valor de un secreto a quien tenga acceso a la API (cualquiera, si no hay token).
 

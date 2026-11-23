@@ -243,8 +243,8 @@ importers:
         specifier: ^0.5.0
         version: 0.5.0
       omniwebhook:
-        specifier: ^0.1.1
-        version: 0.1.1(standardwebhooks@1.3.0)
+        specifier: ^0.2.0
+        version: 0.2.0(standardwebhooks@1.3.0)
       pg:
         specifier: ^8.23.1
         version: 8.23.1
@@ -4304,8 +4304,8 @@ packages:
     resolution: {integrity: sha512-cLoue7PRtmNJ8tiFZlSaxVbWUmyByt4Px3SGq0S2KjwqyFtQVdrlviWuJpXQafm1ut/fvNbSJJyMOyfDX9yT1Q==}
     engines: {node: '>=20'}
 
-  omniwebhook@0.1.1:
-    resolution: {integrity: sha512-Zl/jgE/5ecKEiDccU+cVS6cxpdchK/KJHns06fHFHm0s8lgYpAAV5VmigaC9SUrcbZYNUkj6lEyOvryl7pyxlw==}
+  omniwebhook@0.2.0:
+    resolution: {integrity: sha512-rCHg8OJkIypzWdyExDWortq8CMDoak/Cgjba68qk+27O4cE1lVkfYawPhSKvjYesgCI1DbZ3IH9HADbPNlWrgQ==}
     engines: {node: '>=22'}
     peerDependencies:
       standardwebhooks: ^1.3.0
@@ -10212,7 +10212,7 @@ snapshots:
 
   omnilimit@0.5.0: {}
 
-  omniwebhook@0.1.1(standardwebhooks@1.3.0):
+  omniwebhook@0.2.0(standardwebhooks@1.3.0):
     optionalDependencies:
       standardwebhooks: 1.3.0
 

@@ -17,7 +17,7 @@ Que elegir un runtime no implique perder funciones que no dependen de él.
 ## Próximo
 
 - **Usuarios y permisos:** hoy hay un único token de acceso compartido.
-- **Protección SSRF** en las URLs de runtimes (los webhooks salientes ya la tienen).
+- **Protección SSRF** en las URLs de runtimes (los webhooks salientes ya la tienen, con la política de URLs de omniwebhook).
 - **Sesiones de los CLI persistentes**, con tokens y costos.
 - **UI para lo que hoy es solo API:** aprobaciones, QA pipeline, webhooks e importación de GitHub; además, el visor de diff de los worktrees.
 - **Columnas dinámicas de punta a punta:** la CLI, la extensión de VS Code, el mapeo de los webhooks de GitHub y las métricas (standup, stats) todavía asumen los slugs del preset Software Dev.

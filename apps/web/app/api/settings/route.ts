@@ -13,6 +13,7 @@ import {
   isSensitiveSettingKey,
   recordSettingsAuditEvent,
 } from '@taia/core/services/settings-audit.service'
+import { outgoingEndpointsProblem } from '@taia/core/services/outgoing-webhook.service'
 
 export const dynamic = 'force-dynamic'
 
@@ -42,6 +43,23 @@ export async function GET(request: NextRequest) {
     configured: config.configured,
     effectiveUrl: config.url,
   })
+}
+
+const OUTGOING_ENDPOINTS_KEY = /^webhooks\.outgoing\..+\.endpoints$/
+
+/**
+ * Outgoing webhook endpoints are checked before they are saved: a bad URL or
+ * a secret that cannot sign would otherwise only show up as failed deliveries.
+ * A masked value ("********") is left alone, as for any sensitive setting.
+ */
+function invalidWebhookEndpoints(settings: Record<string, unknown>): string | null {
+  for (const [key, value] of Object.entries(settings)) {
+    if (!OUTGOING_ENDPOINTS_KEY.test(key) || typeof value !== 'string') continue
+    if (value === '********' || value === '') continue
+    const problem = outgoingEndpointsProblem(value)
+    if (problem) return problem
+  }
+  return null
 }
 
 // PUT /api/settings - bulk upsert
@@ -92,7 +110,7 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ ok: false, error: 'settings object required' }, { status: 400 })
     }
 
-    const refused = refusedCommand(settings)
+    const refused = refusedCommand(settings) ?? invalidWebhookEndpoints(settings)
     if (refused) return NextResponse.json({ ok: false, error: refused }, { status: 400 })
 
     for (const [key, value] of Object.entries(settings)) {

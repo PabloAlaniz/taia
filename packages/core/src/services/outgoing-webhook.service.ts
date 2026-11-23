@@ -1,109 +1,133 @@
-import { createHmac } from 'node:crypto'
-import type { DomainEvent } from '../events/event-bus'
+// Outgoing webhooks. Emitting a domain event only queues a message per
+// endpoint (webhook_outbox); the dispatcher, which runs in the web process,
+// sends what is due with omniwebhook: Standard Webhooks signatures, a URL
+// policy that connects to the address it checked, and the next attempt's time
+// when a delivery has to be retried. Every attempt lands in omniwebhook_attempts.
+
+import {
+  type AttemptRecord,
+  allowedNetworks,
+  ConfigurationError,
+  inspectDestination,
+  PostgresDeliveryLedger,
+  randomMessageId,
+  type SendWebhook,
+} from 'omniwebhook'
+import { createNodeSender } from 'omniwebhook/node'
+import { standardSigner } from 'omniwebhook/standard'
+import { z } from 'zod'
 import { logActivity } from '../db'
+import { pool } from '../db/pool'
 import { getSetting, setSetting } from '../db/repositories/setting.repository'
-import { assertPublicWebhookUrl } from '../outbound-url-policy'
+import {
+  claimDueOutboxMessages,
+  enqueueOutboxMessages,
+  findOutboxMessage,
+  listOutboxAttempts,
+  listOutboxMessages,
+  type OutboxAttempt,
+  type OutboxMessage,
+  type OutboxOutcome,
+  purgeSettledOutboxMessages,
+  requeueOutboxMessage,
+  settleOutboxMessage,
+} from '../db/repositories/webhook-outbox.repository'
+import type { DomainEvent } from '../events/event-bus'
 
-export const OUTGOING_WEBHOOK_MAX_ATTEMPTS = 3
-export const OUTGOING_WEBHOOK_MAX_REPLAY_ATTEMPTS = 2
-export const OUTGOING_WEBHOOK_TIMEOUT_MS = 2_000
-export const OUTGOING_WEBHOOK_BACKOFF_MS = [0, 250, 1_000] as const
-export const OUTGOING_WEBHOOK_LEDGER_LIMIT = 100
-/**
- * The longest `Retry-After` a delivery waits for in line. A receiver asking
- * for more gets no more retries now: the delivery is dead-lettered with
- * `nextRetryAt` set to when it may be replayed.
- */
-export const OUTGOING_WEBHOOK_MAX_RETRY_AFTER_MS = 10_000
+/** How many times a failed delivery can be sent again by hand. */
+export const OUTGOING_WEBHOOK_MAX_REPLAYS = 2
+/** How many messages one dispatch round takes. */
+export const WEBHOOK_DISPATCH_BATCH = 10
+/** How often the dispatcher looks for due messages. */
+export const WEBHOOK_DISPATCH_INTERVAL_MS = 2_000
+/** How long a taken message stays locked: more than an attempt can last. */
+export const WEBHOOK_DISPATCH_LOCK_SECONDS = 60
+/** How many messages the diagnostics list. */
+export const OUTGOING_WEBHOOK_DIAGNOSTICS_LIMIT = 100
 
-/**
- * Whether a failed attempt is worth retrying: a network error or timeout, or a
- * status that says "later" (408, 425, 429, 5xx). Any other 4xx will fail the
- * same way again.
- */
-export function isRetryableAttempt(attempt: Pick<OutgoingWebhookAttempt, 'statusCode'>): boolean {
-  const code = attempt.statusCode
-  if (code === undefined) return true
-  return code === 408 || code === 425 || code === 429 || code >= 500
+/** Private ranges `TAIA_WEBHOOK_ALLOW_PRIVATE=1` opens: loopback, RFC 1918 and IPv6 ULA. */
+export const PRIVATE_NETWORKS = [
+  '127.0.0.0/8',
+  '10.0.0.0/8',
+  '172.16.0.0/12',
+  '192.168.0.0/16',
+  '::1/128',
+  'fc00::/7',
+] as const
+
+const SECRET = /^whsec_[A-Za-z0-9+/]+={0,2}$/
+
+const endpointSchema = z.object({
+  id: z
+    .string()
+    .trim()
+    .min(1)
+    .max(100)
+    .regex(/^[^/]+$/, 'id cannot contain "/"'),
+  url: z
+    .string()
+    .refine((url) => typeof inspectDestination(url, { allowHttp: true }) !== 'string', {
+      message: 'url must be an http(s) URL without credentials',
+    }),
+  secret: z.string().regex(SECRET, 'secret must be whsec_<base64>'),
+  active: z.boolean().optional(),
+  events: z.array(z.string().min(1)).optional(),
+})
+
+export type OutgoingWebhookEndpoint = z.infer<typeof endpointSchema>
+
+/** An endpoint as the API shows it: the signing secret never leaves the server. */
+export type OutgoingWebhookEndpointSummary = Omit<OutgoingWebhookEndpoint, 'secret'> & {
+  hasSecret: boolean
 }
 
-/** `Retry-After` in milliseconds, from delta seconds or an HTTP date; `undefined` if absent or invalid. */
-export function parseRetryAfter(
-  value: string | null | undefined,
-  now: number = Date.now(),
-): number | undefined {
-  if (!value) return undefined
-  const trimmed = value.trim()
-  if (/^\d+$/.test(trimmed)) return Number(trimmed) * 1000
-  const date = Date.parse(trimmed)
-  return Number.isNaN(date) ? undefined : Math.max(0, date - now)
-}
-
-export interface OutgoingWebhookEndpoint {
-  id: string
-  url: string
-  secret?: string
-  active?: boolean
-  events?: string[]
-}
-
-export interface OutgoingWebhookAttempt {
-  attempt: number
-  status: 'success' | 'failed'
-  statusCode?: number
-  error?: string
-  attemptedAt: string
-  durationMs: number
-  nextRetryAt?: string
-  /** What the receiver asked for in `Retry-After`, in milliseconds. */
-  retryAfterMs?: number
-}
-
-export interface OutgoingWebhookDelivery {
-  id: string
-  endpointId: string
-  event: string
-  workspaceId: string
-  url: string
-  payloadHash: string
-  status: 'success' | 'failed' | 'dead_letter'
-  createdAt: string
-  updatedAt: string
-  attempts: OutgoingWebhookAttempt[]
-  payload?: unknown
-  replayAttempts?: number
-  deadLetteredAt?: string
-}
-
-type DeliveryLedger = Record<string, OutgoingWebhookDelivery>
-
-function endpointsKey(workspaceId: string): string {
+export function outgoingEndpointsKey(workspaceId: string): string {
   return `webhooks.outgoing.${workspaceId}.endpoints`
 }
 
-function deliveriesKey(workspaceId: string): string {
-  return `webhooks.outgoing.${workspaceId}.deliveries`
-}
-
-function parseJson<T>(value: string | null, fallback: T): T {
-  if (!value) return fallback
+/**
+ * Check a `webhooks.outgoing.<ws>.endpoints` value before it is saved: a JSON
+ * array of endpoints, each with an id, a URL of the accepted shape and a
+ * `whsec_` secret. Answers the problem, or null when it is fine.
+ */
+export function outgoingEndpointsProblem(value: string): string | null {
+  let parsed: unknown
   try {
-    return JSON.parse(value) as T
+    parsed = JSON.parse(value)
   } catch {
-    return fallback
+    return 'webhooks.outgoing.*.endpoints must be a JSON array'
   }
+  const result = z.array(endpointSchema).safeParse(parsed)
+  if (!result.success) {
+    const issue = result.error.issues[0]
+    return `Invalid outgoing webhook endpoint at ${issue?.path.join('.') || '(root)'}: ${issue?.message}`
+  }
+  const ids = result.data.map((endpoint) => endpoint.id)
+  if (new Set(ids).size !== ids.length) return 'Outgoing webhook endpoint ids must be unique'
+  return null
 }
 
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms))
+/** The endpoints saved for a workspace. A malformed entry is skipped, not fatal. */
+async function readEndpoints(workspaceId: string): Promise<OutgoingWebhookEndpoint[]> {
+  const raw = await getSetting(outgoingEndpointsKey(workspaceId))
+  if (!raw) return []
+  let parsed: unknown
+  try {
+    parsed = JSON.parse(raw)
+  } catch {
+    return []
+  }
+  if (!Array.isArray(parsed)) return []
+  return parsed.flatMap((entry) => {
+    const result = endpointSchema.safeParse(entry)
+    return result.success ? [result.data] : []
+  })
 }
 
-function hashPayload(value: unknown): string {
-  return createHmac('sha256', 'taia-outgoing-webhook').update(JSON.stringify(value)).digest('hex')
-}
-
-function deliveryId(endpointId: string, event: string, payloadHash: string): string {
-  return `${endpointId}:${event}:${payloadHash}`
+function shouldSend(endpoint: OutgoingWebhookEndpoint, eventType: string): boolean {
+  if (endpoint.active === false) return false
+  if (!endpoint.events || endpoint.events.length === 0) return true
+  return endpoint.events.includes(eventType) || endpoint.events.includes('*')
 }
 
 function inferWorkspaceId(event: DomainEvent): string | null {
@@ -116,98 +140,266 @@ function inferWorkspaceId(event: DomainEvent): string | null {
   return typeof workspaceId === 'string' && workspaceId.trim() ? workspaceId.trim() : null
 }
 
-function pruneLedger(ledger: DeliveryLedger): DeliveryLedger {
-  return Object.fromEntries(
-    Object.entries(ledger)
-      .sort(([, a], [, b]) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
-      .slice(0, OUTGOING_WEBHOOK_LEDGER_LIMIT),
+/**
+ * Queue a domain event for every active endpoint of its workspace that wants
+ * it. Only inserts rows: the request that emitted the event does not wait on
+ * any receiver. Answers how many messages were queued.
+ */
+export async function handleOutgoingWebhookEvent(event: DomainEvent): Promise<number> {
+  const workspaceId = inferWorkspaceId(event)
+  if (!workspaceId) return 0
+
+  const endpoints = (await readEndpoints(workspaceId)).filter((endpoint) =>
+    shouldSend(endpoint, event.type),
   )
+  if (endpoints.length === 0) return 0
+
+  // The Standard Webhooks payload shape: type, timestamp and the event's data.
+  const payload = JSON.stringify({
+    type: event.type,
+    timestamp: new Date(event.timestamp).toISOString(),
+    workspace_id: workspaceId,
+    actor: event.actor,
+    data: event.payload,
+  })
+  await enqueueOutboxMessages(
+    endpoints.map((endpoint) => ({
+      workspaceId,
+      endpointId: endpoint.id,
+      messageId: randomMessageId(),
+      event: event.type,
+      payload,
+    })),
+  )
+  return endpoints.length
 }
 
-function shouldSend(endpoint: OutgoingWebhookEndpoint, eventType: string): boolean {
-  if (endpoint.active === false) return false
-  if (!endpoint.url) return false
-  if (!endpoint.events || endpoint.events.length === 0) return true
-  return endpoint.events.includes(eventType) || endpoint.events.includes('*')
+/**
+ * The networks outgoing webhooks may reach although they are private:
+ * `TAIA_WEBHOOK_ALLOW_PRIVATE=1` opens loopback, RFC 1918 and IPv6 ULA, and
+ * `TAIA_WEBHOOK_ALLOWED_NETWORKS` adds a comma-separated list of CIDRs.
+ * Cloud metadata addresses stay blocked whatever is allowed.
+ */
+export function webhookAllowedNetworks(env: NodeJS.ProcessEnv = process.env): string[] {
+  const networks: string[] = []
+  if (env.TAIA_WEBHOOK_ALLOW_PRIVATE === '1') networks.push(...PRIVATE_NETWORKS)
+  for (const cidr of (env.TAIA_WEBHOOK_ALLOWED_NETWORKS ?? '').split(',')) {
+    if (cidr.trim()) networks.push(cidr.trim())
+  }
+  allowedNetworks(networks) // throws ConfigurationError on a malformed CIDR
+  return networks
 }
 
-async function readLedger(workspaceId: string): Promise<DeliveryLedger> {
-  return parseJson<DeliveryLedger>(await getSetting(deliveriesKey(workspaceId)), {})
+/** Builds the sender for an endpoint's secret. Tests pass their own. */
+export type SenderFactory = (secret: string) => SendWebhook
+
+export function nodeSenderFactory(networks: string[] = webhookAllowedNetworks()): SenderFactory {
+  const ledger = new PostgresDeliveryLedger(pool)
+  return (secret) =>
+    createNodeSender({
+      signer: standardSigner({ secrets: [secret] }),
+      ledger,
+      // Receivers on a LAN (n8n, a local script) often have no TLS.
+      allowHttp: true,
+      allowedNetworks: networks,
+    })
 }
 
-async function writeLedger(workspaceId: string, ledger: DeliveryLedger): Promise<void> {
-  await setSetting(deliveriesKey(workspaceId), JSON.stringify(pruneLedger(ledger)))
+/** The key omniwebhook_attempts uses for an endpoint: ids are unique per workspace only. */
+function ledgerEndpointId(message: OutboxMessage): string {
+  return `${message.workspaceId}/${message.endpointId}`
 }
 
-async function fetchWithTimeout(
-  url: string,
-  init: RequestInit,
-  timeoutMs: number,
-): Promise<Response> {
-  const controller = new AbortController()
-  const timeout = setTimeout(() => controller.abort(), timeoutMs)
-  try {
-    // Never follow redirects: the target was checked, the redirect wasn't.
-    return await fetch(url, { ...init, redirect: 'manual', signal: controller.signal })
-  } finally {
-    clearTimeout(timeout)
+function outcomeOf(record: AttemptRecord): OutboxOutcome {
+  if (record.state === 'pending') {
+    return {
+      state: 'pending',
+      result: 'pending',
+      status: record.status,
+      attempt: record.attempt + 1,
+      nextAt: new Date((record.nextAt ?? record.at) * 1000),
+    }
+  }
+  return {
+    state: record.state === 'delivered' ? 'delivered' : 'failed',
+    result: record.problem ? `${record.state}:${record.problem}` : record.state,
+    status: record.status,
   }
 }
 
-async function postDeliveryAttempt(args: {
-  endpoint: OutgoingWebhookEndpoint
-  eventType: string
-  workspaceId: string
-  body: string
-  signature?: string
-  attemptNumber: number
-}): Promise<OutgoingWebhookAttempt> {
-  const started = Date.now()
+async function disableEndpoint(workspaceId: string, endpointId: string): Promise<void> {
+  const raw = await getSetting(outgoingEndpointsKey(workspaceId))
+  if (!raw) return
+  const endpoints = JSON.parse(raw) as Array<{ id?: unknown; active?: boolean }>
+  if (!Array.isArray(endpoints)) return
+  for (const endpoint of endpoints) if (endpoint.id === endpointId) endpoint.active = false
+  await setSetting(outgoingEndpointsKey(workspaceId), JSON.stringify(endpoints))
+}
+
+async function logSettled(message: OutboxMessage, outcome: OutboxOutcome): Promise<void> {
+  if (outcome.state === 'pending') return
+  const delivered = outcome.state === 'delivered'
+  await logActivity({
+    type: delivered ? 'webhook.outgoing.delivered' : 'webhook.outgoing.failed',
+    agent_id: 'system',
+    workspace_id: message.workspaceId,
+    message: `Outgoing webhook ${delivered ? 'delivered' : `failed (${outcome.result})`}: ${message.event} -> ${message.endpointId} (attempt ${message.attempt})`,
+    metadata: {
+      workspace_id: message.workspaceId,
+      delivery_id: message.messageId,
+      endpoint_id: message.endpointId,
+      event: message.event,
+      attempt: message.attempt,
+      result: outcome.result,
+      status: outcome.status,
+    },
+  })
+}
+
+async function deliver(
+  message: OutboxMessage,
+  endpoints: OutgoingWebhookEndpoint[],
+  senderFor: SenderFactory,
+): Promise<OutboxOutcome> {
+  const endpoint = endpoints.find((candidate) => candidate.id === message.endpointId)
+  if (!endpoint) return { state: 'failed', result: 'endpoint_missing', status: null }
+  if (endpoint.active === false) {
+    return { state: 'failed', result: 'endpoint_inactive', status: null }
+  }
+
+  let record: AttemptRecord
   try {
-    // Checked on every attempt, not when the endpoint is saved: endpoints are
-    // plain settings, and a name can start resolving somewhere else.
-    await assertPublicWebhookUrl(args.endpoint.url)
-    const response = await fetchWithTimeout(
-      args.endpoint.url,
-      {
-        method: 'POST',
-        headers: {
-          'content-type': 'application/json',
-          'x-taia-event': args.eventType,
-          'x-taia-workspace-id': args.workspaceId,
-          ...(args.signature ? { 'x-taia-signature': args.signature } : {}),
-        },
-        body: args.body,
-      },
-      OUTGOING_WEBHOOK_TIMEOUT_MS,
-    )
-    const attemptedAt = new Date().toISOString()
-    const retryAfterMs = response.ok
-      ? undefined
-      : parseRetryAfter(response.headers.get('retry-after'))
-    return {
-      attempt: args.attemptNumber,
-      status: response.ok ? 'success' : 'failed',
-      statusCode: response.status,
-      error: response.ok ? undefined : `HTTP ${response.status}`,
-      attemptedAt,
-      durationMs: Date.now() - started,
-      ...(retryAfterMs === undefined ? {} : { retryAfterMs }),
-    }
+    record = await senderFor(endpoint.secret).execute({
+      endpoint: { id: ledgerEndpointId(message), url: endpoint.url },
+      message: { id: message.messageId, payload: new TextEncoder().encode(message.payload) },
+      attempt: message.attempt,
+    })
   } catch (error) {
-    return {
-      attempt: args.attemptNumber,
-      status: 'failed',
-      error: error instanceof Error ? error.message : String(error),
-      attemptedAt: new Date().toISOString(),
-      durationMs: Date.now() - started,
+    // A secret that cannot sign: nothing was sent, and retrying will not help.
+    if (error instanceof ConfigurationError) {
+      return { state: 'failed', result: 'misconfigured', status: null }
     }
+    throw error
   }
+
+  if (record.state === 'gone') {
+    // 410: the receiver says it is gone for good. Stop sending to it.
+    await disableEndpoint(message.workspaceId, message.endpointId)
+    await logActivity({
+      type: 'webhook.outgoing.endpoint_disabled',
+      agent_id: 'system',
+      workspace_id: message.workspaceId,
+      message: `Outgoing webhook endpoint ${message.endpointId} answered 410 Gone and was disabled`,
+      metadata: { workspace_id: message.workspaceId, endpoint_id: message.endpointId },
+    })
+  }
+  return outcomeOf(record)
 }
 
-/** An endpoint as the API shows it: the signing secret never leaves the server. */
-export type OutgoingWebhookEndpointSummary = Omit<OutgoingWebhookEndpoint, 'secret'> & {
-  hasSecret: boolean
+/**
+ * One dispatch round: take what is due, make one attempt for each and record
+ * how it went. A message that has to be retried goes back to pending with the
+ * time omniwebhook gives for its next attempt. Answers how many were taken.
+ */
+export async function dispatchDueWebhooks(
+  senderFor: SenderFactory = nodeSenderFactory(),
+): Promise<number> {
+  const due = await claimDueOutboxMessages(WEBHOOK_DISPATCH_BATCH, WEBHOOK_DISPATCH_LOCK_SECONDS)
+  if (due.length === 0) return 0
+
+  const endpointsByWorkspace = new Map<string, Promise<OutgoingWebhookEndpoint[]>>()
+  const endpointsOf = (workspaceId: string) => {
+    let endpoints = endpointsByWorkspace.get(workspaceId)
+    if (!endpoints) {
+      endpoints = readEndpoints(workspaceId)
+      endpointsByWorkspace.set(workspaceId, endpoints)
+    }
+    return endpoints
+  }
+
+  await Promise.all(
+    due.map(async (message) => {
+      try {
+        const outcome = await deliver(message, await endpointsOf(message.workspaceId), senderFor)
+        await settleOutboxMessage(message.id, outcome)
+        await logSettled(message, outcome)
+      } catch (error) {
+        // Left locked: it is taken again when the lock runs out.
+        console.warn(
+          `[webhooks] dispatching ${message.messageId} failed:`,
+          error instanceof Error ? error.message : error,
+        )
+      }
+    }),
+  )
+  return due.length
+}
+
+/**
+ * Dispatch due webhooks now and then every couple of seconds. A round never
+ * overlaps the previous one; a failed round is logged and the next one tries
+ * again. The timer does not keep the process alive.
+ */
+export function startWebhookDispatcher(round?: () => Promise<number>): () => void {
+  const dispatch =
+    round ??
+    (() => {
+      const senderFor = nodeSenderFactory()
+      return () => dispatchDueWebhooks(senderFor)
+    })()
+  let running = false
+  const run = () => {
+    if (running) return
+    running = true
+    dispatch()
+      .catch((error: unknown) => {
+        console.warn(
+          '[webhooks] dispatch round failed:',
+          error instanceof Error ? error.message : error,
+        )
+      })
+      .finally(() => {
+        running = false
+      })
+  }
+  run()
+  const timer = setInterval(run, WEBHOOK_DISPATCH_INTERVAL_MS)
+  timer.unref?.()
+  return () => clearInterval(timer)
+}
+
+export interface OutgoingWebhookDelivery {
+  id: string
+  endpointId: string
+  event: string
+  status: 'pending' | 'delivered' | 'failed'
+  attempt: number
+  nextAttemptAt: string | null
+  lastResult: string | null
+  lastStatus: number | null
+  replays: number
+  createdAt: string
+  updatedAt: string
+  attempts: Array<Omit<OutboxAttempt, 'messageId' | 'at'> & { at: string }>
+}
+
+function toDelivery(message: OutboxMessage, attempts: OutboxAttempt[]): OutgoingWebhookDelivery {
+  return {
+    id: message.messageId,
+    endpointId: message.endpointId,
+    event: message.event,
+    status: message.state,
+    attempt: message.attempt,
+    nextAttemptAt: message.state === 'pending' ? message.nextAt.toISOString() : null,
+    lastResult: message.lastResult,
+    lastStatus: message.lastStatus,
+    replays: message.replays,
+    createdAt: message.createdAt.toISOString(),
+    updatedAt: message.updatedAt.toISOString(),
+    attempts: attempts
+      .filter((attempt) => attempt.messageId === message.messageId)
+      .map(({ messageId: _id, at, ...attempt }) => ({ ...attempt, at: at.toISOString() })),
+  }
 }
 
 export async function listOutgoingWebhookDiagnostics(workspaceId: string): Promise<{
@@ -215,210 +407,76 @@ export async function listOutgoingWebhookDiagnostics(workspaceId: string): Promi
   deliveries: OutgoingWebhookDelivery[]
   deadLetters: OutgoingWebhookDelivery[]
 }> {
-  const endpoints = parseJson<OutgoingWebhookEndpoint[]>(
-    await getSetting(endpointsKey(workspaceId)),
-    [],
-  )
-  const ledger = await readLedger(workspaceId)
-  const deliveries = Object.values(ledger).sort(
-    (a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime(),
-  )
+  const endpoints = await readEndpoints(workspaceId)
+  const messages = await listOutboxMessages(workspaceId, OUTGOING_WEBHOOK_DIAGNOSTICS_LIMIT)
+  const attempts = await listOutboxAttempts(messages.map((message) => message.messageId))
+  const deliveries = messages.map((message) => toDelivery(message, attempts))
   return {
     endpoints: endpoints.map(({ secret, ...endpoint }) => ({ ...endpoint, hasSecret: !!secret })),
     deliveries,
-    deadLetters: deliveries.filter((delivery) => delivery.status === 'dead_letter'),
+    deadLetters: deliveries.filter((delivery) => delivery.status === 'failed'),
   }
 }
 
-export async function deliverOutgoingWebhook(args: {
-  workspaceId: string
-  endpoint: OutgoingWebhookEndpoint
-  event: DomainEvent
-  now?: Date
-}): Promise<OutgoingWebhookDelivery> {
-  const now = args.now ?? new Date()
-  const basePayload = {
-    type: args.event.type,
-    actor: args.event.actor,
-    timestamp: args.event.timestamp,
-    workspace_id: args.workspaceId,
-    payload: args.event.payload,
-  }
-  const payloadHash = hashPayload({
-    endpointId: args.endpoint.id,
-    event: args.event.type,
-    payload: basePayload,
-  })
-  const id = deliveryId(args.endpoint.id, args.event.type, payloadHash)
-  const payload = { id, ...basePayload }
-  const ledger = await readLedger(args.workspaceId)
-  const existing = ledger[id]
-  if (existing?.status === 'success') return existing
-
-  const delivery: OutgoingWebhookDelivery = existing ?? {
-    id,
-    endpointId: args.endpoint.id,
-    event: args.event.type,
-    workspaceId: args.workspaceId,
-    url: args.endpoint.url,
-    payloadHash,
-    status: 'failed',
-    createdAt: now.toISOString(),
-    updatedAt: now.toISOString(),
-    attempts: [],
-    payload,
-  }
-  delivery.payload ??= payload
-
-  const body = JSON.stringify(payload)
-  const signature = args.endpoint.secret
-    ? `sha256=${createHmac('sha256', args.endpoint.secret).update(body).digest('hex')}`
-    : undefined
-
-  let waitMs = 0
-  for (
-    let attempt = delivery.attempts.length + 1;
-    attempt <= OUTGOING_WEBHOOK_MAX_ATTEMPTS;
-    attempt++
+/** Thrown when a replay is asked for something that cannot be replayed. */
+export class OutgoingWebhookReplayError extends Error {
+  constructor(
+    readonly status: number,
+    message: string,
   ) {
-    if (attempt > 1) await sleep(waitMs)
-    const attemptRecord = await postDeliveryAttempt({
-      endpoint: args.endpoint,
-      eventType: args.event.type,
-      workspaceId: args.workspaceId,
-      body,
-      signature,
-      attemptNumber: attempt,
-    })
-    const success = attemptRecord.status === 'success'
-    // The receiver's Retry-After wins over our backoff when it asks for longer.
-    waitMs = Math.max(
-      OUTGOING_WEBHOOK_BACKOFF_MS[attempt] ?? 1_000,
-      attemptRecord.retryAfterMs ?? 0,
-    )
-    const retryNow =
-      !success &&
-      attempt < OUTGOING_WEBHOOK_MAX_ATTEMPTS &&
-      isRetryableAttempt(attemptRecord) &&
-      waitMs <= OUTGOING_WEBHOOK_MAX_RETRY_AFTER_MS
-    // A wait too long to hold in line still says when a replay may succeed.
-    const replayLater =
-      !success &&
-      !retryNow &&
-      isRetryableAttempt(attemptRecord) &&
-      attemptRecord.retryAfterMs !== undefined
-    attemptRecord.nextRetryAt =
-      retryNow || replayLater ? new Date(Date.now() + waitMs).toISOString() : undefined
-    delivery.attempts.push(attemptRecord)
-    delivery.status = success ? 'success' : 'failed'
-    if (!success && !retryNow) {
-      delivery.status = 'dead_letter'
-      delivery.deadLetteredAt = attemptRecord.attemptedAt
-    }
-    delivery.updatedAt = attemptRecord.attemptedAt
-    ledger[id] = delivery
-    await writeLedger(args.workspaceId, ledger)
-    if (!retryNow) break
+    super(message)
+    this.name = 'OutgoingWebhookReplayError'
   }
-
-  await logActivity({
-    type: delivery.status === 'success' ? 'webhook.outgoing.delivered' : 'webhook.outgoing.failed',
-    agent_id: 'system',
-    workspace_id: args.workspaceId,
-    message: `Outgoing webhook ${delivery.status === 'success' ? 'success' : delivery.status}: ${args.event.type} -> ${args.endpoint.id} (${delivery.attempts.length} attempt${delivery.attempts.length === 1 ? '' : 's'})`,
-    metadata: {
-      workspace_id: args.workspaceId,
-      delivery_id: delivery.id,
-      endpoint_id: args.endpoint.id,
-      event: args.event.type,
-      attempts: delivery.attempts.length,
-      status: delivery.status,
-      last_error: delivery.attempts[delivery.attempts.length - 1]?.error,
-    },
-  })
-
-  return delivery
 }
 
+/**
+ * Send a failed delivery again, from its first attempt and with the same
+ * message id, so a receiver that already processed it can tell. A delivered
+ * or pending one is left alone; each delivery can be replayed a couple of times.
+ */
 export async function replayOutgoingWebhookDelivery(args: {
   workspaceId: string
   deliveryId: string
 }): Promise<{ replayed: boolean; delivery: OutgoingWebhookDelivery }> {
-  const ledger = await readLedger(args.workspaceId)
-  const delivery = ledger[args.deliveryId]
-  if (!delivery) throw new Error(`Outgoing webhook delivery not found: ${args.deliveryId}`)
-  if (delivery.status === 'success') return { replayed: false, delivery }
-  if ((delivery.replayAttempts ?? 0) >= OUTGOING_WEBHOOK_MAX_REPLAY_ATTEMPTS) {
-    throw new Error(
-      `Outgoing webhook delivery ${args.deliveryId} reached replay limit (${OUTGOING_WEBHOOK_MAX_REPLAY_ATTEMPTS})`,
+  const message = await findOutboxMessage(args.workspaceId, args.deliveryId)
+  if (!message) {
+    throw new OutgoingWebhookReplayError(
+      404,
+      `Outgoing webhook delivery not found: ${args.deliveryId}`,
     )
   }
-
-  const endpoints = parseJson<OutgoingWebhookEndpoint[]>(
-    await getSetting(endpointsKey(args.workspaceId)),
-    [],
-  )
-  const endpoint = endpoints.find((candidate) => candidate.id === delivery.endpointId)
-  if (!endpoint) throw new Error(`Outgoing webhook endpoint not found: ${delivery.endpointId}`)
-
-  const body = JSON.stringify(delivery.payload ?? { id: delivery.id })
-  const signature = endpoint.secret
-    ? `sha256=${createHmac('sha256', endpoint.secret).update(body).digest('hex')}`
-    : undefined
-  const attemptRecord = await postDeliveryAttempt({
-    endpoint,
-    eventType: delivery.event,
-    workspaceId: args.workspaceId,
-    body,
-    signature,
-    attemptNumber: delivery.attempts.length + 1,
-  })
-  delivery.attempts.push(attemptRecord)
-  delivery.replayAttempts = (delivery.replayAttempts ?? 0) + 1
-  delivery.status = attemptRecord.status === 'success' ? 'success' : 'dead_letter'
-  delivery.updatedAt = attemptRecord.attemptedAt
-  if (delivery.status === 'dead_letter') delivery.deadLetteredAt = attemptRecord.attemptedAt
-  ledger[delivery.id] = delivery
-  await writeLedger(args.workspaceId, ledger)
-
+  if (message.state !== 'failed') {
+    return { replayed: false, delivery: toDelivery(message, []) }
+  }
+  if (!(await requeueOutboxMessage(message.id, OUTGOING_WEBHOOK_MAX_REPLAYS))) {
+    throw new OutgoingWebhookReplayError(
+      409,
+      `Outgoing webhook delivery ${args.deliveryId} reached the replay limit (${OUTGOING_WEBHOOK_MAX_REPLAYS})`,
+    )
+  }
   await logActivity({
-    type:
-      delivery.status === 'success'
-        ? 'webhook.outgoing.replayed'
-        : 'webhook.outgoing.replay_failed',
+    type: 'webhook.outgoing.replayed',
     agent_id: 'system',
     workspace_id: args.workspaceId,
-    message: `Outgoing webhook replay ${delivery.status === 'success' ? 'success' : 'failed'}: ${delivery.event} -> ${delivery.endpointId}`,
+    message: `Outgoing webhook queued again: ${message.event} -> ${message.endpointId}`,
     metadata: {
       workspace_id: args.workspaceId,
-      delivery_id: delivery.id,
-      endpoint_id: delivery.endpointId,
-      event: delivery.event,
-      replay_attempts: delivery.replayAttempts,
-      status: delivery.status,
-      last_error: attemptRecord.error,
+      delivery_id: message.messageId,
+      endpoint_id: message.endpointId,
+      event: message.event,
+      replays: message.replays + 1,
     },
   })
-
-  return { replayed: true, delivery }
+  const queued = (await findOutboxMessage(args.workspaceId, args.deliveryId)) ?? message
+  return { replayed: true, delivery: toDelivery(queued, []) }
 }
 
-export async function handleOutgoingWebhookEvent(
-  event: DomainEvent,
-): Promise<OutgoingWebhookDelivery[]> {
-  const workspaceId = inferWorkspaceId(event)
-  if (!workspaceId) return []
+/** How long settled deliveries and their attempts are kept. */
+export const OUTGOING_WEBHOOK_RETENTION_DAYS = 30
 
-  const endpoints = parseJson<OutgoingWebhookEndpoint[]>(
-    await getSetting(endpointsKey(workspaceId)),
-    [],
-  )
-  const active = endpoints.filter((endpoint) => shouldSend(endpoint, event.type))
-  if (active.length === 0) return []
-
-  const deliveries: OutgoingWebhookDelivery[] = []
-  for (const endpoint of active) {
-    deliveries.push(await deliverOutgoingWebhook({ workspaceId, endpoint, event }))
-  }
-  return deliveries
+/** Delete settled deliveries and attempts older than the retention. */
+export async function purgeOldOutgoingWebhooks(now: Date = new Date()): Promise<void> {
+  const before = new Date(now.getTime() - OUTGOING_WEBHOOK_RETENTION_DAYS * 24 * 60 * 60 * 1000)
+  await purgeSettledOutboxMessages(before)
+  await new PostgresDeliveryLedger(pool).purgeBefore(Math.floor(before.getTime() / 1000))
 }
