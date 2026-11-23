@@ -25,7 +25,7 @@ export default function SessionsPage() {
 
   return (
     <div className="min-h-full">
-      <PageHeader title={tp('sessions')}>
+      <PageHeader width="data" title={tp('sessions')}>
         <div
           role="tablist"
           aria-label={t('views')}
@@ -48,14 +48,14 @@ export default function SessionsPage() {
             >
               {tab.label}
               {tab.count ? (
-                <span className="ml-1.5 tabular-nums opacity-80">{tab.count}</span>
+                <span className="ml-1.5 tabular-nums font-normal">{tab.count}</span>
               ) : null}
             </button>
           ))}
         </div>
       </PageHeader>
 
-      <div className="px-4 md:px-6 pt-4 pb-10 max-w-6xl mx-auto space-y-4">
+      <div className="mx-auto px-4 md:px-6 max-w-6xl pt-4 pb-10 space-y-4">
         <p className="text-sm text-muted max-w-prose">{t('intro')}</p>
         <RuntimeNotice feature="sessions" />
         {activeTab === 'active' && <ActiveSessionsGrid onSessionCount={setActiveCount} />}

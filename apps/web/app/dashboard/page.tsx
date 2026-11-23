@@ -5,13 +5,13 @@ import { useFormatter, useLocale, useNow, useTranslations } from 'next-intl'
 import Link from 'next/link'
 import { Task, Agent, Activity, CostDashboardMetrics } from '@taia/types'
 import { cn } from '../../lib/utils'
-import { Button, Select, ProgressBar, ParticipantMark } from '../../components/atoms'
+import { Button, Select, ProgressBar, ParticipantMark, Strip } from '../../components/atoms'
 import { RackSection } from '@/components/molecules/rack-section'
 import { PageHeader } from '@/components/molecules/page-header'
 import { StatCard } from '@/components/molecules/stat-card'
 import { computeDailyCompletions, getAgentColor } from '../../lib/dashboard-utils'
 import { useResource } from '@/lib/use-resource'
-import { formatTokens } from '@/lib/format'
+import { formatTokens, participantKind } from '@/lib/format'
 import { useStore } from '../../lib/store'
 import { useWaiting } from '@/lib/use-shell-signals'
 import { useActivityText } from '@/lib/use-activity-text'
@@ -293,12 +293,12 @@ export default function DashboardPage() {
 
   return (
     <div className="min-h-full">
-      <PageHeader title={t('title')}>
+      <PageHeader width="data" title={t('title')}>
         <Select
           value={period}
           onChange={(e) => setPeriod(e.target.value as PeriodFilter)}
           aria-label={tu('period')}
-          className="bg-background border border-border rounded-md px-2 py-1 text-xs w-auto"
+          className="w-auto py-1 text-sm"
         >
           <option value="24h">{t('last24h')}</option>
           <option value="week">{t('lastWeek')}</option>
@@ -310,7 +310,7 @@ export default function DashboardPage() {
         </Button>
       </PageHeader>
 
-      <div className="px-4 md:px-6 pt-5 pb-10 max-w-6xl mx-auto">
+      <div className="mx-auto px-4 md:px-6 max-w-6xl pt-5 pb-10">
         <div className="space-y-5 mb-8">
           {/* Now: what needs a person, what moves, what's stuck. */}
           <RackSection title={tu('nowSection')}>
@@ -455,7 +455,8 @@ export default function DashboardPage() {
           </Panel>
         )}
 
-        <div className="grid md:grid-cols-2 gap-6">
+        {/* Two columns; an odd panel out spans both, so no cell is left empty. */}
+        <div className="grid md:grid-cols-2 gap-5 md:[&>*:last-child:nth-child(odd)]:col-span-2">
           {/* By Agent */}
           <Panel
             title={t('byAgent')}
@@ -497,7 +498,7 @@ export default function DashboardPage() {
                         <span className="text-muted"> / </span>
                         <span className="text-person-ink">{pending}</span>
                       </div>
-                      <div className="text-2xs text-muted">{t('doneVsPending')}</div>
+                      <div className="text-xxs text-muted">{t('doneVsPending')}</div>
                     </div>
                   </div>
                 ))}
@@ -529,25 +530,28 @@ export default function DashboardPage() {
             )}
           </Panel>
 
-          {/* Stale Tasks */}
+          {/* Stale Tasks: strips straight in the rack, like any list of work. */}
           {stats.staleTasks.length > 0 && (
-            <Panel title={t('staleTasks')}>
-              <div className="space-y-2">
-                {stats.staleTasks.slice(0, 5).map((task) => (
-                  <Link
-                    key={task.id}
-                    href={`/task/${task.id}`}
-                    className="block p-2 rounded-sm no-underline text-foreground hover:bg-card transition-colors"
-                  >
-                    <div className="text-sm truncate">{task.title}</div>
-                    <div className="text-xs text-muted">
-                      {agentName(task.assigned_to)} ·{' '}
-                      {format.relativeTime(new Date(task.updated_at), now)}
-                    </div>
-                  </Link>
-                ))}
-              </div>
-            </Panel>
+            <RackSection title={t('staleTasks')} count={stats.staleTasks.length}>
+              {stats.staleTasks.slice(0, 5).map((task) => {
+                const assignee = rawAgents.find((a) => a.id === task.assigned_to)
+                const kind = participantKind(assignee)
+                return (
+                  <Strip key={task.id} kind={kind ?? 'none'} className="hover:bg-card">
+                    <Link
+                      href={`/task/${task.id}`}
+                      className="block no-underline text-foreground focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-accent rounded-[2px]"
+                    >
+                      <span className="block text-sm font-semibold truncate">{task.title}</span>
+                      <span className="block text-mid text-muted">
+                        {agentName(task.assigned_to)} ·{' '}
+                        {format.relativeTime(new Date(task.updated_at), now)}
+                      </span>
+                    </Link>
+                  </Strip>
+                )
+              })}
+            </RackSection>
           )}
 
           {/* Recent Activity */}
@@ -558,8 +562,18 @@ export default function DashboardPage() {
               <div className="space-y-2 max-h-64 overflow-y-auto">
                 {stats.recentActivity.slice(0, 10).map((activity) => (
                   <div key={activity.id} className="text-xs border-b border-border pb-2">
-                    <div className="text-muted">
-                      {format.relativeTime(new Date(activity.created_at), now)}
+                    <div className="flex items-baseline gap-2 text-muted">
+                      {activity.agent_id && (
+                        <span className="flex items-center gap-1.5 font-semibold text-foreground">
+                          <ParticipantMark
+                            agent={agentsList.find((a) => a.id === activity.agent_id)}
+                          />
+                          {agentName(activity.agent_id)}
+                        </span>
+                      )}
+                      <span className="ml-auto">
+                        {format.relativeTime(new Date(activity.created_at), now)}
+                      </span>
                     </div>
                     <div className="truncate">{describe(activity)}</div>
                   </div>
@@ -603,7 +617,7 @@ export default function DashboardPage() {
                         <div className="text-sm font-bold tabular-nums">
                           {formatCost(locale, agent.total_cost_usd)}
                         </div>
-                        <div className="text-2xs text-muted">
+                        <div className="text-xxs text-muted">
                           {tu('tokens', {
                             count: formatTokens(agent.total_tokens),
                           })}

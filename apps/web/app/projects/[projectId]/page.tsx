@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useParams } from 'next/navigation'
-import { useLocale, useTranslations } from 'next-intl'
+import { useFormatter, useLocale, useNow, useTranslations } from 'next-intl'
 import { BookOpen, GitBranch } from 'lucide-react'
 import type { ProjectOverview, Task } from '@taia/types'
 import { Strip } from '@/components/atoms'
@@ -12,6 +12,8 @@ import { PageHeader } from '@/components/molecules/page-header'
 import { api } from '@/lib/api'
 import { formatUsd, participantKind } from '@/lib/format'
 import { useStore } from '@/lib/store'
+import { useWaiting } from '@/lib/use-shell-signals'
+import type { WaitingReason } from '@/lib/waiting'
 import { cn } from '@/lib/utils'
 import { shortTaskId } from '@taia/domain/domain/task/task-id'
 
@@ -24,6 +26,8 @@ export default function ProjectPage() {
   const locale = useLocale()
   const [overview, setOverview] = useState<ProjectOverview | null | undefined>(undefined)
   const [costs, setCosts] = useState<Record<string, number>>({})
+  // Only the active workspace's tasks are known here; others stay unmarked.
+  const waiting = useWaiting()
 
   useEffect(() => {
     let cancelled = false
@@ -46,7 +50,7 @@ export default function ProjectPage() {
 
   if (overview === undefined) {
     return (
-      <div className="mx-auto max-w-6xl px-4 md:px-6 pt-6 space-y-3">
+      <div className="mx-auto px-4 md:px-6 max-w-6xl pt-5 space-y-3">
         <SkeletonCard height="h-10" />
         <SkeletonCard height="h-48" />
       </div>
@@ -55,8 +59,13 @@ export default function ProjectPage() {
   if (overview === null) {
     return (
       <div className="min-h-full">
-        <PageHeader title={t('title')} backHref="/projects" backLabel={tp('projects')} />
-        <div className="mx-auto max-w-6xl px-4 md:px-6">
+        <PageHeader
+          width="data"
+          title={t('title')}
+          backHref="/projects"
+          backLabel={tp('projects')}
+        />
+        <div className="mx-auto px-4 md:px-6 max-w-6xl pt-4 pb-10">
           <EmptyState title={t('notFound')} />
         </div>
       </div>
@@ -71,7 +80,7 @@ export default function ProjectPage() {
 
   return (
     <div className="min-h-full">
-      <PageHeader title={project.name} backHref="/projects" backLabel={tp('projects')}>
+      <PageHeader width="data" title={project.name} backHref="/projects" backLabel={tp('projects')}>
         <Link
           href="/settings/projects"
           className="rounded border border-border bg-card px-3 py-1.5 text-sm font-semibold no-underline text-foreground hover:bg-strip"
@@ -80,7 +89,7 @@ export default function ProjectPage() {
         </Link>
       </PageHeader>
 
-      <div className="mx-auto max-w-6xl px-4 md:px-6 pt-3 pb-10 space-y-6">
+      <div className="mx-auto px-4 md:px-6 max-w-6xl pt-4 pb-10 space-y-6">
         <dl className="flex flex-wrap items-baseline gap-x-6 gap-y-2 text-sm">
           {project.description && (
             <p className="basis-full text-muted max-w-prose">{project.description}</p>
@@ -124,7 +133,7 @@ export default function ProjectPage() {
             </h2>
             <div className="flex gap-3 overflow-x-auto pb-2">
               {columnsWithTasks(columns, tasks).map(({ key, label, items }) => (
-                <Bay key={key} label={label} items={items} costs={costs} />
+                <Bay key={key} label={label} items={items} costs={costs} waiting={waiting} />
               ))}
             </div>
           </section>
@@ -138,14 +147,18 @@ function Bay({
   label,
   items,
   costs,
+  waiting,
 }: {
   label: string
   items: Task[]
   costs: Record<string, number>
+  waiting: Record<string, WaitingReason>
 }) {
   const locale = useLocale()
   const agents = useStore((s) => s.agents)
   const total = items.reduce((sum, task) => sum + (costs[task.id] ?? 0), 0)
+  // Like the board: what waits on a person sorts to the top of its bay.
+  const ordered = [...items].sort((a, b) => Number(!!waiting[b.id]) - Number(!!waiting[a.id]))
   return (
     <div className="bg-rack rounded-md flex-1 min-w-56 flex flex-col">
       <div className="flex items-baseline gap-2 pl-4 pr-3 pt-2.5 pb-2 border-b border-rack-line">
@@ -160,20 +173,36 @@ function Bay({
         )}
       </div>
       <div className="flex flex-col gap-1.5 pl-4 pr-2.5 py-2.5">
-        {items.map((task) => {
+        {ordered.map((task) => {
           const assignee = agents.find((a) => a.id === task.assigned_to)
           const kind = participantKind(assignee)
+          const reason = waiting[task.id]
+          const done = task.status === 'DONE'
           return (
-            <Strip key={task.id} kind={kind ?? 'none'} className="py-1.5 pl-3.5 pr-2.5">
+            <Strip
+              key={task.id}
+              kind={kind ?? 'none'}
+              waiting={!!reason}
+              quiet={done && !reason}
+              className={cn('py-1.5 pl-3.5 pr-2.5', reason && '-ml-4 pb-2')}
+            >
               <Link
                 href={`/task/${task.id}`}
                 className="block no-underline text-foreground focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-accent rounded-[2px]"
               >
+                {reason && <WaitingLine reason={reason} />}
                 <span className="flex items-baseline gap-2">
                   <span className="font-mono text-xxs text-muted shrink-0">
                     {shortTaskId(task.id)}
                   </span>
-                  <span className="text-sm font-semibold leading-snug line-clamp-2">
+                  <span
+                    className={cn(
+                      'text-sm leading-snug line-clamp-2',
+                      done && !reason
+                        ? 'font-medium text-muted line-through decoration-muted/60'
+                        : 'font-semibold',
+                    )}
+                  >
                     {task.title}
                   </span>
                 </span>
@@ -190,7 +219,7 @@ function Bay({
                   >
                     {assignee?.name ?? '—'}
                   </span>
-                  <span className="ml-auto tabular-nums text-foreground/75">
+                  <span className={cn('ml-auto tabular-nums', !done && 'text-foreground')}>
                     {costs[task.id] !== undefined ? formatUsd(locale, costs[task.id]) : '—'}
                   </span>
                 </span>
@@ -200,6 +229,28 @@ function Bay({
         })}
       </div>
     </div>
+  )
+}
+
+/** The board's TE ESPERA tag and its reason, above the strip's title. */
+function WaitingLine({ reason }: { reason: WaitingReason }) {
+  const t = useTranslations('taskCard')
+  const format = useFormatter()
+  const now = useNow({ updateInterval: 60_000 })
+  return (
+    <span className="flex items-baseline gap-2 mb-1">
+      <span className="shrink-0 whitespace-nowrap text-xxs font-bold tracking-[0.12em] uppercase bg-person text-on-person px-1.5 rounded-[2px]">
+        {t('waitingTag')}
+      </span>
+      <span className="text-xs text-muted truncate">
+        {reason.kind === 'approval' &&
+          t('waitingApproval', {
+            time: format.relativeTime(new Date(reason.approval.created_at), now),
+          })}
+        {reason.kind === 'merge' && t('waitingMerge')}
+        {reason.kind === 'clarify' && t('waitingClarify')}
+      </span>
+    </span>
   )
 }
 

@@ -1,50 +1,71 @@
 'use client'
 
-import { useId, useState } from 'react'
+import { useId, useRef, useState } from 'react'
 import { useTranslations } from 'next-intl'
-import { Alert, Button, Input, Label, Select } from '@/components/atoms'
+import { Alert, Button, Input, Select } from '@/components/atoms'
 import { Modal, ModalHeader, ModalBody, ModalFooter } from '@/components/molecules/modal'
+import { FormField, cleanId, idProblem, slugify } from './fields'
 
-const AGENT_TYPES = ['cron', 'api', 'human', 'orchestrator'] as const
+// People have their own form (AddPersonModal); this one adds agents only.
+const AGENT_TYPES = ['cron', 'api', 'orchestrator'] as const
+
+type Errors = { name?: string; id?: string }
 
 export function AddAgentModal({
+  takenIds = [],
   onClose,
   onAdd,
 }: {
+  /** Ids already in use, so a clash is caught before the request. */
+  takenIds?: readonly string[]
   onClose: () => void
   onAdd: (agent: Record<string, unknown>) => void
 }) {
   const t = useTranslations('agentForm')
   const tc = useTranslations('common')
   const fieldId = useId()
-  const [id, setId] = useState('')
+  const nameRef = useRef<HTMLInputElement>(null)
+  const idRef = useRef<HTMLInputElement>(null)
   const [name, setName] = useState('')
+  // Until the user edits the id, it follows the name.
+  const [customId, setCustomId] = useState<string | null>(null)
   const [role, setRole] = useState('')
-  const [avatar, setAvatar] = useState('🤖')
-  const [type, setType] = useState('cron')
-  const [error, setError] = useState('')
+  const [type, setType] = useState<string>('cron')
+  const [errors, setErrors] = useState<Errors>({})
+  const [formError, setFormError] = useState('')
   const [busy, setBusy] = useState(false)
+
+  const id = customId ?? slugify(name)
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    setError('')
-    setBusy(true)
+    setFormError('')
+    const next: Errors = {}
+    if (!name.trim()) next.name = t('errors.nameRequired')
+    const problem = idProblem(id, takenIds)
+    if (problem) next.id = t(`errors.${problem}`, { id })
+    setErrors(next)
+    if (next.name) return nameRef.current?.focus()
+    if (next.id) return idRef.current?.focus()
 
+    setBusy(true)
     try {
       const res = await fetch('/api/agents', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id, name, role, avatar, type }),
+        body: JSON.stringify({ id, name: name.trim(), role: role.trim() || undefined, type }),
       })
 
       const data = await res.json()
       if (data.ok) {
         onAdd(data.agent)
       } else {
-        setError(data.error ? t('createFailedWith', { error: data.error }) : t('createFailed'))
+        setFormError(
+          data.error ? t('createFailedWith', { error: String(data.error) }) : t('createFailed'),
+        )
       }
     } catch {
-      setError(t('createFailed'))
+      setFormError(t('createFailed'))
     } finally {
       setBusy(false)
     }
@@ -58,74 +79,69 @@ export function AddAgentModal({
         </h2>
       </ModalHeader>
 
-      <form onSubmit={handleSubmit}>
+      <form onSubmit={handleSubmit} noValidate>
         <ModalBody className="space-y-4">
-          {error && <Alert variant="error">{error}</Alert>}
+          {formError && <Alert variant="error">{formError}</Alert>}
 
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <Label htmlFor={`${fieldId}-id`} required>
-                {t('id')}
-              </Label>
+          <FormField id={`${fieldId}-name`} label={t('name')} error={errors.name}>
+            {(control) => (
               <Input
-                id={`${fieldId}-id`}
+                {...control}
+                ref={nameRef}
+                value={name}
+                onChange={(e) => {
+                  setName(e.target.value)
+                  // A derived id changes with the name, so its error goes too.
+                  setErrors((prev) => ({ id: customId === null ? undefined : prev.id }))
+                }}
+                placeholder={t('namePlaceholder')}
+                autoComplete="off"
+                autoFocus
+              />
+            )}
+          </FormField>
+
+          <FormField id={`${fieldId}-id`} label={t('id')} hint={t('idHint')} error={errors.id}>
+            {(control) => (
+              <Input
+                {...control}
+                ref={idRef}
+                variant="mono"
                 value={id}
-                onChange={(e) => setId(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ''))}
+                onChange={(e) => {
+                  setCustomId(cleanId(e.target.value))
+                  if (errors.id) setErrors((prev) => ({ ...prev, id: undefined }))
+                }}
                 placeholder={t('idPlaceholder')}
-                aria-describedby={`${fieldId}-id-hint`}
-                required
+                autoComplete="off"
+                spellCheck={false}
               />
-              <p id={`${fieldId}-id-hint`} className="text-2xs text-muted mt-1">
-                {t('idHint')}
-              </p>
-            </div>
-            <div>
-              <Label htmlFor={`${fieldId}-avatar`}>{t('avatar')}</Label>
+            )}
+          </FormField>
+
+          <FormField id={`${fieldId}-role`} label={t('role')}>
+            {(control) => (
               <Input
-                id={`${fieldId}-avatar`}
-                value={avatar}
-                onChange={(e) => setAvatar(e.target.value)}
-                aria-describedby={`${fieldId}-avatar-hint`}
+                {...control}
+                value={role}
+                onChange={(e) => setRole(e.target.value)}
+                placeholder={t('rolePlaceholder')}
+                autoComplete="off"
               />
-              <p id={`${fieldId}-avatar-hint`} className="text-2xs text-muted mt-1">
-                {t('avatarHint')}
-              </p>
-            </div>
-          </div>
+            )}
+          </FormField>
 
-          <div>
-            <Label htmlFor={`${fieldId}-name`} required>
-              {t('name')}
-            </Label>
-            <Input
-              id={`${fieldId}-name`}
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder={t('namePlaceholder')}
-              required
-            />
-          </div>
-
-          <div>
-            <Label htmlFor={`${fieldId}-role`}>{t('role')}</Label>
-            <Input
-              id={`${fieldId}-role`}
-              value={role}
-              onChange={(e) => setRole(e.target.value)}
-              placeholder={t('rolePlaceholder')}
-            />
-          </div>
-
-          <div>
-            <Label htmlFor={`${fieldId}-type`}>{t('type')}</Label>
-            <Select id={`${fieldId}-type`} value={type} onChange={(e) => setType(e.target.value)}>
-              {AGENT_TYPES.map((value) => (
-                <option key={value} value={value}>
-                  {t(`types.${value}`)}
-                </option>
-              ))}
-            </Select>
-          </div>
+          <FormField id={`${fieldId}-type`} label={t('type')}>
+            {({ id: selectId }) => (
+              <Select id={selectId} value={type} onChange={(e) => setType(e.target.value)}>
+                {AGENT_TYPES.map((value) => (
+                  <option key={value} value={value}>
+                    {t(`types.${value}`)}
+                  </option>
+                ))}
+              </Select>
+            )}
+          </FormField>
         </ModalBody>
 
         <ModalFooter>

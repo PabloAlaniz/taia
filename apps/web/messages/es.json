@@ -368,7 +368,8 @@
       "instance": "{label} ({provider}): {state, select, connected {conectado} connecting {conectando} reconnecting {reconectando} other {desconectado}}"
     },
     "unsupported": "El runtime activo ({provider}) no expone esta información.",
-    "unavailable": "Runtime no disponible"
+    "unavailable": "Runtime no disponible",
+    "connectionTitle": "Conexión"
   },
   "modelsPage": {
     "title": "Modelos",
@@ -438,7 +439,8 @@
     "confirmMerge": {
       "title": "¿Mergear en {base}?",
       "body": "Los commits de <code>{branch}</code> se van a integrar en <code>{base}</code>. Esto no se puede deshacer desde TAIA.",
-      "action": "Mergear en {base}"
+      "action": "Mergear en {base}",
+      "blind": "Mergear en {base} sin ver los cambios"
     },
     "confirmDiscard": {
       "title": "¿Descartar el worktree?",
@@ -450,7 +452,7 @@
       "review": "No se pudo pasar a revisión.",
       "merge": "El merge falló. Revisá conflictos en la rama y probá de nuevo.",
       "abort": "No se pudo descartar el worktree.",
-      "diff": "No se pudieron cargar los cambios. Podés mergear igual, pero sin ver qué entra.",
+      "diff": "No se pudieron cargar los cambios.",
       "network": "No hay conexión con TAIA. Probá de nuevo."
     },
     "status": {
@@ -461,7 +463,8 @@
       "merged": "mergeado",
       "failed": "falló",
       "cleanup": "limpiando"
-    }
+    },
+    "retryDiff": "Reintentar"
   },
   "boardHeader": {
     "title": "Tablero",
@@ -572,14 +575,14 @@
   },
   "squad": {
     "add": "Sumar agente",
-    "intro": "Los agentes y las personas toman tareas del mismo tablero. Abrí una fila para ver su horario, sus corridas y su contexto.",
+    "intro": "Acá están los agentes y las personas del equipo: los dos toman tareas del mismo tablero. Sumá a cada uno en su sección y abrí una fila para ver qué puede hacer.",
     "agentsSection": "Agentes",
     "peopleSection": "Personas",
     "working": "{count, plural, =0 {nadie con tareas en curso} one {# con tareas en curso} other {# con tareas en curso}}",
     "noAgents": "Todavía no hay agentes",
     "noAgentsHint": "Sumá un agente para que pueda tomar tareas del tablero o por MCP.",
     "noPeople": "Todavía no hay personas en el equipo",
-    "noPeopleHint": "Sumalas desde Configuración → Equipo para asignarles tareas.",
+    "noPeopleHint": "Sumá una persona para asignarle tareas, igual que a un agente.",
     "loadFailed": "No se pudo cargar el equipo.",
     "deleteFailed": "No se pudo eliminar. Probá de nuevo.",
     "cancel": "Cancelar",
@@ -643,6 +646,19 @@
       "cronDeleteFailed": "No se pudo quitar el horario.",
       "cronCreated": "Horario creado.",
       "cronCreateFailed": "No se pudo crear el horario."
+    },
+    "addPerson": "Sumar persona",
+    "scheduleSection": "Horario",
+    "contextSection": "Contexto",
+    "noSchedule": "sin horario",
+    "pausedShort": "en pausa",
+    "cronPlaceholder": "ej: 0 */6 * * *",
+    "ctx": {
+      "persona": "persona",
+      "instructions": "instrucciones",
+      "notes": "notas",
+      "memory": "{count, plural, one {# archivo de memoria} other {# archivos de memoria}}",
+      "none": "sin contexto cargado"
     }
   },
   "taskPage": {
@@ -1077,14 +1093,12 @@
     "addTitle": "Sumar agente",
     "editTitle": "Editar a {name}",
     "id": "ID",
-    "idHint": "Minúsculas, números y guiones. Es como lo nombran el MCP y la API, y no se puede cambiar después.",
-    "idPlaceholder": "revisor-prs",
-    "avatar": "Avatar",
-    "avatarHint": "Un emoji o una letra.",
+    "idHint": "Sale del nombre y lo podés cambiar. Minúsculas, números y guiones; es como lo nombran el MCP y la API, y después no se cambia.",
+    "idPlaceholder": "ej: revisor-prs",
     "name": "Nombre",
-    "namePlaceholder": "Revisor de PRs",
+    "namePlaceholder": "ej: Revisor de PRs",
     "role": "Rol (opcional)",
-    "rolePlaceholder": "Revisa PRs y corre los tests",
+    "rolePlaceholder": "ej: revisa PRs y corre los tests",
     "type": "Tipo",
     "types": {
       "cron": "Con horario: corre solo según un cron",
@@ -1099,7 +1113,21 @@
     "createFailed": "No se pudo crear el agente. Revisá los datos y probá de nuevo.",
     "createFailedWith": "No se pudo crear el agente: {error}",
     "saveFailed": "No se pudieron guardar los cambios. Probá de nuevo.",
-    "saveFailedWith": "No se pudieron guardar los cambios: {error}"
+    "saveFailedWith": "No se pudieron guardar los cambios: {error}",
+    "addPersonTitle": "Sumar persona",
+    "createPerson": "Sumar persona",
+    "personNamePlaceholder": "ej: Lucía",
+    "personRolePlaceholder": "ej: revisa el diseño",
+    "personIdPlaceholder": "ej: lucia",
+    "personIdHint": "Sale del nombre y lo podés cambiar. Minúsculas, números y guiones; es como la nombran el MCP y la API, y después no se cambia.",
+    "createPersonFailed": "No se pudo sumar a la persona. Revisá los datos y probá de nuevo.",
+    "createPersonFailedWith": "No se pudo sumar a la persona: {error}",
+    "errors": {
+      "nameRequired": "Escribí un nombre.",
+      "idRequired": "Escribí un ID.",
+      "idInvalid": "Usá solo minúsculas, números, guiones y guiones bajos, hasta 50.",
+      "idTaken": "Ya hay alguien con el ID «{id}». Elegí otro."
+    }
   },
   "agentContext": {
     "tabs": "Contexto del agente",
@@ -1284,5 +1312,11 @@
     "groupWork": "Trabajo",
     "groupPeople": "Personas y contexto",
     "groupSystem": "Sistema"
+  },
+  "priority": {
+    "LOW": "baja",
+    "MEDIUM": "media",
+    "HIGH": "alta",
+    "URGENT": "urgente"
   }
 }

@@ -3,10 +3,10 @@
 import { useTranslations } from 'next-intl'
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { Button, Input, Checkbox } from '@/components/atoms'
+import { Button, Input, Checkbox, Strip } from '@/components/atoms'
 import { PageHeader } from '@/components/molecules/page-header'
 import { fetchJson } from '@/lib/use-resource'
-import { SectionCard } from '@/components/molecules/section-card'
+import { RackSection } from '@/components/molecules/rack-section'
 
 export default function WorktreeSettingsPage() {
   const tp = useTranslations('pageTitles')
@@ -97,7 +97,13 @@ export default function WorktreeSettingsPage() {
   if (loading) {
     return (
       <div className="min-h-full bg-background">
-        <div className="px-4 md:px-6 pt-5 pb-10 max-w-2xl mx-auto">
+        <PageHeader
+          width="form"
+          title={tp('worktrees')}
+          backHref="/settings"
+          backLabel={tp('settings')}
+        />
+        <div className="mx-auto px-4 md:px-6 max-w-2xl pt-5 pb-10">
           <span className="text-muted text-sm" role="status">
             {tc('loadingPage')}
           </span>
@@ -115,86 +121,90 @@ export default function WorktreeSettingsPage() {
         backLabel={tp('settings')}
       />
 
-      <div className="px-4 md:px-6 pt-5 pb-10 max-w-2xl mx-auto space-y-8">
+      <div className="mx-auto px-4 md:px-6 max-w-2xl pt-5 pb-10 space-y-4">
         {/* Paths Section */}
-        <SectionCard className="rounded-md" title={t('pathsTitle')} description={t('pathsDesc')}>
-          <div>
-            <label htmlFor="worktree-base-path" className="text-xs text-muted block mb-1">
-              {t('basePathLabel')}
-            </label>
-            <Input
-              id="worktree-base-path"
-              value={basePath}
-              onChange={(e) => setBasePath(e.target.value)}
-              placeholder="/tmp/taia-worktrees"
-            />
-            <p className="text-xs text-muted mt-1">{t('basePathHelp')}</p>
-          </div>
+        <RackSection id="settings-paths" title={t('pathsTitle')}>
+          <Strip className="p-4 space-y-4">
+            <p className="text-sm text-muted">{t('pathsDesc')}</p>
+            <div>
+              <label htmlFor="worktree-base-path" className="text-xs text-muted block mb-1">
+                {t('basePathLabel')}
+              </label>
+              <Input
+                id="worktree-base-path"
+                value={basePath}
+                onChange={(e) => setBasePath(e.target.value)}
+                placeholder="/tmp/taia-worktrees"
+              />
+              <p className="text-xs text-muted mt-1">{t('basePathHelp')}</p>
+            </div>
 
-          <div>
-            <label htmlFor="worktree-repo-path" className="text-xs text-muted block mb-1">
-              {t('repoPathLabel')}
-            </label>
-            <Input
-              id="worktree-repo-path"
-              value={repoClonePath}
-              onChange={(e) => setRepoClonePath(e.target.value)}
-              placeholder="/tmp/taia-repos"
-            />
-            <p className="text-xs text-muted mt-1">{t('repoPathHelp')}</p>
-          </div>
-        </SectionCard>
+            <div>
+              <label htmlFor="worktree-repo-path" className="text-xs text-muted block mb-1">
+                {t('repoPathLabel')}
+              </label>
+              <Input
+                id="worktree-repo-path"
+                value={repoClonePath}
+                onChange={(e) => setRepoClonePath(e.target.value)}
+                placeholder="/tmp/taia-repos"
+              />
+              <p className="text-xs text-muted mt-1">{t('repoPathHelp')}</p>
+            </div>
+          </Strip>
+        </RackSection>
 
         {/* Cleanup Section */}
-        <SectionCard
-          className="rounded-md"
-          title={t('cleanupTitle')}
-          description={t('cleanupDesc')}
-        >
-          <div>
-            <label htmlFor="worktree-cleanup-hours" className="text-xs text-muted block mb-1">
-              {t('cleanupHoursLabel')}
-            </label>
-            <Input
-              id="worktree-cleanup-hours"
-              type="number"
-              value={cleanupHours}
-              onChange={(e) => setCleanupHours(e.target.value)}
-              placeholder="72"
-            />
-            <p className="text-xs text-muted mt-1">{t('cleanupHoursHelp')}</p>
-          </div>
+        <RackSection id="settings-cleanup" title={t('cleanupTitle')}>
+          <Strip className="p-4 space-y-4">
+            <p className="text-sm text-muted">{t('cleanupDesc')}</p>
+            <div>
+              <label htmlFor="worktree-cleanup-hours" className="text-xs text-muted block mb-1">
+                {t('cleanupHoursLabel')}
+              </label>
+              <Input
+                id="worktree-cleanup-hours"
+                type="number"
+                value={cleanupHours}
+                onChange={(e) => setCleanupHours(e.target.value)}
+                placeholder="72"
+              />
+              <p className="text-xs text-muted mt-1">{t('cleanupHoursHelp')}</p>
+            </div>
 
-          <Checkbox
-            checked={autoCleanup}
-            onChange={(e) => setAutoCleanup(e.target.checked)}
-            label={t('autoCleanupLabel')}
-            description={t('autoCleanupHelp')}
-          />
-        </SectionCard>
+            <Checkbox
+              checked={autoCleanup}
+              onChange={(e) => setAutoCleanup(e.target.checked)}
+              label={t('autoCleanupLabel')}
+              description={t('autoCleanupHelp')}
+            />
+          </Strip>
+        </RackSection>
 
         {/* Automation Section */}
-        <SectionCard className="rounded-md" title={t('automationTitle')}>
-          <div>
-            <label htmlFor="worktree-setup-command" className="text-xs text-muted block mb-1">
-              {t('setupCommandLabel')}
-            </label>
-            <Input
-              id="worktree-setup-command"
-              value={setupCommand}
-              onChange={(e) => setSetupCommand(e.target.value)}
-              placeholder="npm install"
-            />
-            <p className="text-xs text-muted mt-1">{t('setupCommandHelp')}</p>
-          </div>
+        <RackSection id="settings-automation" title={t('automationTitle')}>
+          <Strip className="p-4 space-y-4">
+            <div>
+              <label htmlFor="worktree-setup-command" className="text-xs text-muted block mb-1">
+                {t('setupCommandLabel')}
+              </label>
+              <Input
+                id="worktree-setup-command"
+                value={setupCommand}
+                onChange={(e) => setSetupCommand(e.target.value)}
+                placeholder="npm install"
+              />
+              <p className="text-xs text-muted mt-1">{t('setupCommandHelp')}</p>
+            </div>
 
-          <Checkbox
-            checked={autoCreateOnAssign}
-            onChange={(e) => setAutoCreateOnAssign(e.target.checked)}
-            label={t('autoCreateLabel')}
-            description={t('autoCreateHelp')}
-          />
-        </SectionCard>
+            <Checkbox
+              checked={autoCreateOnAssign}
+              onChange={(e) => setAutoCreateOnAssign(e.target.checked)}
+              label={t('autoCreateLabel')}
+              description={t('autoCreateHelp')}
+            />
+          </Strip>
+        </RackSection>
 
         {/* Save Button */}
         <div className="flex items-center justify-end gap-3 pt-4 border-t border-border">

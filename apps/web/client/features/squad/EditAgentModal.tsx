@@ -1,9 +1,10 @@
 'use client'
 
-import { useId, useState } from 'react'
+import { useId, useRef, useState } from 'react'
 import { useTranslations } from 'next-intl'
-import { Alert, Button, Input, Label, Select } from '@/components/atoms'
+import { Alert, Button, Input, Select } from '@/components/atoms'
 import { Modal, ModalHeader, ModalBody, ModalFooter } from '@/components/molecules/modal'
+import { FormField } from './fields'
 import type { SquadMember } from './types'
 
 const AGENT_TYPES = ['cron', 'api', 'human', 'orchestrator'] as const
@@ -20,33 +21,41 @@ export function EditAgentModal({
   const t = useTranslations('agentForm')
   const tc = useTranslations('common')
   const fieldId = useId()
+  const nameRef = useRef<HTMLInputElement>(null)
+  const isPerson = agent.type === 'human'
   const [name, setName] = useState(agent.name)
-  const [role, setRole] = useState(agent.role || '')
-  const [avatar, setAvatar] = useState(agent.avatar || '🤖')
+  // People saved before roles were optional carry the agent fallback "Agent".
+  const [role, setRole] = useState(isPerson && agent.role === 'Agent' ? '' : agent.role || '')
   const [type, setType] = useState(agent.type)
-  const [error, setError] = useState('')
+  const [nameError, setNameError] = useState('')
+  const [formError, setFormError] = useState('')
   const [busy, setBusy] = useState(false)
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    setError('')
+    setFormError('')
+    if (!name.trim()) {
+      setNameError(t('errors.nameRequired'))
+      nameRef.current?.focus()
+      return
+    }
     setBusy(true)
 
     try {
       const res = await fetch(`/api/agents/${agent.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, role, avatar, type }),
+        body: JSON.stringify({ name: name.trim(), role, type }),
       })
 
       if (res.ok) {
         onSave()
       } else {
         const data = (await res.json().catch(() => ({}))) as { error?: string }
-        setError(data.error ? t('saveFailedWith', { error: data.error }) : t('saveFailed'))
+        setFormError(data.error ? t('saveFailedWith', { error: data.error }) : t('saveFailed'))
       }
     } catch {
-      setError(t('saveFailed'))
+      setFormError(t('saveFailed'))
     } finally {
       setBusy(false)
     }
@@ -58,47 +67,52 @@ export function EditAgentModal({
         <h2 id={`${fieldId}-title`} className="text-lg font-semibold">
           {t('editTitle', { name: agent.name })}
         </h2>
-        <code className="text-xs text-muted">{agent.id}</code>
+        <code className="font-mono text-xs text-muted">{agent.id}</code>
       </ModalHeader>
 
-      <form onSubmit={handleSubmit}>
+      <form onSubmit={handleSubmit} noValidate>
         <ModalBody className="space-y-4">
-          {error && <Alert variant="error">{error}</Alert>}
+          {formError && <Alert variant="error">{formError}</Alert>}
 
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <Label htmlFor={`${fieldId}-name`}>{t('name')}</Label>
+          <FormField id={`${fieldId}-name`} label={t('name')} error={nameError}>
+            {(control) => (
               <Input
-                id={`${fieldId}-name`}
+                {...control}
+                ref={nameRef}
                 value={name}
-                onChange={(e) => setName(e.target.value)}
+                onChange={(e) => {
+                  setName(e.target.value)
+                  setNameError('')
+                }}
+                placeholder={isPerson ? t('personNamePlaceholder') : t('namePlaceholder')}
+                autoComplete="off"
               />
-            </div>
-            <div>
-              <Label htmlFor={`${fieldId}-avatar`}>{t('avatar')}</Label>
+            )}
+          </FormField>
+
+          <FormField id={`${fieldId}-role`} label={t('role')}>
+            {(control) => (
               <Input
-                id={`${fieldId}-avatar`}
-                value={avatar}
-                onChange={(e) => setAvatar(e.target.value)}
+                {...control}
+                value={role}
+                onChange={(e) => setRole(e.target.value)}
+                placeholder={isPerson ? t('personRolePlaceholder') : t('rolePlaceholder')}
+                autoComplete="off"
               />
-            </div>
-          </div>
+            )}
+          </FormField>
 
-          <div>
-            <Label htmlFor={`${fieldId}-role`}>{t('role')}</Label>
-            <Input id={`${fieldId}-role`} value={role} onChange={(e) => setRole(e.target.value)} />
-          </div>
-
-          <div>
-            <Label htmlFor={`${fieldId}-type`}>{t('type')}</Label>
-            <Select id={`${fieldId}-type`} value={type} onChange={(e) => setType(e.target.value)}>
-              {AGENT_TYPES.map((value) => (
-                <option key={value} value={value}>
-                  {t(`types.${value}`)}
-                </option>
-              ))}
-            </Select>
-          </div>
+          <FormField id={`${fieldId}-type`} label={t('type')}>
+            {({ id: selectId }) => (
+              <Select id={selectId} value={type} onChange={(e) => setType(e.target.value)}>
+                {AGENT_TYPES.map((value) => (
+                  <option key={value} value={value}>
+                    {t(`types.${value}`)}
+                  </option>
+                ))}
+              </Select>
+            )}
+          </FormField>
         </ModalBody>
 
         <ModalFooter>

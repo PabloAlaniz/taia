@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useId, useState } from 'react'
 import Link from 'next/link'
 import { useFormatter, useNow, useTranslations } from 'next-intl'
 import { ChevronDown, ChevronRight, Pause, Pencil, Play, Power, Trash2 } from 'lucide-react'
@@ -34,7 +34,9 @@ export function SquadAgentCard({
     member.cron?.scheduleRaw || member.cron?.schedule || '',
   )
   const [newCronSchedule, setNewCronSchedule] = useState('0 */6 * * *')
-  const [historyExpanded, setHistoryExpanded] = useState(false)
+  const panelId = useId()
+  const [scheduleOpen, setScheduleOpen] = useState(false)
+  const [contextOpen, setContextOpen] = useState(false)
   const [cronHistory, setCronHistory] = useState<
     Array<{ runId?: string; status?: string; startedAt?: string; durationMs?: number }>
   >([])
@@ -156,10 +158,6 @@ export function SquadAgentCard({
   }
 
   const loadHistory = async () => {
-    if (historyExpanded) {
-      setHistoryExpanded(false)
-      return
-    }
     setHistoryLoading(true)
     try {
       const res = await fetch(`/api/agents/${member.id}/cron/history`)
@@ -171,8 +169,14 @@ export function SquadAgentCard({
       setCronHistory([])
     } finally {
       setHistoryLoading(false)
-      setHistoryExpanded(true)
     }
+  }
+
+  // Opening the schedule loads its runs; they are part of the same answer.
+  const toggleSchedule = () => {
+    const next = !scheduleOpen
+    setScheduleOpen(next)
+    if (next && member.cron) void loadHistory()
   }
 
   const totalTasks = member.tasks.assigned + member.tasks.inProgress + member.tasks.review
@@ -186,6 +190,17 @@ export function SquadAgentCard({
         : 'text-muted'
   const rel = (iso: string) => format.relativeTime(new Date(iso), now)
 
+  const ctx = member.context
+  const contextParts = ctx
+    ? [
+        ctx.persona && t('ctx.persona'),
+        ctx.instructions && t('ctx.instructions'),
+        ctx.workingNotes && t('ctx.notes'),
+        ctx.memoryFiles.length > 0 && t('ctx.memory', { count: ctx.memoryFiles.length }),
+      ].filter((part): part is string => Boolean(part))
+    : []
+  const contextSummary = contextParts.length > 0 ? contextParts.join(' · ') : t('ctx.none')
+
   return (
     <Strip kind={isPerson ? 'person' : 'agent'} quiet={!member.enabled} className="p-0">
       {/* eslint-disable-next-line no-restricted-syntax -- the strip itself is the disclosure control */}
@@ -193,6 +208,7 @@ export function SquadAgentCard({
         type="button"
         onClick={() => setExpanded(!expanded)}
         aria-expanded={expanded}
+        aria-controls={expanded ? panelId : undefined}
         className="w-full grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 pl-4 pr-3 py-2.5 text-left focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent rounded-[2px]"
       >
         <div className="min-w-0">
@@ -251,7 +267,7 @@ export function SquadAgentCard({
       </button>
 
       {expanded && (
-        <div className="border-t border-border/70 pl-4 pr-3 py-4 space-y-4">
+        <div id={panelId} className="border-t border-border/70 pl-4 pr-3 py-3 space-y-3">
           {message && (
             <Alert variant={message.type === 'success' ? 'success' : 'error'}>{message.text}</Alert>
           )}
@@ -316,13 +332,9 @@ export function SquadAgentCard({
               {t('viewTasks', { count: totalTasks })}
             </Link>
             <span className="flex-1" />
-            {member.cron && (
-              <Button variant="ghost" size="sm" onClick={() => setConfirmCronDelete(true)}>
-                {t('deleteCron')}
-              </Button>
-            )}
+            {/* Ghost at rest: red only inside the confirmation. */}
             <Button
-              variant="danger"
+              variant="ghost"
               size="sm"
               onClick={() => onDelete(member.id)}
               className="flex items-center gap-1.5"
@@ -332,163 +344,184 @@ export function SquadAgentCard({
             </Button>
           </div>
 
-          {!isPerson && (
-            <div className="grid gap-1.5 max-w-md">
-              <label htmlFor={`cron-${member.id}`} className="text-sm font-medium">
-                {member.cron ? t('scheduleLabel') : t('createSchedule')}
-              </label>
-              <div className="flex gap-2">
-                <Input
-                  id={`cron-${member.id}`}
-                  type="text"
-                  variant="mono"
-                  value={member.cron ? cronSchedule : newCronSchedule}
-                  onChange={(e) =>
-                    member.cron
-                      ? setCronSchedule(e.target.value)
-                      : setNewCronSchedule(e.target.value)
-                  }
-                  placeholder="0 */6 * * *"
-                  className="w-52"
-                />
-                {member.cron ? (
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    onClick={updateSchedule}
-                    disabled={cronSchedule === (member.cron.scheduleRaw || member.cron.schedule)}
-                  >
-                    {t('save')}
-                  </Button>
-                ) : (
-                  <Button variant="primary" size="sm" onClick={createCron}>
-                    {t('create')}
-                  </Button>
-                )}
-              </div>
-              <p className="text-xs text-muted">{t('cronHelp')}</p>
+          {member.toolsDenied && member.toolsDenied.length > 0 && (
+            <div className="flex flex-wrap items-baseline gap-1.5 text-mid">
+              <span className="text-muted">{t('deniedTools')}</span>
+              {member.toolsDenied.map((tool) => (
+                <code
+                  key={tool}
+                  className="font-mono text-xs px-1.5 py-0.5 rounded-sm text-foreground ring-1 ring-inset ring-border"
+                >
+                  {tool}
+                </code>
+              ))}
             </div>
           )}
 
-          {member.cron && (
-            <div>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={loadHistory}
-                aria-expanded={historyExpanded}
-                className="flex items-center gap-1"
+          {!isPerson && (
+            <div className="border-t border-border/70 pt-1">
+              <Disclosure
+                id={`${panelId}-schedule`}
+                open={scheduleOpen}
+                onToggle={toggleSchedule}
+                label={t('scheduleSection')}
+                summary={
+                  member.cron ? (
+                    <>
+                      <code className="font-mono text-xs">{member.cron.schedule}</code>
+                      {!member.cron.enabled && <> · {t('pausedShort')}</>}
+                    </>
+                  ) : (
+                    t('noSchedule')
+                  )
+                }
               >
-                {historyExpanded ? (
-                  <ChevronDown size={14} aria-hidden="true" />
-                ) : (
-                  <ChevronRight size={14} aria-hidden="true" />
-                )}
-                {t('runHistory')}
-                {historyLoading && <span className="text-muted">…</span>}
-              </Button>
-              {historyExpanded && cronHistory.length > 0 && (
-                <ol className="mt-2 max-h-48 overflow-y-auto divide-y divide-border/60 text-sm">
-                  {cronHistory.map((run, i) => (
-                    <li
-                      key={run.runId || i}
-                      className="flex justify-between gap-4 py-1.5 tabular-nums"
-                    >
-                      <span
-                        className={
-                          run.status === 'ok'
-                            ? 'text-ok'
-                            : run.status === 'error'
-                              ? 'text-alert'
-                              : 'text-muted'
+                <div className="grid gap-1.5 max-w-md">
+                  <label htmlFor={`cron-${member.id}`} className="text-sm font-medium">
+                    {member.cron ? t('scheduleLabel') : t('createSchedule')}
+                  </label>
+                  <div className="flex gap-2">
+                    <Input
+                      id={`cron-${member.id}`}
+                      type="text"
+                      variant="mono"
+                      value={member.cron ? cronSchedule : newCronSchedule}
+                      onChange={(e) =>
+                        member.cron
+                          ? setCronSchedule(e.target.value)
+                          : setNewCronSchedule(e.target.value)
+                      }
+                      placeholder={t('cronPlaceholder')}
+                      aria-describedby={`cron-${member.id}-help`}
+                      className="w-52"
+                    />
+                    {member.cron ? (
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        onClick={updateSchedule}
+                        disabled={
+                          cronSchedule === (member.cron.scheduleRaw || member.cron.schedule)
                         }
                       >
-                        {run.status
-                          ? t(
-                              `runStatus.${run.status === 'ok' || run.status === 'error' ? run.status : 'other'}`,
-                            )
-                          : '—'}
-                      </span>
-                      <span className="text-muted">
-                        {run.startedAt ? rel(run.startedAt) : ''}
-                        {run.durationMs ? ` · ${(run.durationMs / 1000).toFixed(1)} s` : ''}
-                      </span>
-                    </li>
-                  ))}
-                </ol>
-              )}
-              {historyExpanded && cronHistory.length === 0 && !historyLoading && (
-                <p className="text-sm text-muted mt-1">{t('noRuns')}</p>
-              )}
-            </div>
-          )}
-
-          {member.toolsDenied && member.toolsDenied.length > 0 && (
-            <div>
-              <p className="text-sm font-medium">{t('deniedTools')}</p>
-              <div className="flex flex-wrap gap-1 mt-1">
-                {member.toolsDenied.map((tool) => (
-                  <code
-                    key={tool}
-                    className="text-xs px-1.5 py-0.5 rounded-sm bg-alert/10 text-alert font-mono"
-                  >
-                    {tool}
-                  </code>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {!isPerson && (
-            <AgentContextEditor
-              key={editorKey}
-              agentId={member.id}
-              onSaved={() => setVersionsKey((k) => k + 1)}
-              extraTabs={[
-                {
-                  key: 'identity',
-                  label: tc('identityTab'),
-                  content: (
-                    <IdentityEditor
-                      agentId={member.id}
-                      onSaved={() => setVersionsKey((k) => k + 1)}
-                    />
-                  ),
-                },
-              ]}
-            />
-          )}
-
-          {!isPerson && (
-            <div className="border-t border-border/70 pt-3">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setVersionsOpen((open) => !open)}
-                aria-expanded={versionsOpen}
-                aria-controls={`versions-${member.id}`}
-                className="flex items-center gap-1"
-              >
-                {versionsOpen ? (
-                  <ChevronDown size={14} aria-hidden="true" />
-                ) : (
-                  <ChevronRight size={14} aria-hidden="true" />
-                )}
-                {tc('openHistory')}
-              </Button>
-              {versionsOpen && (
-                <div id={`versions-${member.id}`}>
-                  <IdentityHistory
-                    key={versionsKey}
-                    agentId={member.id}
-                    onRestored={() => {
-                      setMessage({ type: 'success', text: tc('history.restored') })
-                      setTimeout(() => setMessage(null), 3000)
-                      setEditorKey((k) => k + 1)
-                    }}
-                  />
+                        {t('save')}
+                      </Button>
+                    ) : (
+                      <Button variant="primary" size="sm" onClick={createCron}>
+                        {t('create')}
+                      </Button>
+                    )}
+                  </div>
+                  <p id={`cron-${member.id}-help`} className="text-xs text-muted">
+                    {t('cronHelp')}
+                  </p>
                 </div>
-              )}
+
+                {member.cron && (
+                  <div>
+                    <h3 className="text-sm font-medium">
+                      {t('runHistory')}
+                      {historyLoading && <span className="text-muted"> …</span>}
+                    </h3>
+                    {cronHistory.length > 0 && (
+                      <ol className="mt-1 max-h-48 overflow-y-auto divide-y divide-border/60 text-sm">
+                        {cronHistory.map((run, i) => (
+                          <li
+                            key={run.runId || i}
+                            className="flex justify-between gap-4 py-1.5 tabular-nums"
+                          >
+                            <span
+                              className={
+                                run.status === 'ok'
+                                  ? 'text-ok'
+                                  : run.status === 'error'
+                                    ? 'text-alert'
+                                    : 'text-muted'
+                              }
+                            >
+                              {run.status
+                                ? t(
+                                    `runStatus.${run.status === 'ok' || run.status === 'error' ? run.status : 'other'}`,
+                                  )
+                                : '—'}
+                            </span>
+                            <span className="text-muted">
+                              {run.startedAt ? rel(run.startedAt) : ''}
+                              {run.durationMs ? ` · ${(run.durationMs / 1000).toFixed(1)} s` : ''}
+                            </span>
+                          </li>
+                        ))}
+                      </ol>
+                    )}
+                    {cronHistory.length === 0 && !historyLoading && (
+                      <p className="text-sm text-muted mt-1">{t('noRuns')}</p>
+                    )}
+                  </div>
+                )}
+
+                {member.cron && (
+                  <Button variant="ghost" size="sm" onClick={() => setConfirmCronDelete(true)}>
+                    {t('deleteCron')}
+                  </Button>
+                )}
+              </Disclosure>
+
+              <Disclosure
+                id={`${panelId}-context`}
+                open={contextOpen}
+                onToggle={() => setContextOpen((open) => !open)}
+                label={t('contextSection')}
+                summary={contextSummary}
+              >
+                <AgentContextEditor
+                  key={editorKey}
+                  agentId={member.id}
+                  onSaved={() => setVersionsKey((k) => k + 1)}
+                  extraTabs={[
+                    {
+                      key: 'identity',
+                      label: tc('identityTab'),
+                      content: (
+                        <IdentityEditor
+                          agentId={member.id}
+                          onSaved={() => setVersionsKey((k) => k + 1)}
+                        />
+                      ),
+                    },
+                  ]}
+                />
+
+                <div>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setVersionsOpen((open) => !open)}
+                    aria-expanded={versionsOpen}
+                    aria-controls={`versions-${member.id}`}
+                    className="flex items-center gap-1"
+                  >
+                    {versionsOpen ? (
+                      <ChevronDown size={14} aria-hidden="true" />
+                    ) : (
+                      <ChevronRight size={14} aria-hidden="true" />
+                    )}
+                    {tc('openHistory')}
+                  </Button>
+                  {versionsOpen && (
+                    <div id={`versions-${member.id}`}>
+                      <IdentityHistory
+                        key={versionsKey}
+                        agentId={member.id}
+                        onRestored={() => {
+                          setMessage({ type: 'success', text: tc('history.restored') })
+                          setTimeout(() => setMessage(null), 3000)
+                          setEditorKey((k) => k + 1)
+                        }}
+                      />
+                    </div>
+                  )}
+                </div>
+              </Disclosure>
             </div>
           )}
         </div>
@@ -518,10 +551,11 @@ function StateChip({
   return (
     <span
       className={cn(
-        'text-xxs font-bold uppercase tracking-[0.1em] px-1.5 rounded-[2px]',
-        tone === 'ok' && 'bg-ok/15 text-ok',
-        tone === 'muted' && 'bg-border/60 text-muted',
-        tone === 'alert' && 'bg-alert/15 text-alert',
+        // State badges are rings, not fills: they read on strip and card alike.
+        'text-xxs font-bold uppercase tracking-[0.1em] px-1.5 rounded-[2px] ring-1 ring-inset',
+        tone === 'ok' && 'text-ok ring-ok/60',
+        tone === 'muted' && 'text-muted ring-border',
+        tone === 'alert' && 'text-alert ring-alert/60',
       )}
     >
       {children}
@@ -546,5 +580,51 @@ function TaskCount({ n, label, strong }: { n: number; label: string; strong?: bo
       </span>
       <span className="text-xxs uppercase tracking-[0.08em] text-muted">{label}</span>
     </span>
+  )
+}
+
+/**
+ * A section of the expanded row, closed by default: a button that names the
+ * section and a one-line summary of what is inside, so the row stays short.
+ */
+function Disclosure({
+  id,
+  open,
+  onToggle,
+  label,
+  summary,
+  children,
+}: {
+  id: string
+  open: boolean
+  onToggle: () => void
+  label: string
+  summary: React.ReactNode
+  children: React.ReactNode
+}) {
+  return (
+    <div className="border-b border-border/70 last:border-b-0">
+      <Button
+        variant="ghost"
+        size="sm"
+        onClick={onToggle}
+        aria-expanded={open}
+        aria-controls={id}
+        className="w-full flex items-baseline gap-2 px-1 py-2 text-left"
+      >
+        {open ? (
+          <ChevronDown size={14} className="self-center shrink-0" aria-hidden="true" />
+        ) : (
+          <ChevronRight size={14} className="self-center shrink-0" aria-hidden="true" />
+        )}
+        <span className="text-sm font-semibold">{label}</span>
+        <span className="text-mid font-normal text-muted truncate min-w-0">{summary}</span>
+      </Button>
+      {open && (
+        <div id={id} className="pl-6 pr-1 pt-1 pb-4 space-y-4">
+          {children}
+        </div>
+      )}
+    </div>
   )
 }

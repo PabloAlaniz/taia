@@ -90,7 +90,7 @@ export default function ProjectsPage() {
         </Button>
       </PageHeader>
 
-      <div className="px-4 md:px-6 pt-4 pb-10 max-w-4xl mx-auto space-y-4">
+      <div className="mx-auto px-4 md:px-6 max-w-4xl pt-4 pb-10 space-y-4">
         <p className="text-sm text-muted max-w-prose">{t('intro')}</p>
 
         {showForm && (
@@ -181,7 +181,7 @@ function ProjectRow({ project, summary }: { project: Project; summary?: ProjectS
                 <span className="text-muted">{t('doneTasks', { count: done })}</span>
               </div>
               <div
-                className="mt-1 h-1 rounded-full bg-border overflow-hidden"
+                className="mt-1 h-1 rounded-[2px] bg-border overflow-hidden"
                 role="img"
                 aria-label={t('progressAria', { done, total })}
               >
@@ -199,7 +199,7 @@ function ProjectRow({ project, summary }: { project: Project; summary?: ProjectS
               {t('workspaces', { count: summary.workspaces })}
             </span>
           )}
-          <span className="text-foreground/80">
+          <span className="text-foreground">
             {summary?.cost_usd ? formatUsd(locale, summary.cost_usd) : '—'}
           </span>
           {summary?.last_activity && (

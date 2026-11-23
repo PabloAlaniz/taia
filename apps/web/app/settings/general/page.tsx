@@ -3,10 +3,10 @@
 import { useTranslations } from 'next-intl'
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { Button, Input } from '@/components/atoms'
+import { Button, Input, Strip } from '@/components/atoms'
 import { PageHeader } from '@/components/molecules/page-header'
 import { fetchJson } from '@/lib/use-resource'
-import { SectionCard } from '@/components/molecules/section-card'
+import { RackSection } from '@/components/molecules/rack-section'
 
 export default function GeneralSettingsPage() {
   const tp = useTranslations('pageTitles')
@@ -65,7 +65,13 @@ export default function GeneralSettingsPage() {
   if (loading) {
     return (
       <div className="min-h-full bg-background">
-        <div className="px-4 md:px-6 pt-5 pb-10 max-w-2xl mx-auto">
+        <PageHeader
+          width="form"
+          title={tp('general')}
+          backHref="/settings"
+          backLabel={tp('settings')}
+        />
+        <div className="mx-auto px-4 md:px-6 max-w-2xl pt-5 pb-10">
           <span className="text-muted text-sm" role="status">
             {tc('loadingPage')}
           </span>
@@ -83,65 +89,62 @@ export default function GeneralSettingsPage() {
         backLabel={tp('settings')}
       />
 
-      <div className="px-4 md:px-6 pt-5 pb-10 max-w-2xl mx-auto space-y-8">
+      <div className="mx-auto px-4 md:px-6 max-w-2xl pt-5 pb-10 space-y-4">
         {/* WebSocket Section */}
-        <SectionCard
-          className="rounded-md"
-          title={t('websocketTitle')}
-          description={t('websocketDesc')}
-        >
-          <div>
-            <label htmlFor="settings-ws-url" className="text-xs text-muted block mb-1">
-              {t('wsUrlLabel')}
-            </label>
-            <Input
-              id="settings-ws-url"
-              value={wsUrl}
-              onChange={(e) => setWsUrl(e.target.value)}
-              placeholder="ws://localhost:13334"
-            />
-            <p className="text-xs text-muted mt-1">
-              {t('wsUrlHelp', { default: 'ws://localhost:13334' })}
-            </p>
-          </div>
-        </SectionCard>
+        <RackSection id="settings-websocket" title={t('websocketTitle')}>
+          <Strip className="p-4 space-y-4">
+            <p className="text-sm text-muted">{t('websocketDesc')}</p>
+            <div>
+              <label htmlFor="settings-ws-url" className="text-xs text-muted block mb-1">
+                {t('wsUrlLabel')}
+              </label>
+              <Input
+                id="settings-ws-url"
+                value={wsUrl}
+                onChange={(e) => setWsUrl(e.target.value)}
+                placeholder="ws://localhost:13334"
+              />
+              <p className="text-xs text-muted mt-1">
+                {t('wsUrlHelp', { default: 'ws://localhost:13334' })}
+              </p>
+            </div>
+          </Strip>
+        </RackSection>
 
         {/* Timezone Section */}
-        <SectionCard
-          className="rounded-md"
-          title={t('timezoneTitle')}
-          description={t('timezoneDesc')}
-        >
-          <div>
-            <label htmlFor="settings-default-tz" className="text-xs text-muted block mb-1">
-              {t('timezoneLabel')}
-            </label>
-            <Input
-              id="settings-default-tz"
-              value={defaultTz}
-              onChange={(e) => setDefaultTz(e.target.value)}
-              placeholder="UTC"
-            />
-            <p className="text-xs text-muted mt-1">{t('timezoneHelp')}</p>
-          </div>
-        </SectionCard>
+        <RackSection id="settings-timezone" title={t('timezoneTitle')}>
+          <Strip className="p-4 space-y-4">
+            <p className="text-sm text-muted">{t('timezoneDesc')}</p>
+            <div>
+              <label htmlFor="settings-default-tz" className="text-xs text-muted block mb-1">
+                {t('timezoneLabel')}
+              </label>
+              <Input
+                id="settings-default-tz"
+                value={defaultTz}
+                onChange={(e) => setDefaultTz(e.target.value)}
+                placeholder="UTC"
+              />
+              <p className="text-xs text-muted mt-1">{t('timezoneHelp')}</p>
+            </div>
+          </Strip>
+        </RackSection>
 
         {/* AI Planning Section */}
-        <SectionCard
-          className="rounded-md"
-          title={t('planningTitle')}
-          description={t('planningDesc')}
-        >
-          <p className="text-xs text-muted">
-            {t.rich('planningBody', {
-              link: (chunks) => (
-                <Link href="/settings/runtime" className="underline">
-                  {chunks}
-                </Link>
-              ),
-            })}
-          </p>
-        </SectionCard>
+        <RackSection id="settings-planning" title={t('planningTitle')}>
+          <Strip className="p-4 space-y-4">
+            <p className="text-sm text-muted">{t('planningDesc')}</p>
+            <p className="text-xs text-muted">
+              {t.rich('planningBody', {
+                link: (chunks) => (
+                  <Link href="/settings/runtime" className="underline">
+                    {chunks}
+                  </Link>
+                ),
+              })}
+            </p>
+          </Strip>
+        </RackSection>
 
         {/* Save Button */}
         <div className="flex items-center justify-end gap-3 pt-4 border-t border-border">

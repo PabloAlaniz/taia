@@ -2,12 +2,13 @@
 
 import { useTranslations } from 'next-intl'
 import { useState } from 'react'
-import { Bot, Plus } from 'lucide-react'
+import { Bot, Plus, Users } from 'lucide-react'
 import { Alert, Button } from '@/components/atoms'
 import { ConfirmDialog, EmptyState, RackSection, SkeletonCard } from '@/components/molecules'
 import { PageHeader } from '@/components/molecules/page-header'
 import { RuntimeNotice } from '@/components/organisms/runtime-notice'
 import { AddAgentModal } from '@/client/features/squad/AddAgentModal'
+import { AddPersonModal } from '@/client/features/squad/AddPersonModal'
 import { EditAgentModal } from '@/client/features/squad/EditAgentModal'
 import { SquadAgentCard } from '@/client/features/squad/SquadAgentCard'
 import type { SquadMember } from '@/client/features/squad/types'
@@ -34,6 +35,7 @@ export default function SquadPage() {
   const people = squad.filter((m) => m.type === 'human')
 
   const [showAdd, setShowAdd] = useState(false)
+  const [showAddPerson, setShowAddPerson] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [deletingId, setDeletingId] = useState<string | null>(null)
   const [deleteBusy, setDeleteBusy] = useState(false)
@@ -72,17 +74,8 @@ export default function SquadPage() {
 
   return (
     <div className="min-h-full">
-      <PageHeader width="medium" title={tp('agents')}>
-        <Button
-          variant="primary"
-          size="md"
-          onClick={() => setShowAdd(true)}
-          className="flex items-center gap-1.5"
-        >
-          <Plus size={15} aria-hidden="true" />
-          {t('add')}
-        </Button>
-      </PageHeader>
+      {/* Each rack carries its own add action, so agents and people are added alike. */}
+      <PageHeader width="medium" title={tp('agents')} />
 
       <div className="px-4 md:px-6 pt-4 pb-10 max-w-4xl mx-auto space-y-4">
         <p className="text-sm text-muted max-w-prose">{t('intro')}</p>
@@ -93,11 +86,14 @@ export default function SquadPage() {
           title={t('agentsSection')}
           count={loading ? undefined : agents.length}
           aside={
-            agents.length > 0 ? (
-              <span>
-                {t('working', { count: agents.filter((a) => a.tasks.inProgress > 0).length })}
-              </span>
-            ) : undefined
+            <>
+              {agents.length > 0 && (
+                <span>
+                  {t('working', { count: agents.filter((a) => a.tasks.inProgress > 0).length })}
+                </span>
+              )}
+              <RackAction onClick={() => setShowAdd(true)}>{t('add')}</RackAction>
+            </>
           }
         >
           {loading ? (
@@ -120,9 +116,23 @@ export default function SquadPage() {
         </RackSection>
 
         {!loading && (
-          <RackSection title={t('peopleSection')} count={people.length}>
+          <RackSection
+            title={t('peopleSection')}
+            count={people.length}
+            aside={<RackAction onClick={() => setShowAddPerson(true)}>{t('addPerson')}</RackAction>}
+          >
             {people.length === 0 ? (
-              <EmptyState onRack title={t('noPeople')} description={t('noPeopleHint')} />
+              <EmptyState
+                onRack
+                icon={<Users size={22} aria-hidden="true" />}
+                title={t('noPeople')}
+                description={t('noPeopleHint')}
+                action={
+                  <Button variant="secondary" size="md" onClick={() => setShowAddPerson(true)}>
+                    {t('addPerson')}
+                  </Button>
+                }
+              />
             ) : (
               rows(people)
             )}
@@ -132,10 +142,22 @@ export default function SquadPage() {
 
       {showAdd && (
         <AddAgentModal
+          takenIds={squad.map((m) => m.id)}
           onClose={() => setShowAdd(false)}
           onAdd={() => {
             reload()
             setShowAdd(false)
+          }}
+        />
+      )}
+
+      {showAddPerson && (
+        <AddPersonModal
+          takenIds={squad.map((m) => m.id)}
+          onClose={() => setShowAddPerson(false)}
+          onAdd={() => {
+            reload()
+            setShowAddPerson(false)
           }}
         />
       )}
@@ -166,5 +188,20 @@ export default function SquadPage() {
         onCancel={() => setDeletingId(null)}
       />
     </div>
+  )
+}
+
+/** The add action in a rack's header: outlined on graphite, white focus ring. */
+function RackAction({ onClick, children }: { onClick: () => void; children: React.ReactNode }) {
+  return (
+    <Button
+      variant="ghost"
+      size="sm"
+      onClick={onClick}
+      className="inline-flex items-center gap-1.5 border-rack-line text-on-rack hover:bg-rack-line hover:text-rack-heading focus-visible:ring-white focus-visible:ring-offset-rack"
+    >
+      <Plus size={14} aria-hidden="true" />
+      {children}
+    </Button>
   )
 }

@@ -2,7 +2,14 @@ import Link from 'next/link'
 import { ChevronLeft } from 'lucide-react'
 import { cn } from '../../lib/utils'
 
-/** Content widths, shared with the page body so the title lines up with it. */
+/**
+ * Content widths, shared with the page body so the title lines up with it.
+ * One rule per kind of page, so widths don't jump when you move between them:
+ * - `data`: boards and data pages (sessions, dashboard, audit, project detail).
+ * - `medium`: index lists of things (projects, squad, models).
+ * - `form`: settings forms and other single-column editors.
+ * The body uses the same box: `mx-auto px-4 md:px-6` plus `PAGE_WIDTHS[width]`.
+ */
 export const PAGE_WIDTHS = {
   data: 'max-w-6xl',
   medium: 'max-w-4xl',
