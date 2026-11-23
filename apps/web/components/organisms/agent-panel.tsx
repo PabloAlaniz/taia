@@ -82,14 +82,15 @@ export function AgentPanel({
 
   return (
     <>
-      {/* Desktop: always-visible sidebar */}
-      <aside className="hidden lg:block w-52 pl-6 pr-1 pt-1 pb-4 overflow-y-auto shrink-0">
+      {/* Wide screens: always-visible rail. Below ~1400px the five bays need
+          the width, so the rail opens as an overlay from the board header. */}
+      <aside className="hidden min-[1400px]:block w-52 pl-6 pr-1 pt-1 pb-4 overflow-y-auto shrink-0">
         {panelContent}
       </aside>
 
       {/* Mobile/Tablet: overlay panel */}
       {mobileOpen && (
-        <div className="lg:hidden fixed inset-0 z-40 flex">
+        <div className="min-[1400px]:hidden fixed inset-0 z-40 flex">
           <aside className="w-64 bg-background border-r border-border p-4 overflow-y-auto animate-[slideInLeft_200ms_ease-out]">
             {panelContent}
           </aside>

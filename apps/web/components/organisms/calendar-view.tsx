@@ -191,121 +191,137 @@ export function CalendarView({ tasks }: CalendarViewProps) {
           count={monthCount}
           className="w-full lg:flex-1 min-w-0"
         >
-          <div className="grid grid-cols-7 gap-1" aria-hidden="true">
-            {REFERENCE_WEEK.map((day) => (
-              <div
-                key={day.getDay()}
-                className="text-center text-xs font-medium text-on-rack-muted first-letter:uppercase"
-              >
-                {format.dateTime(day, { weekday: 'short' })}
-              </div>
-            ))}
-          </div>
-
-          {calendarWeeks.map((week, weekIndex) => (
-            <div key={weekIndex} className="grid grid-cols-7 gap-1">
-              {week.map((day, dayIndex) => {
-                if (day === null) {
-                  return (
-                    <div key={`empty-${weekIndex}-${dayIndex}`} className="min-h-12 md:min-h-24" />
-                  )
-                }
-
-                const dateKey = getDateKey(day)
-                const dayTasks = tasksByDate.get(dateKey) || []
-                const isSelected = selectedDay === dateKey
-                const todayCell = isToday(day)
-                const shown = dayTasks.slice(0, CHIPS_PER_DAY)
-                const hidden = dayTasks.length - shown.length
-
-                return (
-                  // eslint-disable-next-line no-restricted-syntax -- a day slot on the rack, not an action button
-                  <button
-                    key={day}
-                    type="button"
-                    onClick={() => setSelectedDay(isSelected ? null : dateKey)}
-                    aria-pressed={isSelected}
-                    aria-current={todayCell ? 'date' : undefined}
-                    aria-label={t('dayAria', {
-                      date: format.dateTime(new Date(year, month, day), {
-                        weekday: 'long',
-                        day: 'numeric',
-                        month: 'long',
-                      }),
-                      count: dayTasks.length,
-                    })}
-                    className={cn(
-                      'min-h-12 md:min-h-24 min-w-0 p-1 rounded-[3px] text-left flex flex-col gap-1 cursor-pointer',
-                      'bg-rack-deep text-on-rack transition-colors hover:bg-rack-line',
-                      'focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-white',
-                      todayCell && 'shadow-[inset_0_0_0_1px_var(--on-rack-muted)]',
-                      isSelected && 'bg-rack-line shadow-[inset_0_0_0_2px_var(--rack-heading)]',
-                    )}
+          {monthCount === 0 ? (
+            // Nothing due this month: one line, not a month of empty slots.
+            <Strip className="px-4 py-3">
+              <p className="text-sm font-semibold">{t('monthEmpty')}</p>
+              <p className="text-xs text-muted mt-0.5">{t('monthEmptyHint')}</p>
+            </Strip>
+          ) : (
+            <>
+              <div className="grid grid-cols-7 gap-1" aria-hidden="true">
+                {REFERENCE_WEEK.map((day) => (
+                  <div
+                    key={day.getDay()}
+                    className="text-center text-xs font-medium text-on-rack-muted first-letter:uppercase"
                   >
-                    <span className="flex items-baseline gap-1 min-w-0 text-xs leading-none px-0.5 pt-0.5">
-                      <span
+                    {format.dateTime(day, { weekday: 'short' })}
+                  </div>
+                ))}
+              </div>
+
+              {calendarWeeks.map((week, weekIndex) => (
+                <div key={weekIndex} className="grid grid-cols-7 gap-1">
+                  {week.map((day, dayIndex) => {
+                    if (day === null) {
+                      return (
+                        <div
+                          key={`empty-${weekIndex}-${dayIndex}`}
+                          className="min-h-12 md:min-h-24"
+                        />
+                      )
+                    }
+
+                    const dateKey = getDateKey(day)
+                    const dayTasks = tasksByDate.get(dateKey) || []
+                    const isSelected = selectedDay === dateKey
+                    const todayCell = isToday(day)
+                    const shown = dayTasks.slice(0, CHIPS_PER_DAY)
+                    const hidden = dayTasks.length - shown.length
+
+                    return (
+                      // eslint-disable-next-line no-restricted-syntax -- a day slot on the rack, not an action button
+                      <button
+                        key={day}
+                        type="button"
+                        onClick={() => setSelectedDay(isSelected ? null : dateKey)}
+                        aria-pressed={isSelected}
+                        aria-current={todayCell ? 'date' : undefined}
+                        aria-label={t('dayAria', {
+                          date: format.dateTime(new Date(year, month, day), {
+                            weekday: 'long',
+                            day: 'numeric',
+                            month: 'long',
+                          }),
+                          count: dayTasks.length,
+                        })}
                         className={cn(
-                          'tabular-nums',
-                          todayCell ? 'font-bold text-rack-heading' : 'font-medium',
+                          'min-h-12 md:min-h-24 min-w-0 p-1 rounded-[3px] text-left flex flex-col gap-1 cursor-pointer',
+                          'bg-rack-deep text-on-rack transition-colors hover:bg-rack-line',
+                          'focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-white',
+                          todayCell && 'shadow-[inset_0_0_0_1px_var(--on-rack-muted)]',
+                          isSelected && 'bg-rack-line shadow-[inset_0_0_0_2px_var(--rack-heading)]',
                         )}
                       >
-                        {day}
-                      </span>
-                      {todayCell && (
-                        <span
-                          aria-hidden="true"
-                          className="truncate font-semibold text-rack-heading"
-                        >
-                          {t('todayTag')}
-                        </span>
-                      )}
-                    </span>
-
-                    {dayTasks.length > 0 && (
-                      <>
-                        {/* Narrow cells only fit the count */}
-                        <span
-                          aria-hidden="true"
-                          className="md:hidden mt-auto text-xs font-semibold tabular-nums px-0.5"
-                        >
-                          {dayTasks.length}
-                        </span>
-                        <span aria-hidden="true" className="hidden md:flex flex-col gap-1 min-w-0">
-                          {shown.map((task) => (
-                            <Strip
-                              key={task.id}
-                              kind={kindOf(task)}
-                              quiet={isDone(task)}
-                              title={task.title}
-                              className="pl-2.5 pr-1.5 py-0.5"
+                        <span className="flex items-baseline gap-1 min-w-0 text-xs leading-none px-0.5 pt-0.5">
+                          <span
+                            className={cn(
+                              'tabular-nums',
+                              todayCell ? 'font-bold text-rack-heading' : 'font-medium',
+                            )}
+                          >
+                            {day}
+                          </span>
+                          {todayCell && (
+                            <span
+                              aria-hidden="true"
+                              className="truncate font-semibold text-rack-heading"
                             >
-                              <span
-                                className={cn(
-                                  'block truncate text-xs leading-snug',
-                                  isDone(task)
-                                    ? 'text-muted line-through'
-                                    : isPressing(task)
-                                      ? 'font-semibold text-foreground'
-                                      : 'text-foreground',
-                                )}
-                              >
-                                {task.title}
-                              </span>
-                            </Strip>
-                          ))}
-                          {hidden > 0 && (
-                            <span className="text-xs text-on-rack-muted px-0.5">
-                              {t('moreTasks', { count: hidden })}
+                              {t('todayTag')}
                             </span>
                           )}
                         </span>
-                      </>
-                    )}
-                  </button>
-                )
-              })}
-            </div>
-          ))}
+
+                        {dayTasks.length > 0 && (
+                          <>
+                            {/* Narrow cells only fit the count */}
+                            <span
+                              aria-hidden="true"
+                              className="md:hidden mt-auto text-xs font-semibold tabular-nums px-0.5"
+                            >
+                              {dayTasks.length}
+                            </span>
+                            <span
+                              aria-hidden="true"
+                              className="hidden md:flex flex-col gap-1 min-w-0"
+                            >
+                              {shown.map((task) => (
+                                <Strip
+                                  key={task.id}
+                                  kind={kindOf(task)}
+                                  quiet={isDone(task)}
+                                  title={task.title}
+                                  className="pl-2.5 pr-1.5 py-0.5"
+                                >
+                                  <span
+                                    className={cn(
+                                      'block truncate text-xs leading-snug',
+                                      isDone(task)
+                                        ? 'text-muted line-through'
+                                        : isPressing(task)
+                                          ? 'font-semibold text-foreground'
+                                          : 'text-foreground',
+                                    )}
+                                  >
+                                    {task.title}
+                                  </span>
+                                </Strip>
+                              ))}
+                              {hidden > 0 && (
+                                <span className="text-xs text-on-rack-muted px-0.5">
+                                  {t('moreTasks', { count: hidden })}
+                                </span>
+                              )}
+                            </span>
+                          </>
+                        )}
+                      </button>
+                    )
+                  })}
+                </div>
+              ))}
+            </>
+          )}
         </RackSection>
 
         {/* Selected day */}
@@ -313,7 +329,7 @@ export function CalendarView({ tasks }: CalendarViewProps) {
           aria-labelledby={selectedDay ? 'calendar-day-heading' : undefined}
           className={cn(
             'w-full lg:w-72 shrink-0 bg-card border border-border rounded-md p-3 flex flex-col gap-2 lg:sticky lg:top-4',
-            !selectedDay && 'hidden lg:flex',
+            !selectedDay && (monthCount === 0 ? 'hidden' : 'hidden lg:flex'),
           )}
         >
           {selectedDay ? (

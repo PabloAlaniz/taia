@@ -51,8 +51,14 @@ beforeEach(() => {
 })
 
 describe('CalendarView', () => {
-  it('marks today with aria-current and a word, not colour alone', () => {
+  it('collapses a month with nothing due into one line', () => {
     render(<CalendarView tasks={[]} />)
+    expect(screen.getByText('monthEmpty')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { current: 'date' })).not.toBeInTheDocument()
+  })
+
+  it('marks today with aria-current and a word, not colour alone', () => {
+    render(<CalendarView tasks={[task({ id: '1', title: 'Due today' })]} />)
     const today = screen.getByRole('button', { current: 'date' })
     expect(today).toHaveTextContent('todayTag')
   })
