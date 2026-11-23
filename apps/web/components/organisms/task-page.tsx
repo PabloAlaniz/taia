@@ -5,6 +5,7 @@ import { Task, Agent, Message, Subtask, Project, TaskTrajectory } from '@taia/ty
 import { TaskHeader } from './task-header'
 import { TaskContent, TaskContentHandle } from './task-content'
 import { TaskSidebar, TaskSidebarHandle } from './task-sidebar'
+import { WaitingBand } from './waiting-band'
 
 interface TaskPageProps {
   task: Task
@@ -46,6 +47,8 @@ export function TaskPage({
 
   const handleKeyDown = useCallback(
     (e: KeyboardEvent) => {
+      // A dialog handled it, or one is open: not the page's key.
+      if (e.defaultPrevented || document.querySelector('[role="dialog"]')) return
       // Ignore if user is typing in an input
       const target = e.target as HTMLElement
       if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable) {
@@ -80,12 +83,13 @@ export function TaskPage({
   }, [handleKeyDown])
 
   return (
-    <div className="flex flex-col h-screen bg-background">
+    <div className="flex flex-col lg:h-full">
       <TaskHeader task={task} onBack={onBack} />
 
-      <div className="flex flex-col lg:flex-row flex-1 overflow-hidden">
+      <div className="flex flex-col lg:flex-row flex-1 lg:overflow-hidden">
         {/* Main Content */}
-        <div className="flex-1 overflow-y-auto">
+        <div className="flex-1 lg:overflow-y-auto">
+          <WaitingBand task={task} />
           <TaskContent
             ref={contentRef}
             task={task}
@@ -103,7 +107,7 @@ export function TaskPage({
         </div>
 
         {/* Sidebar - stacks below on mobile, side panel on desktop */}
-        <aside className="w-full lg:w-80 border-t lg:border-t-0 lg:border-l border-border bg-card overflow-y-auto shrink-0">
+        <aside className="w-full lg:w-80 border-t lg:border-t-0 lg:border-l border-border bg-strip lg:overflow-y-auto shrink-0">
           <TaskSidebar
             ref={sidebarRef}
             task={task}

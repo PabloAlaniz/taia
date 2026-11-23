@@ -1,13 +1,18 @@
 'use client'
 
+import { useTranslations } from 'next-intl'
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { Button, Input, Checkbox } from '@/components/atoms'
+import { Button, Input, Checkbox, Strip } from '@/components/atoms'
 import { PageHeader } from '@/components/molecules/page-header'
 import { fetchJson } from '@/lib/use-resource'
-import { SectionCard } from '@/components/molecules/section-card'
+import { RackSection } from '@/components/molecules/rack-section'
 
 export default function WorktreeSettingsPage() {
+  const tp = useTranslations('pageTitles')
+  const t = useTranslations('settingsWorktrees')
+  const tc = useTranslations('settingsCommon')
+  const tCommon = useTranslations('common')
   const [basePath, setBasePath] = useState('/tmp/taia-worktrees')
   const [repoClonePath, setRepoClonePath] = useState('/tmp/taia-repos')
   const [cleanupHours, setCleanupHours] = useState('72')
@@ -19,7 +24,7 @@ export default function WorktreeSettingsPage() {
 
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
-  const [saveMessage, setSaveMessage] = useState('')
+  const [saveMessage, setSaveMessage] = useState<{ ok: boolean; text: string } | null>(null)
 
   useEffect(() => {
     fetchJson<{ ok: boolean; settings: Record<string, string> }>('/api/settings?prefix=worktree.')
@@ -48,7 +53,7 @@ export default function WorktreeSettingsPage() {
 
   async function handleSave() {
     setSaving(true)
-    setSaveMessage('')
+    setSaveMessage(null)
     try {
       const res = await fetch('/api/settings', {
         method: 'PUT',
@@ -75,132 +80,147 @@ export default function WorktreeSettingsPage() {
       if (data.ok) {
         setSavedSetupCommand(setupCommand)
         setSavedPaths({ basePath, repoClonePath })
-        setSaveMessage('Guardado')
-        setTimeout(() => setSaveMessage(''), 3000)
+        setSaveMessage({ ok: true, text: tc('saved') })
+        setTimeout(() => setSaveMessage(null), 3000)
       } else {
-        setSaveMessage(`Error: ${data.error}`)
+        setSaveMessage({ ok: false, text: tc('saveFailed', { error: String(data.error) }) })
       }
     } catch (e) {
-      setSaveMessage(`Error: ${e instanceof Error ? e.message : String(e)}`)
+      setSaveMessage({
+        ok: false,
+        text: tc('saveFailed', { error: e instanceof Error ? e.message : String(e) }),
+      })
     }
     setSaving(false)
   }
 
-  const inputClass =
-    'w-full px-3 py-2 bg-background border border-border rounded-md text-foreground text-sm focus:outline-hidden focus:border-accent'
-
   if (loading) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <span className="text-muted text-sm">Cargando...</span>
+      <div className="min-h-full bg-background">
+        <PageHeader
+          width="form"
+          title={tp('worktrees')}
+          backHref="/settings"
+          backLabel={tp('settings')}
+        />
+        <div className="mx-auto px-4 md:px-6 max-w-2xl pt-5 pb-10">
+          <span className="text-muted text-sm" role="status">
+            {tc('loadingPage')}
+          </span>
+        </div>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      <PageHeader title="Git Worktrees" backHref="/settings" />
+    <div className="min-h-full bg-background">
+      <PageHeader
+        width="form"
+        title={tp('worktrees')}
+        backHref="/settings"
+        backLabel={tp('settings')}
+      />
 
-      <div className="p-6 pt-8 max-w-2xl mx-auto space-y-8">
+      <div className="mx-auto px-4 md:px-6 max-w-2xl pt-5 pb-10 space-y-4">
         {/* Paths Section */}
-        <SectionCard
-          title="Paths"
-          description="Directorios donde se crean worktrees y clones de repositorios. Se definen en el servidor con WORKTREE_BASE_PATH y WORKTREE_REPO_PATH; desde acá solo se pueden cambiar con TAIA_ALLOW_REMOTE_COMMANDS=1."
-        >
-          <div>
-            <label className="text-xs text-muted block mb-1">Worktree Base Path</label>
-            <Input
-              value={basePath}
-              onChange={(e) => setBasePath(e.target.value)}
-              placeholder="/tmp/taia-worktrees"
-              className={inputClass}
-            />
-            <p className="text-xs text-muted mt-1">
-              Directorio base donde se crean los worktrees. Cada worktree usa un subdirectorio con
-              su ID.
-            </p>
-          </div>
+        <RackSection id="settings-paths" title={t('pathsTitle')}>
+          <Strip className="p-4 space-y-4">
+            <p className="text-sm text-muted">{t('pathsDesc')}</p>
+            <div>
+              <label htmlFor="worktree-base-path" className="text-xs text-muted block mb-1">
+                {t('basePathLabel')}
+              </label>
+              <Input
+                id="worktree-base-path"
+                value={basePath}
+                onChange={(e) => setBasePath(e.target.value)}
+                placeholder="/tmp/taia-worktrees"
+              />
+              <p className="text-xs text-muted mt-1">{t('basePathHelp')}</p>
+            </div>
 
-          <div>
-            <label className="text-xs text-muted block mb-1">Repo Clone Path</label>
-            <Input
-              value={repoClonePath}
-              onChange={(e) => setRepoClonePath(e.target.value)}
-              placeholder="/tmp/taia-repos"
-              className={inputClass}
-            />
-            <p className="text-xs text-muted mt-1">
-              Directorio donde se clonan los repositorios para crear worktrees.
-            </p>
-          </div>
-        </SectionCard>
+            <div>
+              <label htmlFor="worktree-repo-path" className="text-xs text-muted block mb-1">
+                {t('repoPathLabel')}
+              </label>
+              <Input
+                id="worktree-repo-path"
+                value={repoClonePath}
+                onChange={(e) => setRepoClonePath(e.target.value)}
+                placeholder="/tmp/taia-repos"
+              />
+              <p className="text-xs text-muted mt-1">{t('repoPathHelp')}</p>
+            </div>
+          </Strip>
+        </RackSection>
 
         {/* Cleanup Section */}
-        <SectionCard title="Cleanup" description="Limpieza automatica de worktrees inactivos.">
-          <div>
-            <label className="text-xs text-muted block mb-1">Horas antes de cleanup</label>
-            <Input
-              type="number"
-              value={cleanupHours}
-              onChange={(e) => setCleanupHours(e.target.value)}
-              placeholder="72"
-              className={inputClass}
-            />
-            <p className="text-xs text-muted mt-1">
-              Worktrees activos por mas de este tiempo se limpian automaticamente.
-            </p>
-          </div>
+        <RackSection id="settings-cleanup" title={t('cleanupTitle')}>
+          <Strip className="p-4 space-y-4">
+            <p className="text-sm text-muted">{t('cleanupDesc')}</p>
+            <div>
+              <label htmlFor="worktree-cleanup-hours" className="text-xs text-muted block mb-1">
+                {t('cleanupHoursLabel')}
+              </label>
+              <Input
+                id="worktree-cleanup-hours"
+                type="number"
+                value={cleanupHours}
+                onChange={(e) => setCleanupHours(e.target.value)}
+                placeholder="72"
+              />
+              <p className="text-xs text-muted mt-1">{t('cleanupHoursHelp')}</p>
+            </div>
 
-          <Checkbox
-            checked={autoCleanup}
-            onChange={(e) => setAutoCleanup(e.target.checked)}
-            label="Auto cleanup al mergear"
-            description="Eliminar archivos del worktree automaticamente despues de merge."
-          />
-        </SectionCard>
+            <Checkbox
+              checked={autoCleanup}
+              onChange={(e) => setAutoCleanup(e.target.checked)}
+              label={t('autoCleanupLabel')}
+              description={t('autoCleanupHelp')}
+            />
+          </Strip>
+        </RackSection>
 
         {/* Automation Section */}
-        <SectionCard title="Automatizacion">
-          <div>
-            <label className="text-xs text-muted block mb-1">Setup Command</label>
-            <Input
-              value={setupCommand}
-              onChange={(e) => setSetupCommand(e.target.value)}
-              placeholder="npm install"
-              className={inputClass}
-            />
-            <p className="text-xs text-muted mt-1">
-              Comando a ejecutar despues de crear un worktree (ej: npm install, pnpm install). Por
-              seguridad se define en el servidor con WORKTREE_SETUP_CMD; editarlo aca requiere
-              TAIA_ALLOW_REMOTE_COMMANDS=1.
-            </p>
-          </div>
+        <RackSection id="settings-automation" title={t('automationTitle')}>
+          <Strip className="p-4 space-y-4">
+            <div>
+              <label htmlFor="worktree-setup-command" className="text-xs text-muted block mb-1">
+                {t('setupCommandLabel')}
+              </label>
+              <Input
+                id="worktree-setup-command"
+                value={setupCommand}
+                onChange={(e) => setSetupCommand(e.target.value)}
+                placeholder="npm install"
+              />
+              <p className="text-xs text-muted mt-1">{t('setupCommandHelp')}</p>
+            </div>
 
-          <Checkbox
-            checked={autoCreateOnAssign}
-            onChange={(e) => setAutoCreateOnAssign(e.target.checked)}
-            label="Crear worktree al asignar tarea"
-            description="Crear automaticamente un worktree cuando se asigna una tarea a un agente."
-          />
-        </SectionCard>
+            <Checkbox
+              checked={autoCreateOnAssign}
+              onChange={(e) => setAutoCreateOnAssign(e.target.checked)}
+              label={t('autoCreateLabel')}
+              description={t('autoCreateHelp')}
+            />
+          </Strip>
+        </RackSection>
 
         {/* Save Button */}
         <div className="flex items-center justify-end gap-3 pt-4 border-t border-border">
           {saveMessage && (
-            <span
-              className={`text-sm ${saveMessage.startsWith('Error') ? 'text-red-500' : 'text-green-500'}`}
-            >
-              {saveMessage}
+            <span role="status" className={`text-sm ${saveMessage.ok ? 'text-ok' : 'text-alert'}`}>
+              {saveMessage.text}
             </span>
           )}
           <Link
             href="/settings"
             className="text-muted px-4 py-2 text-sm no-underline hover:text-foreground"
           >
-            Cancelar
+            {tCommon('cancel')}
           </Link>
           <Button variant="primary" size="lg" onClick={handleSave} disabled={saving}>
-            {saving ? 'Guardando...' : 'Guardar'}
+            {saving ? tc('saving') : tc('saveChanges')}
           </Button>
         </div>
       </div>

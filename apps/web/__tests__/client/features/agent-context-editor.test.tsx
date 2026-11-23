@@ -6,6 +6,23 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 
 import { AgentContextEditor } from '@/client/features/agent-context/AgentContextEditor'
 
+vi.mock('next-intl', () => {
+  // Stable references, so effects don't re-run on every render.
+  const t = (key: string, values?: Record<string, unknown>) =>
+    values ? `${key} ${JSON.stringify(values)}` : key
+  const format = {
+    dateTime: (d: Date) => d.toISOString(),
+    relativeTime: (d: Date) => d.toISOString(),
+    number: (n: number) => String(n),
+  }
+  return {
+    useTranslations: () => t,
+    useFormatter: () => format,
+    useNow: () => new Date(),
+    useLocale: () => 'es',
+  }
+})
+
 const fetchMock = vi.fn()
 
 function respond(body: unknown, ok = true) {
@@ -17,7 +34,9 @@ beforeEach(() => {
   fetchMock.mockImplementation((url: string, init?: RequestInit) => {
     if (init?.method) return respond({ ok: true })
     if (url.endsWith('/context')) {
-      return respond({ identity: { persona: 'Careful reviewer.', instructions: 'Review PRs.' } })
+      return respond({
+        identity: { persona: 'Careful reviewer.', instructions: 'Review PRs.' },
+      })
     }
     if (url.endsWith('/working-state')) return respond({ content: 'Halfway.' })
     if (url.endsWith('/memory')) return respond({ files: ['prefs.md'] })
@@ -31,36 +50,43 @@ afterEach(() => vi.unstubAllGlobals())
 
 function lastWrite() {
   const call = fetchMock.mock.calls.filter(([, init]) => init?.method).at(-1)!
-  return { url: call[0] as string, method: call[1].method, body: JSON.parse(call[1].body) }
+  return {
+    url: call[0] as string,
+    method: call[1].method,
+    body: JSON.parse(call[1].body),
+  }
 }
 
 describe('AgentContextEditor', () => {
   it('edits the persona through the typed context API', async () => {
     render(<AgentContextEditor agentId="alex" />)
-    const textarea = await screen.findByLabelText('Persona')
+    const textarea = await screen.findByLabelText('sections.persona')
     await waitFor(() => expect(textarea).toHaveValue('Careful reviewer.'))
 
     fireEvent.change(textarea, { target: { value: 'Meticulous reviewer.' } })
-    fireEvent.click(screen.getByText('Save'))
+    fireEvent.click(screen.getByText('save'))
 
-    await screen.findByText('Saved')
+    await screen.findByText('saved')
     expect(lastWrite()).toEqual({
       url: '/api/agents/alex/context',
       method: 'PATCH',
-      body: { identity: { persona: 'Meticulous reviewer.' }, note: 'Edited persona' },
+      body: {
+        identity: { persona: 'Meticulous reviewer.' },
+        note: 'Edited persona',
+      },
     })
   })
 
   it('saves working notes to the working-state API', async () => {
     render(<AgentContextEditor agentId="alex" />)
-    fireEvent.click(await screen.findByText('Working notes'))
-    const textarea = screen.getByLabelText('Working notes')
+    fireEvent.click(await screen.findByText('sections.working'))
+    const textarea = screen.getByLabelText('sections.working')
     await waitFor(() => expect(textarea).toHaveValue('Halfway.'))
 
     fireEvent.change(textarea, { target: { value: 'Done with file 3.' } })
-    fireEvent.click(screen.getByText('Save'))
+    fireEvent.click(screen.getByText('save'))
 
-    await screen.findByText('Saved')
+    await screen.findByText('saved')
     expect(lastWrite()).toMatchObject({
       url: '/api/agents/alex/working-state',
       method: 'PUT',
@@ -70,15 +96,17 @@ describe('AgentContextEditor', () => {
 
   it('opens and saves a memory file', async () => {
     render(<AgentContextEditor agentId="alex" />)
-    fireEvent.click(await screen.findByText('Memory (1)'))
-    fireEvent.change(screen.getByLabelText('Memory file'), { target: { value: 'prefs.md' } })
-    const textarea = screen.getByLabelText('Memory')
+    fireEvent.click(await screen.findByText('memoryTab {"count":1}'))
+    fireEvent.change(screen.getByLabelText('memoryFile'), {
+      target: { value: 'prefs.md' },
+    })
+    const textarea = screen.getByLabelText('sections.memory')
     await waitFor(() => expect(textarea).toHaveValue('Likes tea.'))
 
     fireEvent.change(textarea, { target: { value: 'Likes mate.' } })
-    fireEvent.click(screen.getByText('Save'))
+    fireEvent.click(screen.getByText('save'))
 
-    await screen.findByText('Saved')
+    await screen.findByText('saved')
     expect(lastWrite()).toMatchObject({
       url: '/api/agents/alex/memory/prefs.md',
       method: 'PUT',

@@ -59,7 +59,9 @@ export function DueFilterDropdown({ value, onChange }: DueFilterDropdownProps) {
       >
         {activeOption && <span className="mr-1">{activeOption.icon}</span>}
         {label}
-        <span className="ml-1 text-2xs opacity-60">▾</span>
+        <span className="ml-1 text-xxs text-muted" aria-hidden="true">
+          ▾
+        </span>
       </Button>
 
       <Dropdown open={open} align="left" className="min-w-[160px]">

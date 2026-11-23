@@ -272,7 +272,7 @@ export function RuntimeProviderForm({
       </div>
 
       {result && (
-        <p role="status" className={`text-sm ${result.ok ? 'text-green-500' : 'text-red-500'}`}>
+        <p role="status" className={`text-sm ${result.ok ? 'text-ok' : 'text-alert'}`}>
           {result.ok ? successMessage(result) : result.hint || result.error || t('testFailed')}
         </p>
       )}

@@ -11,7 +11,7 @@ export function Dropdown({ open, align = 'left', className, ...props }: Dropdown
   return (
     <div
       className={cn(
-        'absolute top-full mt-1 bg-card border border-border rounded-lg shadow-md z-20',
+        'absolute top-full mt-1 bg-card text-foreground border border-border rounded-md shadow-[0_6px_16px_rgba(0,0,0,0.22)] z-30',
         align === 'left' ? 'left-0' : 'right-0',
         className,
       )}

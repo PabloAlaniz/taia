@@ -1,5 +1,6 @@
 import { cn } from '../../lib/utils'
-import { Card } from './card'
+import { Strip } from '../atoms/strip'
+import { RackSection } from './rack-section'
 
 export interface SectionCardProps {
   title: string
@@ -10,6 +11,10 @@ export interface SectionCardProps {
   className?: string
 }
 
+/**
+ * A titled form section in the rack grammar: the title is the rack's label and
+ * the content sits on one strip-paper panel, so there is no card in a card.
+ */
 export function SectionCard({
   title,
   description,
@@ -19,15 +24,11 @@ export function SectionCard({
   className,
 }: SectionCardProps) {
   return (
-    <Card padding="none" className={cn('rounded-lg', className)}>
-      <div className="p-4 border-b border-border flex items-center justify-between gap-4">
-        <div>
-          <h2 className="font-semibold">{title}</h2>
-          {description && <p className="text-sm text-muted mt-1">{description}</p>}
-        </div>
-        {action}
-      </div>
-      <div className={cn('p-4 space-y-4', contentClassName)}>{children}</div>
-    </Card>
+    <RackSection title={title} aside={action} className={className}>
+      <Strip className={cn('p-4 space-y-4', contentClassName)}>
+        {description && <p className="text-sm text-muted">{description}</p>}
+        {children}
+      </Strip>
+    </RackSection>
   )
 }

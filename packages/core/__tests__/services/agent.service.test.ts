@@ -8,6 +8,7 @@ const mockCreateAgent = vi.fn()
 const mockSetAgentRuntimeInstanceId = vi.fn()
 const mockGetAgentById = vi.fn()
 const mockDeleteAgent = vi.fn()
+const mockGetColumnStates = vi.fn()
 
 vi.mock('@taia/core/db', () => ({
   getAllAgents: (...args: any[]) => mockGetAllAgents(...args),
@@ -16,6 +17,7 @@ vi.mock('@taia/core/db', () => ({
   createAgent: (...args: any[]) => mockCreateAgent(...args),
   deleteAgent: (...args: any[]) => mockDeleteAgent(...args),
   setAgentRuntimeInstanceId: (...args: any[]) => mockSetAgentRuntimeInstanceId(...args),
+  getColumnStates: (...args: any[]) => mockGetColumnStates(...args),
 }))
 
 const mockSaveAgentIdentity = vi.fn()
@@ -105,6 +107,8 @@ beforeEach(() => {
     { id: 't1', assigned_to: 'agent-1', status: 'IN_PROGRESS', tags: [] },
     { id: 't2', assigned_to: 'agent-5', status: 'DONE', tags: [] },
   ])
+
+  mockGetColumnStates.mockResolvedValue([])
 
   mockListAgentsClient.mockResolvedValue(RUNTIME_AGENTS)
   mockListCrons.mockResolvedValue([])
@@ -442,6 +446,61 @@ describe('fetchEnrichedAgents', () => {
     expect(agent1!.tasks!.inProgress).toBe(1)
     expect(agent1!.tasks!.done).toBe(1)
     expect(agent1!.cron).toBeUndefined()
+  })
+
+  it('counts by the column the board files each task in', async () => {
+    mockListAgentsClient.mockRejectedValue(new Error('API down'))
+    mockGetAllAgents.mockResolvedValue(DB_AGENTS)
+    // A board whose "assigned" column is called TODO, as the board shows it.
+    mockGetColumnStates.mockResolvedValue([
+      {
+        workspace_id: 'ws',
+        slug: 'INBOX',
+        position: 0,
+        is_done_state: false,
+        is_initial_state: true,
+      },
+      {
+        workspace_id: 'ws',
+        slug: 'TODO',
+        position: 1,
+        is_done_state: false,
+        is_initial_state: false,
+      },
+      {
+        workspace_id: 'ws',
+        slug: 'IN_PROGRESS',
+        position: 2,
+        is_done_state: false,
+        is_initial_state: false,
+      },
+      {
+        workspace_id: 'ws',
+        slug: 'REVIEW',
+        position: 3,
+        is_done_state: false,
+        is_initial_state: false,
+      },
+      {
+        workspace_id: 'ws',
+        slug: 'DONE',
+        position: 4,
+        is_done_state: true,
+        is_initial_state: false,
+      },
+    ])
+    mockGetAllTasks.mockResolvedValue([
+      { id: 't1', workspace_id: 'ws', assigned_to: 'agent-1', status: 'TODO', tags: [] },
+      { id: 't2', workspace_id: 'ws', assigned_to: 'agent-1', status: 'REVIEW', tags: [] },
+      { id: 't3', workspace_id: 'ws', assigned_to: 'agent-1', status: 'DONE', tags: [] },
+    ])
+
+    const result = await fetchEnrichedAgents(true)
+    const agent1 = result.agents.find((a) => a.id === 'agent-1')
+
+    expect(agent1!.tasks).toEqual({ assigned: 1, inProgress: 0, review: 1, done: 1 })
+    // Nothing under way: a queued task alone is not work in progress.
+    expect(agent1!.status).toBe('IDLE')
   })
 })
 

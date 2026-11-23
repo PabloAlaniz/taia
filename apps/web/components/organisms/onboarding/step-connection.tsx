@@ -14,7 +14,7 @@ export function StepConnection({ onConnected }: StepConnectionProps) {
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-xl font-bold mb-2">{t('connectTitle')}</h2>
+        <h2 className="text-2xl font-semibold mb-2 text-balance">{t('connectTitle')}</h2>
         <p className="text-sm text-muted">{t('connectDesc')}</p>
       </div>
       <RuntimeProviderForm onSaved={onConnected} />

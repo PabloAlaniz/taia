@@ -2,12 +2,15 @@
 
 import { useEffect, useState } from 'react'
 import { useTranslations } from 'next-intl'
+import { Strip } from '@/components/atoms'
 import { PageHeader } from '@/components/molecules/page-header'
-import { SectionCard } from '@/components/molecules/section-card'
+import { RackSection } from '@/components/molecules/rack-section'
 import { RuntimeProviderForm } from '@/components/organisms/runtime-provider-form'
 
 export default function RuntimeSettingsPage() {
+  const tp = useTranslations('pageTitles')
   const t = useTranslations('runtime')
+  const tc = useTranslations('settingsCommon')
   const [settings, setSettings] = useState<Record<string, string> | null>(null)
 
   useEffect(() => {
@@ -23,19 +26,23 @@ export default function RuntimeSettingsPage() {
   }, [])
 
   return (
-    <div className="min-h-screen bg-background">
-      <PageHeader title={t('title')} icon="🔌" backHref="/settings" />
+    <div className="min-h-full bg-background">
+      <PageHeader width="form" title={t('title')} backHref="/settings" backLabel={tp('settings')} />
 
-      <div className="p-6 pt-8 max-w-2xl mx-auto">
-        <SectionCard title={t('title')} description={t('pageDesc')}>
-          {settings === null ? (
-            <span className="text-2xl animate-pulse" aria-busy="true">
-              ⏳
-            </span>
-          ) : (
-            <RuntimeProviderForm initialSettings={settings} />
-          )}
-        </SectionCard>
+      <div className="mx-auto px-4 md:px-6 max-w-2xl pt-5 pb-10 space-y-4">
+        <p className="text-sm text-muted max-w-prose">{t('pageDesc')}</p>
+
+        <RackSection id="settings-runtime" title={t('connectionTitle')}>
+          <Strip className="p-4">
+            {settings === null ? (
+              <span className="text-sm text-muted" role="status" aria-busy="true">
+                {tc('loadingPage')}
+              </span>
+            ) : (
+              <RuntimeProviderForm initialSettings={settings} />
+            )}
+          </Strip>
+        </RackSection>
       </div>
     </div>
   )

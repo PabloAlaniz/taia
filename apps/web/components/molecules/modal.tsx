@@ -24,6 +24,15 @@ const sizes = {
 const FOCUSABLE_SELECTOR =
   'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])'
 
+// Track focus outside dialogs, so a dialog can return focus to its opener.
+let lastFocusedOutsideDialog: HTMLElement | null = null
+if (typeof document !== 'undefined') {
+  document.addEventListener('focusin', (e) => {
+    const target = e.target as HTMLElement | null
+    if (target && !target.closest('[role="dialog"]')) lastFocusedOutsideDialog = target
+  })
+}
+
 export function Modal({
   open,
   onClose,
@@ -37,6 +46,10 @@ export function Modal({
   const handleKeyDown = useCallback(
     (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
+        // The dialog owns this Escape: the page underneath must not also act
+        // on it (the task page would otherwise leave for the board).
+        e.preventDefault()
+        e.stopPropagation()
         onClose()
         return
       }
@@ -68,20 +81,28 @@ export function Modal({
   useEffect(() => {
     if (!open) return
     document.addEventListener('keydown', handleKeyDown)
-
-    // Focus first focusable element, or the dialog itself
-    const el = dialogRef.current
-    if (el) {
-      const firstFocusable = el.querySelector<HTMLElement>(FOCUSABLE_SELECTOR)
-      if (firstFocusable) {
-        firstFocusable.focus()
-      } else {
-        el.focus()
-      }
-    }
-
     return () => document.removeEventListener('keydown', handleKeyDown)
   }, [open, handleKeyDown])
+
+  // Focus moves into the dialog when it opens and back to whatever opened it
+  // when it closes, so keyboard users never land on <body>.
+  useEffect(() => {
+    if (!open) return
+    // The last thing focused outside any dialog is what opened this one, even
+    // when a field inside already took focus with autoFocus.
+    const opener = lastFocusedOutsideDialog
+    const el = dialogRef.current
+    if (el) {
+      // Respect a field that already took focus (autoFocus); else the first control.
+      if (!el.contains(document.activeElement)) {
+        const firstFocusable = el.querySelector<HTMLElement>(FOCUSABLE_SELECTOR)
+        ;(firstFocusable ?? el).focus()
+      }
+    }
+    return () => {
+      if (opener && opener.isConnected && opener !== document.body) opener.focus()
+    }
+  }, [open])
 
   if (!open) return null
 

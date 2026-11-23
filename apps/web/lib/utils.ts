@@ -1,54 +1,15 @@
 import { clsx, type ClassValue } from 'clsx'
-import { twMerge } from 'tailwind-merge'
+import { extendTailwindMerge } from 'tailwind-merge'
+
+// Our micro font sizes (globals.css --text-*) must read as sizes, not colours:
+// otherwise `text-xxs` would knock out `text-background` in the same class list.
+const twMerge = extendTailwindMerge({
+  extend: { theme: { text: ['3xs', '2xs', 'xxs', 'mid'] } },
+})
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
-
-export const PRIORITY_COLORS = {
-  LOW: '#666',
-  MEDIUM: '#3b82f6',
-  HIGH: '#f97316',
-  URGENT: '#ef4444',
-} as const
-
-export const COLUMN_LABELS = {
-  IDEA: '💡 Ideas',
-  INBOX: '📥 Inbox',
-  ASSIGNED: '👤 Assigned',
-  IN_PROGRESS: '🔨 Progress',
-  REVIEW: '👀 Review',
-  DONE: '✅ Done',
-  REJECTED: '🚫 Rejected',
-} as const
-
-export const ACTIVITY_ICONS = {
-  // Tasks
-  task_created: '📝',
-  task_updated: '✏️',
-  task_assigned: '🎯',
-  task_moved: '↗️',
-  task_completed: '✅',
-  task_deleted: '🗑️',
-  task_tagged: '🏷️',
-  task_untagged: '🏷️',
-  // Subtasks
-  subtask_created: '☑️',
-  subtask_completed: '☑️',
-  subtask_deleted: '☑️',
-  // Projects
-  project_created: '📁',
-  project_updated: '📁',
-  project_deleted: '📁',
-  // Messages
-  message_sent: '💬',
-  // Agents
-  agent_started: '🚀',
-  agent_finished: '🏁',
-  agent_updated: '🤖',
-  agent_triggered: '⚡',
-  mention: '@',
-} as const
 
 export function timeUntil(dateStr: string): string {
   const date = new Date(dateStr)

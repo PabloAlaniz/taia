@@ -7,48 +7,44 @@
 // version with createdBy='ui:context'. Persona and instructions have their
 // own tabs in AgentContextEditor.
 //
+// Rendered as the first tab of AgentContextEditor in the expanded squad row.
+//
 // Reference: ADR-003, apps/docs/src/content/docs/arquitectura/modelo-de-contexto.md.
 
 import { useEffect, useState } from 'react'
+import { useFormatter, useTranslations } from 'next-intl'
+import { X } from 'lucide-react'
 import type { AgentCapability, AgentIdentity } from '@taia/types'
 import { Alert, Button, Checkbox, Input, Label } from '@/components/atoms'
 
-interface CapabilityOption {
-  value: AgentCapability
-  label: string
-  description: string
-}
-
-const CAPABILITY_OPTIONS: CapabilityOption[] = [
-  { value: 'read_tasks', label: 'Read tasks', description: 'List and inspect tasks' },
-  {
-    value: 'write_tasks',
-    label: 'Write tasks',
-    description: 'Create and update tasks',
-  },
-  {
-    value: 'comment_tasks',
-    label: 'Comment on tasks',
-    description: 'Post messages to a task',
-  },
-  { value: 'read_stats', label: 'Read stats', description: 'Read dashboard metrics' },
-  {
-    value: 'read_own_files',
-    label: 'Read own files',
-    description: 'Read its own persona, instructions, working notes and memory on demand',
-  },
-  {
-    value: 'memory',
-    label: 'Memory tool',
-    description: 'Persistent filesystem-like memory the agent edits itself',
-  },
+const CAPABILITY_OPTIONS: AgentCapability[] = [
+  'read_tasks',
+  'write_tasks',
+  'comment_tasks',
+  'read_stats',
+  'read_own_files',
+  'memory',
 ]
 
-export function IdentityEditor({ agentId }: { agentId: string }) {
+export function IdentityEditor({
+  agentId,
+  onSaved,
+}: {
+  agentId: string
+  /** Called after a successful save, e.g. to refresh the version history. */
+  onSaved?: () => void
+}) {
+  const t = useTranslations('agentsConfig.identity')
+  const format = useFormatter()
   const [identity, setIdentity] = useState<AgentIdentity | null>(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
-  const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
+  const [message, setMessage] = useState<{
+    type: 'success' | 'error'
+    text: string
+  } | null>(null)
+  // Load failures keep the raw detail; the sentence around it is translated at render.
+  const [loadError, setLoadError] = useState<string | null>(null)
   const [versionMeta, setVersionMeta] = useState<{
     versionId: string | null
     createdAt?: string | null
@@ -87,10 +83,7 @@ export function IdentityEditor({ agentId }: { agentId: string }) {
       })
       .catch((err) => {
         if (cancelled) return
-        setMessage({
-          type: 'error',
-          text: err instanceof Error ? err.message : String(err),
-        })
+        setLoadError(err instanceof Error ? err.message : String(err))
       })
       .finally(() => {
         if (!cancelled) setLoading(false)
@@ -151,12 +144,15 @@ export function IdentityEditor({ agentId }: { agentId: string }) {
       const data = await res.json()
       setIdentity(data.identity)
       setVersionMeta({ versionId: data.versionId })
-      setMessage({ type: 'success', text: 'Identity saved.' })
+      setMessage({ type: 'success', text: t('saved') })
       setTimeout(() => setMessage(null), 3000)
+      onSaved?.()
     } catch (err) {
       setMessage({
         type: 'error',
-        text: err instanceof Error ? err.message : String(err),
+        text: t('saveFailed', {
+          error: err instanceof Error ? err.message : String(err),
+        }),
       })
     } finally {
       setSaving(false)
@@ -164,24 +160,27 @@ export function IdentityEditor({ agentId }: { agentId: string }) {
   }
 
   if (loading) {
-    return <div className="text-muted text-mid p-4">Loading identity…</div>
+    return <div className="text-muted text-mid p-4">{t('loading')}</div>
   }
 
   return (
     <div className="space-y-4">
+      {loadError && <Alert variant="error">{t('loadFailed', { error: loadError })}</Alert>}
       {message && <Alert variant={message.type}>{message.text}</Alert>}
 
       {versionMeta?.versionId && (
         <div className="text-muted text-xs">
-          Version {versionMeta.versionId.slice(0, 12)}…
-          {versionMeta.createdAt ? ` • ${new Date(versionMeta.createdAt).toLocaleString()}` : ''}
-          {versionMeta.createdBy ? ` • ${versionMeta.createdBy}` : ''}
+          {t('version', { id: `${versionMeta.versionId.slice(0, 12)}…` })}
+          {versionMeta.createdAt
+            ? ` · ${format.dateTime(new Date(versionMeta.createdAt), { dateStyle: 'medium', timeStyle: 'short' })}`
+            : ''}
+          {versionMeta.createdBy ? ` · ${versionMeta.createdBy}` : ''}
         </div>
       )}
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
-          <Label htmlFor={`identity-name-${agentId}`}>Name</Label>
+          <Label htmlFor={`identity-name-${agentId}`}>{t('name')}</Label>
           <Input
             id={`identity-name-${agentId}`}
             type="text"
@@ -190,7 +189,7 @@ export function IdentityEditor({ agentId }: { agentId: string }) {
           />
         </div>
         <div>
-          <Label htmlFor={`identity-role-${agentId}`}>Role</Label>
+          <Label htmlFor={`identity-role-${agentId}`}>{t('role')}</Label>
           <Input
             id={`identity-role-${agentId}`}
             type="text"
@@ -201,26 +200,24 @@ export function IdentityEditor({ agentId }: { agentId: string }) {
       </div>
 
       <div>
-        <Label>Capabilities</Label>
+        <Label>{t('capabilities')}</Label>
+        <p className="text-muted text-xs mb-2">{t('capabilitiesHint')}</p>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-1">
-          {CAPABILITY_OPTIONS.map((opt) => (
+          {CAPABILITY_OPTIONS.map((cap) => (
             <Checkbox
-              key={opt.value}
-              label={opt.label}
-              description={opt.description}
-              checked={capabilities.includes(opt.value)}
-              onChange={() => toggleCapability(opt.value)}
+              key={cap}
+              label={t(`caps.${cap}.label`)}
+              description={t(`caps.${cap}.description`)}
+              checked={capabilities.includes(cap)}
+              onChange={() => toggleCapability(cap)}
             />
           ))}
         </div>
       </div>
 
       <div>
-        <Label>Constraints</Label>
-        <p className="text-muted text-xs mb-2">
-          Hard limits (e.g. &quot;never approve a PR without tests&quot;). Listed here, applied in
-          the system prompt.
-        </p>
+        <Label>{t('constraints')}</Label>
+        <p className="text-muted text-xs mb-2">{t('constraintsHint')}</p>
         {constraints.length > 0 && (
           <ul className="space-y-1 mb-2">
             {constraints.map((c, i) => (
@@ -233,9 +230,9 @@ export function IdentityEditor({ agentId }: { agentId: string }) {
                   variant="ghost"
                   size="sm"
                   onClick={() => removeConstraint(i)}
-                  aria-label={`Remove constraint ${i + 1}`}
+                  aria-label={t('removeConstraint', { n: i + 1 })}
                 >
-                  ×
+                  <X size={14} aria-hidden="true" />
                 </Button>
               </li>
             ))}
@@ -245,7 +242,8 @@ export function IdentityEditor({ agentId }: { agentId: string }) {
           <Input
             type="text"
             value={newConstraint}
-            placeholder="Add a constraint…"
+            aria-label={t('newConstraint')}
+            placeholder={t('newConstraintPlaceholder')}
             onChange={(e) => setNewConstraint(e.target.value)}
             onKeyDown={(e) => {
               if (e.key === 'Enter') {
@@ -260,22 +258,20 @@ export function IdentityEditor({ agentId }: { agentId: string }) {
             onClick={addConstraint}
             disabled={newConstraint.trim().length === 0}
           >
-            Add
+            {t('addConstraint')}
           </Button>
         </div>
       </div>
 
       <div className="flex justify-end gap-3 pt-2 border-t border-border">
-        {hasChanges && (
-          <span className="text-yellow-500 text-mid self-center">● Unsaved changes</span>
-        )}
+        {hasChanges && <span className="text-person-ink text-mid self-center">{t('unsaved')}</span>}
         <Button
           variant={hasChanges ? 'primary' : 'secondary'}
           size="lg"
           onClick={save}
           disabled={!hasChanges || saving}
         >
-          {saving ? 'Saving…' : 'Save identity'}
+          {saving ? t('saving') : t('save')}
         </Button>
       </div>
     </div>

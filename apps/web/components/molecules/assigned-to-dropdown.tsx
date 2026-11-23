@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { useTranslations } from 'next-intl'
 import { Agent, Task } from '@taia/types'
-import { Button } from '../atoms'
+import { Button, ParticipantMark } from '../atoms'
 import { Dropdown } from './dropdown'
 import { cn } from '../../lib/utils'
 
@@ -73,7 +73,9 @@ export function AssignedToDropdown({
       >
         {hasFilter && <span className="mr-1">👤</span>}
         {label}
-        <span className="ml-1 text-2xs opacity-60">▾</span>
+        <span className="ml-1 text-xxs text-muted" aria-hidden="true">
+          ▾
+        </span>
       </Button>
 
       <Dropdown open={open} align="left" className="min-w-[200px] max-h-80 overflow-y-auto">
@@ -115,7 +117,7 @@ export function AssignedToDropdown({
                 )}
               >
                 <span className="flex items-center gap-1.5 min-w-0">
-                  <span>{agent.avatar || '🤖'}</span>
+                  <ParticipantMark agent={agent} />
                   <span className="truncate">{agent.name}</span>
                   {agent.type === 'human' && (
                     <span className="text-2xs text-muted">({t('human')})</span>

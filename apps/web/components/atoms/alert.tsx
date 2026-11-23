@@ -4,11 +4,13 @@ export interface AlertProps extends React.HTMLAttributes<HTMLDivElement> {
   variant: 'error' | 'success' | 'warning' | 'info'
 }
 
+// Ink-strength text on a faint tint of the same state, with a 5px edge tab:
+// the strip grammar, and every variant clears 4.5:1 in both themes.
 const variants = {
-  error: 'bg-red-500/5 border border-red-500/20 text-red-400',
-  success: 'bg-green-500/10 border border-green-500/20 text-green-400',
-  warning: 'bg-yellow-500/10 border border-yellow-500/20 text-yellow-400',
-  info: 'bg-accent/10 border border-accent/20 text-accent',
+  error: 'bg-alert/8 text-alert before:bg-alert',
+  success: 'bg-ok/8 text-ok before:bg-ok',
+  warning: 'bg-person/10 text-person-ink before:bg-person',
+  info: 'bg-agent/8 text-agent-ink before:bg-agent',
 }
 
 const roles: Record<AlertProps['variant'], string> = {
@@ -22,7 +24,12 @@ export function Alert({ variant, className, ...props }: AlertProps) {
   return (
     <div
       role={roles[variant]}
-      className={cn('p-2.5 rounded-lg text-sm', variants[variant], className)}
+      className={cn(
+        'relative pl-4 pr-3 py-2.5 rounded-[2px] text-sm font-medium',
+        'before:absolute before:inset-y-0 before:left-0 before:w-[5px] before:rounded-l-[2px] before:content-[""]',
+        variants[variant],
+        className,
+      )}
       {...props}
     />
   )

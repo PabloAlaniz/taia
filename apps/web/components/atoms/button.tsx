@@ -7,11 +7,10 @@ export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElemen
 }
 
 const variants = {
-  primary: 'bg-accent border-none text-white hover:bg-blue-600',
-  secondary: 'bg-background border border-border text-foreground hover:bg-card',
-  ghost: 'bg-transparent border-none text-foreground hover:bg-card',
-  danger:
-    'bg-transparent border border-red-500 text-red-500 hover:bg-red-500/10 hover:text-red-400',
+  primary: 'bg-foreground border border-foreground text-background hover:opacity-90',
+  secondary: 'bg-card border border-border text-foreground hover:bg-strip',
+  ghost: 'bg-transparent border border-transparent text-foreground hover:bg-strip',
+  danger: 'bg-card border border-alert/50 text-alert hover:bg-alert/10',
 }
 
 const sizes = {
@@ -28,9 +27,10 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
         ref={ref}
         disabled={disabled}
         className={cn(
-          'rounded-md font-medium transition-colors cursor-pointer',
+          'rounded font-semibold transition-colors cursor-pointer',
           'focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-1 focus-visible:ring-offset-background focus-visible:outline-hidden',
-          'disabled:opacity-50 disabled:cursor-not-allowed',
+          // Disabled reads as a flat strip with muted ink, not a 50% ghost.
+          'disabled:cursor-not-allowed disabled:bg-strip disabled:text-muted disabled:border-border disabled:opacity-100',
           variants[variant],
           sizes[size],
           className,

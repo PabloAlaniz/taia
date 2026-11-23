@@ -4,7 +4,24 @@ import '@testing-library/jest-dom/vitest'
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 
-import { IdentityEditor } from '@/app/agents/_components/identity-editor'
+import { IdentityEditor } from '@/client/features/agent-context/IdentityEditor'
+
+vi.mock('next-intl', () => {
+  // Stable references, so effects don't re-run on every render.
+  const t = (key: string, values?: Record<string, unknown>) =>
+    values ? `${key} ${JSON.stringify(values)}` : key
+  const format = {
+    dateTime: (d: Date) => d.toISOString(),
+    relativeTime: (d: Date) => d.toISOString(),
+    number: (n: number) => String(n),
+  }
+  return {
+    useTranslations: () => t,
+    useFormatter: () => format,
+    useNow: () => new Date(),
+    useLocale: () => 'es',
+  }
+})
 
 // The Checkbox atom wraps both <input> and a <span> label inside <label>,
 // which getByLabelText doesn't reliably resolve. Helper that walks DOM
@@ -79,16 +96,18 @@ describe('IdentityEditor', () => {
     expect(checkboxes).toHaveLength(6)
     // Map each checkbox to the visible label text inside its <label> wrapper.
     const labels = checkboxes.map((cb) => cb.closest('label')?.querySelector('span')?.textContent)
-    expect(labels).toContain('Read tasks')
+    expect(labels).toContain('caps.read_tasks.label')
     // Currently checked ones should match baseIdentity.capabilities.
     const checked = checkboxes
       .filter((cb) => cb.checked)
       .map((cb) => cb.closest('label')?.querySelector('span')?.textContent)
-    expect(checked).toEqual(expect.arrayContaining(['Read tasks', 'Comment on tasks']))
-    expect(checked).not.toContain('Memory tool')
-    expect(checkboxByLabel('Comment on tasks')).toBeChecked()
-    expect(checkboxByLabel('Write tasks')).not.toBeChecked()
-    expect(checkboxByLabel('Memory tool')).not.toBeChecked()
+    expect(checked).toEqual(
+      expect.arrayContaining(['caps.read_tasks.label', 'caps.comment_tasks.label']),
+    )
+    expect(checked).not.toContain('caps.memory.label')
+    expect(checkboxByLabel('caps.comment_tasks.label')).toBeChecked()
+    expect(checkboxByLabel('caps.write_tasks.label')).not.toBeChecked()
+    expect(checkboxByLabel('caps.memory.label')).not.toBeChecked()
   })
 
   it('renders existing constraints and supports remove', async () => {
@@ -98,7 +117,7 @@ describe('IdentityEditor', () => {
     const constraintRow = await screen.findByText('never approve without tests')
     expect(constraintRow).toBeInTheDocument()
 
-    fireEvent.click(screen.getByRole('button', { name: 'Remove constraint 1' }))
+    fireEvent.click(screen.getByRole('button', { name: 'removeConstraint {"n":1}' }))
     expect(screen.queryByText('never approve without tests')).not.toBeInTheDocument()
   })
 
@@ -107,29 +126,33 @@ describe('IdentityEditor', () => {
     render(<IdentityEditor agentId="alex" />)
 
     await waitFor(() => {
-      expect(checkboxByLabel('Read tasks')).toBeChecked()
+      expect(checkboxByLabel('caps.read_tasks.label')).toBeChecked()
     })
 
-    const saveBtn = screen.getByRole('button', { name: /Save identity/i })
+    const saveBtn = screen.getByRole('button', { name: /^save$/ })
     expect(saveBtn).toBeDisabled()
 
     // Toggle a capability to dirty the form.
-    fireEvent.click(checkboxByLabel('Memory tool'))
+    fireEvent.click(checkboxByLabel('caps.memory.label'))
     expect(saveBtn).not.toBeDisabled()
   })
 
   it('Save fires PATCH with the merged identity (capabilities updated)', async () => {
     mockGet(baseIdentity)
-    mockPatchOk({ ...baseIdentity, capabilities: ['read_tasks', 'comment_tasks', 'memory'] })
-
-    render(<IdentityEditor agentId="alex" />)
-
-    await waitFor(() => {
-      expect(checkboxByLabel('Read tasks')).toBeChecked()
+    mockPatchOk({
+      ...baseIdentity,
+      capabilities: ['read_tasks', 'comment_tasks', 'memory'],
     })
 
-    fireEvent.click(checkboxByLabel('Memory tool'))
-    fireEvent.click(screen.getByRole('button', { name: /Save identity/i }))
+    const onSaved = vi.fn()
+    render(<IdentityEditor agentId="alex" onSaved={onSaved} />)
+
+    await waitFor(() => {
+      expect(checkboxByLabel('caps.read_tasks.label')).toBeChecked()
+    })
+
+    fireEvent.click(checkboxByLabel('caps.memory.label'))
+    fireEvent.click(screen.getByRole('button', { name: /^save$/ }))
 
     await waitFor(() => {
       // GET (initial load) + PATCH = 2 calls.
@@ -145,6 +168,7 @@ describe('IdentityEditor', () => {
     expect(body.identity.capabilities).toContain('comment_tasks')
     expect(body.identity.constraints).toEqual(['never approve without tests'])
     expect(body.note).toBeTruthy()
+    await waitFor(() => expect(onSaved).toHaveBeenCalledTimes(1))
   })
 
   it('Add constraint via the input + button appends to the list', async () => {
@@ -155,9 +179,9 @@ describe('IdentityEditor', () => {
       expect(screen.getByText('never approve without tests')).toBeInTheDocument()
     })
 
-    const input = screen.getByPlaceholderText('Add a constraint…')
+    const input = screen.getByLabelText('newConstraint')
     fireEvent.change(input, { target: { value: 'always read the diff' } })
-    fireEvent.click(screen.getByRole('button', { name: 'Add' }))
+    fireEvent.click(screen.getByRole('button', { name: 'addConstraint' }))
 
     expect(screen.getByText('always read the diff')).toBeInTheDocument()
     // Input cleared after add.
@@ -170,17 +194,21 @@ describe('IdentityEditor', () => {
 
     await waitFor(() => {
       // Capabilities still listed, all unchecked.
-      expect(checkboxByLabel('Read tasks')).not.toBeChecked()
+      expect(checkboxByLabel('caps.read_tasks.label')).not.toBeChecked()
     })
-    expect(checkboxByLabel('Memory tool')).not.toBeChecked()
+    expect(checkboxByLabel('caps.memory.label')).not.toBeChecked()
 
     // Save disabled because no changes against an empty identity.
-    const saveBtn = screen.getByRole('button', { name: /Save identity/i })
+    const saveBtn = screen.getByRole('button', { name: /^save$/ })
     expect(saveBtn).toBeDisabled()
   })
 
   it('shows an error alert when GET fails', async () => {
-    fetchMock.mockResolvedValueOnce({ ok: false, status: 500, json: async () => ({}) })
+    fetchMock.mockResolvedValueOnce({
+      ok: false,
+      status: 500,
+      json: async () => ({}),
+    })
     render(<IdentityEditor agentId="alex" />)
 
     await waitFor(() => {

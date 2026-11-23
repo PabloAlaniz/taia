@@ -9,16 +9,18 @@ export interface BadgeProps extends React.HTMLAttributes<HTMLSpanElement> {
 
 const variants = {
   default: 'bg-background text-muted',
-  accent: 'bg-accent text-white',
+  accent: 'bg-foreground text-background',
   muted: 'bg-card text-muted',
   secondary: 'bg-card border border-border text-foreground',
-  success: 'bg-green-500/20 text-green-400',
-  warning: 'bg-yellow-500/20 text-yellow-400',
-  danger: 'bg-red-500/20 text-red-400',
+  // State badges: ink-strength text with a ring, no fill, so they read on any
+  // surface (page, card, strip) in both themes.
+  success: 'text-ok ring-1 ring-inset ring-ok/50',
+  warning: 'text-person-ink ring-1 ring-inset ring-person/60',
+  danger: 'text-alert ring-1 ring-inset ring-alert/50',
 }
 
 const sizes = {
-  xs: 'text-2xs px-2 py-1 leading-none',
+  xs: 'text-xxs px-1.5 py-0.5 leading-tight',
   sm: 'text-xs px-2.5 py-1 leading-none',
 }
 
@@ -30,24 +32,29 @@ export function Badge({
   style,
   ...props
 }: BadgeProps) {
-  const colorStyle = color
-    ? {
-        backgroundColor: `${color}25`,
-        color: color,
-        ...style,
-      }
-    : style
+  // A tag colour tints the chip and marks it with a dot; the text stays ink so
+  // it reads on any strip, whatever colour the user picked.
+  const colorStyle = color ? { backgroundColor: `${color}26`, ...style } : style
 
   return (
     <span
       className={cn(
-        'rounded-full font-medium inline-flex items-center',
-        !color && variants[variant],
+        'rounded-sm font-semibold inline-flex items-center',
+        color ? 'text-foreground gap-1.5' : variants[variant],
         sizes[size],
         className,
       )}
       style={colorStyle}
       {...props}
-    />
+    >
+      {color && (
+        <span
+          aria-hidden="true"
+          className="w-1.5 h-1.5 rounded-full"
+          style={{ backgroundColor: color }}
+        />
+      )}
+      {props.children}
+    </span>
   )
 }

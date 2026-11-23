@@ -8,6 +8,7 @@ const LOCALES = ['es', 'pt'] as const
 export function LocaleSwitcher() {
   const locale = useLocale()
   const t = useTranslations('locale')
+  const ts = useTranslations('settingsPage')
 
   const handleChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const newLocale = e.target.value
@@ -16,7 +17,12 @@ export function LocaleSwitcher() {
   }
 
   return (
-    <Select value={locale} onChange={handleChange} className="w-auto text-xs">
+    <Select
+      value={locale}
+      onChange={handleChange}
+      className="w-auto text-xs"
+      aria-label={ts('language')}
+    >
       {LOCALES.map((loc) => (
         <option key={loc} value={loc}>
           {t(loc)}

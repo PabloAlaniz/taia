@@ -4,7 +4,17 @@ import '@testing-library/jest-dom/vitest'
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 
-import { ProjectContextEditor } from '@/app/settings/projects/_components/project-context-editor'
+import { ProjectContextEditor } from '@/client/features/project-settings/ProjectContextEditor'
+
+vi.mock('next-intl', () => ({
+  useTranslations: () => (key: string, values?: Record<string, unknown>) =>
+    values ? `${key} ${JSON.stringify(values)}` : key,
+  useFormatter: () => ({
+    dateTime: (d: Date) => d.toISOString(),
+    relativeTime: (d: Date) => d.toISOString(),
+  }),
+  useNow: () => new Date(),
+}))
 
 const fetchMock = vi.fn()
 
@@ -58,7 +68,7 @@ describe('ProjectContextEditor', () => {
     expect(term).toBeInTheDocument()
     expect(screen.getByText('service level agreement')).toBeInTheDocument()
 
-    fireEvent.click(screen.getByRole('button', { name: 'Remove glossary entry 1' }))
+    fireEvent.click(screen.getByRole('button', { name: 'removeTerm {"term":"sla"}' }))
     expect(screen.queryByText('sla')).not.toBeInTheDocument()
   })
 
@@ -70,7 +80,7 @@ describe('ProjectContextEditor', () => {
     expect(uri).toBeInTheDocument()
     expect(screen.getByText('policy')).toBeInTheDocument()
 
-    fireEvent.click(screen.getByRole('button', { name: 'Remove knowledge ref 1' }))
+    fireEvent.click(screen.getByRole('button', { name: 'removeRef {"uri":"docs/policy.md"}' }))
     expect(screen.queryByText('docs/policy.md')).not.toBeInTheDocument()
   })
 
@@ -82,15 +92,15 @@ describe('ProjectContextEditor', () => {
       expect(screen.getByText('sla')).toBeInTheDocument()
     })
 
-    const saveBtn = screen.getByRole('button', { name: /Save context/i })
+    const saveBtn = screen.getByRole('button', { name: 'save' })
     expect(saveBtn).toBeDisabled()
 
     // Add a glossary entry to dirty.
-    fireEvent.change(screen.getByPlaceholderText('Term'), { target: { value: 'pr' } })
-    fireEvent.change(screen.getByPlaceholderText('Definition'), {
+    fireEvent.change(screen.getByPlaceholderText('termPlaceholder'), { target: { value: 'pr' } })
+    fireEvent.change(screen.getByPlaceholderText('definitionPlaceholder'), {
       target: { value: 'pull request' },
     })
-    fireEvent.click(screen.getByRole('button', { name: 'Add' }))
+    fireEvent.click(screen.getByRole('button', { name: 'addTerm' }))
 
     expect(saveBtn).not.toBeDisabled()
   })
@@ -106,13 +116,13 @@ describe('ProjectContextEditor', () => {
     })
 
     // Add another glossary entry.
-    fireEvent.change(screen.getByPlaceholderText('Term'), { target: { value: 'wip' } })
-    fireEvent.change(screen.getByPlaceholderText('Definition'), {
+    fireEvent.change(screen.getByPlaceholderText('termPlaceholder'), { target: { value: 'wip' } })
+    fireEvent.change(screen.getByPlaceholderText('definitionPlaceholder'), {
       target: { value: 'work in progress' },
     })
-    fireEvent.click(screen.getByRole('button', { name: 'Add' }))
+    fireEvent.click(screen.getByRole('button', { name: 'addTerm' }))
 
-    fireEvent.click(screen.getByRole('button', { name: /Save context/i }))
+    fireEvent.click(screen.getByRole('button', { name: 'save' }))
 
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledTimes(2)
@@ -135,10 +145,10 @@ describe('ProjectContextEditor', () => {
     render(<ProjectContextEditor projectId="p-1" />)
 
     await waitFor(() => {
-      expect(screen.getByPlaceholderText('Term')).toBeInTheDocument()
+      expect(screen.getByPlaceholderText('termPlaceholder')).toBeInTheDocument()
     })
     // Save disabled because no changes against empty.
-    const saveBtn = screen.getByRole('button', { name: /Save context/i })
+    const saveBtn = screen.getByRole('button', { name: 'save' })
     expect(saveBtn).toBeDisabled()
   })
 
@@ -151,12 +161,12 @@ describe('ProjectContextEditor', () => {
     })
 
     // Try to add the same term again.
-    fireEvent.change(screen.getByPlaceholderText('Term'), { target: { value: 'sla' } })
-    fireEvent.change(screen.getByPlaceholderText('Definition'), {
+    fireEvent.change(screen.getByPlaceholderText('termPlaceholder'), { target: { value: 'sla' } })
+    fireEvent.change(screen.getByPlaceholderText('definitionPlaceholder'), {
       target: { value: 'duplicate definition' },
     })
-    fireEvent.click(screen.getByRole('button', { name: 'Add' }))
+    fireEvent.click(screen.getByRole('button', { name: 'addTerm' }))
 
-    expect(screen.getByText(/already in glossary/i)).toBeInTheDocument()
+    expect(screen.getByText(/^duplicateTerm/)).toBeInTheDocument()
   })
 })

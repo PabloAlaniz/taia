@@ -15,4 +15,9 @@ describe('shortTaskId', () => {
     expect(shortTaskId('task-1')).toBe('task-1')
     expect(shortTaskId('github-issue-42')).toBe('github-i')
   })
+
+  it('keeps short ids whole so siblings stay distinct', () => {
+    expect(shortTaskId('demo-t140')).toBe('demo-t140')
+    expect(shortTaskId('demo-t149')).not.toBe(shortTaskId('demo-t140'))
+  })
 })

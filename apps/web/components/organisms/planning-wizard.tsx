@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { useTranslations } from 'next-intl'
 import { Alert, Button, Input, Select, Textarea, Label } from '../atoms'
-import { Modal, ModalHeader, ModalBody, ModalFooter } from './modal'
+import { Modal, ModalHeader, ModalBody, ModalFooter } from '../molecules/modal'
 
 interface PlannedTask {
   title: string
@@ -29,10 +29,10 @@ interface PlanningWizardProps {
 }
 
 const PRIORITY_COLORS: Record<string, string> = {
-  URGENT: 'text-red-500',
-  HIGH: 'text-orange-500',
-  MEDIUM: 'text-yellow-500',
-  LOW: 'text-green-500',
+  URGENT: 'text-alert font-semibold',
+  HIGH: 'text-foreground font-semibold',
+  MEDIUM: 'text-foreground',
+  LOW: 'text-muted',
 }
 
 export function PlanningWizard({ open, onClose, onCreateTasks }: PlanningWizardProps) {
@@ -249,7 +249,7 @@ export function PlanningWizard({ open, onClose, onCreateTasks }: PlanningWizardP
                         variant="ghost"
                         size="xs"
                         onClick={() => handleRemoveTask(i)}
-                        className="text-xs text-muted hover:text-red-500 ml-auto"
+                        className="text-xs text-muted hover:text-alert ml-auto"
                         title={t('removeTask')}
                       >
                         ✕

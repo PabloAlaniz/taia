@@ -1,3 +1,6 @@
+'use client'
+
+import { useTranslations } from 'next-intl'
 import { Badge } from './badge'
 import type { WorktreeStatus } from '@taia/types'
 
@@ -5,16 +8,15 @@ const STATUS_CONFIG: Record<
   WorktreeStatus,
   {
     variant: 'default' | 'accent' | 'muted' | 'secondary' | 'success' | 'warning' | 'danger'
-    label: string
   }
 > = {
-  creating: { variant: 'accent', label: 'Creating' },
-  active: { variant: 'success', label: 'Active' },
-  reviewing: { variant: 'warning', label: 'Reviewing' },
-  merging: { variant: 'warning', label: 'Merging' },
-  merged: { variant: 'muted', label: 'Merged' },
-  failed: { variant: 'danger', label: 'Failed' },
-  cleanup: { variant: 'muted', label: 'Cleanup' },
+  creating: { variant: 'accent' },
+  active: { variant: 'success' },
+  reviewing: { variant: 'warning' },
+  merging: { variant: 'warning' },
+  merged: { variant: 'muted' },
+  failed: { variant: 'danger' },
+  cleanup: { variant: 'muted' },
 }
 
 export interface WorktreeBadgeProps {
@@ -23,10 +25,11 @@ export interface WorktreeBadgeProps {
 }
 
 export function WorktreeBadge({ status, className }: WorktreeBadgeProps) {
+  const t = useTranslations('worktree.status')
   const config = STATUS_CONFIG[status] || STATUS_CONFIG.active
   return (
     <Badge variant={config.variant} size="sm" className={className}>
-      {config.label}
+      {t(STATUS_CONFIG[status] ? status : 'active')}
     </Badge>
   )
 }

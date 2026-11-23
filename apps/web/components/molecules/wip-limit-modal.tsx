@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { useTranslations } from 'next-intl'
-import { Modal, ModalHeader, ModalBody, ModalFooter } from '../organisms/modal'
+import { Modal, ModalHeader, ModalBody, ModalFooter } from './modal'
 import { Button, Input } from '../atoms'
 
 interface WipLimitModalProps {

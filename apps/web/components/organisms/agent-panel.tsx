@@ -3,6 +3,7 @@
 import { AgentCard } from './agent-card'
 import { useTranslations } from 'next-intl'
 import { Agent, Task } from '@taia/types'
+import { X } from 'lucide-react'
 import { Button } from '../atoms'
 
 interface AgentPanelProps {
@@ -40,14 +41,16 @@ export function AgentPanel({
           variant="ghost"
           size="xs"
           onClick={() => onSelectAgent(selectedAgentId!)}
-          className="w-full mb-2 text-accent bg-accent/10 flex items-center justify-between hover:bg-accent/20"
+          className="w-full mb-2 flex items-center justify-between"
         >
-          <span>{t('filtering', { name: selectedAgent.name })}</span>
-          <span>✕</span>
+          <span className="truncate">{t('filtering', { name: selectedAgent.name })}</span>
+          <X size={13} aria-hidden="true" />
         </Button>
       )}
 
-      <h2 className="text-mid mb-2.5 text-muted">{t('heading')}</h2>
+      <h2 className="text-xs font-semibold tracking-[0.08em] uppercase mb-2 text-muted">
+        {t('heading')}
+      </h2>
       {aiAgents.map((agent) => (
         <AgentCard
           key={agent.id}
@@ -60,7 +63,9 @@ export function AgentPanel({
 
       {humanAgents.length > 0 && (
         <>
-          <h2 className="text-mid mt-4 mb-2.5 text-muted">{t('team')}</h2>
+          <h2 className="text-xs font-semibold tracking-[0.08em] uppercase mt-4 mb-2 text-muted">
+            {t('team')}
+          </h2>
           {humanAgents.map((agent) => (
             <AgentCard
               key={agent.id}
@@ -78,14 +83,14 @@ export function AgentPanel({
   return (
     <>
       {/* Desktop: always-visible sidebar */}
-      <aside className="hidden lg:block w-56 bg-card border-r border-border p-3 overflow-y-auto shrink-0">
+      <aside className="hidden lg:block w-52 pl-6 pr-1 pt-1 pb-4 overflow-y-auto shrink-0">
         {panelContent}
       </aside>
 
       {/* Mobile/Tablet: overlay panel */}
       {mobileOpen && (
         <div className="lg:hidden fixed inset-0 z-40 flex">
-          <aside className="w-64 bg-card border-r border-border p-3 overflow-y-auto animate-[slideInLeft_200ms_ease-out]">
+          <aside className="w-64 bg-background border-r border-border p-4 overflow-y-auto animate-[slideInLeft_200ms_ease-out]">
             {panelContent}
           </aside>
           <div className="flex-1 bg-black/30" onClick={onMobileClose} aria-hidden="true" />

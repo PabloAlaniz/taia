@@ -2,21 +2,33 @@
 
 import { useState, useRef, useEffect, forwardRef, useImperativeHandle } from 'react'
 import { useRouter } from 'next/navigation'
+import { useFormatter, useNow, useTranslations } from 'next-intl'
+import { Plus, X } from 'lucide-react'
 import {
   Task,
   Agent,
   TaskPriority,
   Project,
   TaskCostBreakdown,
-  Worktree,
   TaskDependencyDetail,
 } from '@taia/types'
-import { Select, Badge, Input, CostBadge, WorktreeBadge, Button, GitHubIcon } from '../atoms'
+import {
+  Select,
+  Badge,
+  Input,
+  CostBadge,
+  Button,
+  GitHubIcon,
+  ParticipantMark,
+  Kbd,
+  PriorityMark,
+} from '../atoms'
 import { Dropdown } from '../molecules/dropdown'
-import { PRIORITY_COLORS, formatRelativeTime } from '../../lib/utils'
 import { formatMinutes, isOverdue, parseTimeInput } from '../../lib/task-utils'
 import { useStore } from '../../lib/store'
 import { api } from '../../lib/api'
+import { actorName } from '../../lib/format'
+import { WorktreePanel } from './worktree-panel'
 import { shortTaskId } from '@taia/domain/domain/task/task-id'
 
 const TAG_PRESET_COLORS = [
@@ -39,14 +51,18 @@ export interface TaskSidebarHandle {
   openStatusDropdown: () => void
 }
 
-function formatDate(dateStr: string): string {
-  const date = new Date(dateStr)
-  return date.toLocaleDateString('en-US', {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-  })
+/** Parses API timestamps, which may come without a zone (then they are UTC). */
+function parseTimestamp(iso: string): Date {
+  const normalized = iso.includes('T') ? iso : iso.replace(' ', 'T')
+  const zoned = normalized.endsWith('Z') || /[+-]\d{2}:\d{2}$/.test(normalized)
+  return new Date(zoned ? normalized : `${normalized}Z`)
 }
+
+const CONFIDENCE_KEYS = {
+  'auto-merge': 'confidenceAutoMerge',
+  'notify-only': 'confidenceNotifyOnly',
+  'needs-approval': 'confidenceNeedsApproval',
+} as const
 
 interface TaskSidebarProps {
   task: Task
@@ -69,12 +85,17 @@ export const TaskSidebar = forwardRef<TaskSidebarHandle, TaskSidebarProps>(funct
   const [newTag, setNewTag] = useState('')
   const [colorPickerTag, setColorPickerTag] = useState<string | null>(null)
   const [taskCost, setTaskCost] = useState<TaskCostBreakdown | null>(null)
-  const [worktree, setWorktree] = useState<Worktree | null>(null)
-  const [worktreeLoading, setWorktreeLoading] = useState(false)
   const [blockers, setBlockers] = useState<TaskDependencyDetail[]>([])
   const [dependents, setDependents] = useState<TaskDependencyDetail[]>([])
   const [depSearch, setDepSearch] = useState('')
   const [showDepPicker, setShowDepPicker] = useState(false)
+  const [depError, setDepError] = useState<string | null>(null)
+  const t = useTranslations('taskSidebarUi')
+  const tp = useTranslations('taskPage')
+  const tActors = useTranslations('actors')
+  const format = useFormatter()
+  const now = useNow({ updateInterval: 60_000 })
+  const ago = (iso: string) => format.relativeTime(parseTimestamp(iso), now)
   const router = useRouter()
   const tagColors = useStore((s) => s.tagColors)
   const setTagColor = useStore((s) => s.setTagColor)
@@ -82,6 +103,7 @@ export const TaskSidebar = forwardRef<TaskSidebarHandle, TaskSidebarProps>(funct
   const statusSelectRef = useRef<HTMLSelectElement>(null)
   const assignedAgent = agents.find((a) => a.id === task.assigned_to)
   const assignableAgents = agents.filter((a) => a.type !== 'orchestrator')
+  const columnLabel = (slug?: string) => boardColumns.find((c) => c.slug === slug)?.label ?? slug
 
   useEffect(() => {
     api.cost
@@ -106,65 +128,28 @@ export const TaskSidebar = forwardRef<TaskSidebarHandle, TaskSidebarProps>(funct
   }, [task.id])
 
   const handleAddDependency = async (dependsOnTaskId: string) => {
+    setDepError(null)
     try {
       await api.dependencies.add(task.id, dependsOnTaskId)
       const data = await api.dependencies.list(task.id)
       setBlockers(data.blockers || [])
       setDependents(data.dependents || [])
     } catch (e) {
-      const body = e instanceof Error ? e.message : 'Failed to add dependency'
-      console.error('Failed to add dependency:', body)
+      console.error('Failed to add dependency:', e instanceof Error ? e.message : e)
+      setDepError(t('addBlockerFailed'))
     }
     setShowDepPicker(false)
     setDepSearch('')
   }
 
   const handleRemoveDependency = async (dependsOnTaskId: string) => {
+    setDepError(null)
     try {
       await api.dependencies.remove(task.id, dependsOnTaskId)
       setBlockers((prev) => prev.filter((b) => b.depends_on_task_id !== dependsOnTaskId))
     } catch (e) {
       console.error('Failed to remove dependency:', e)
-    }
-  }
-
-  useEffect(() => {
-    api.worktrees
-      .list(task.id)
-      .then((data) => {
-        const active = (data.worktrees || []).find(
-          (w: Worktree) => !['merged', 'failed', 'cleanup'].includes(w.status),
-        )
-        setWorktree(active || null)
-      })
-      .catch(() => setWorktree(null))
-  }, [task.id])
-
-  const handleCreateWorktree = async () => {
-    setWorktreeLoading(true)
-    try {
-      const data = await api.worktrees.create({ task_id: task.id })
-      if (data.worktree) setWorktree(data.worktree)
-    } catch (e) {
-      console.error('Failed to create worktree:', e)
-    } finally {
-      setWorktreeLoading(false)
-    }
-  }
-
-  const handleWorktreeAction = async (action: string) => {
-    if (!worktree) return
-    setWorktreeLoading(true)
-    try {
-      const data = await api.worktrees.action(worktree.id, action)
-      if (data.worktree) {
-        const isTerminal = ['merged', 'failed', 'cleanup'].includes(data.worktree.status)
-        setWorktree(isTerminal ? null : data.worktree)
-      }
-    } catch (e) {
-      console.error('Worktree action failed:', e)
-    } finally {
-      setWorktreeLoading(false)
+      setDepError(t('removeBlockerFailed'))
     }
   }
 
@@ -205,11 +190,15 @@ export const TaskSidebar = forwardRef<TaskSidebarHandle, TaskSidebarProps>(funct
   }
 
   return (
-    <div className="p-4 space-y-6">
+    // Fields as ruled rows, like the boxes of a flight strip.
+    <div className="px-4 divide-y divide-border [&>*]:py-3.5 [&_label]:uppercase [&_label]:tracking-[0.08em] [&_label]:font-semibold [&_h3]:uppercase [&_h3]:tracking-[0.08em] [&_h3]:font-semibold">
       {/* Status */}
       <div>
-        <label className="text-xs font-medium text-muted block mb-2">Status (S)</label>
+        <label htmlFor="task-status" className="text-xs font-medium text-muted block mb-2">
+          {t('status')} <Kbd title={t('shortcut', { key: 'S' })}>S</Kbd>
+        </label>
         <Select
+          id="task-status"
           ref={statusSelectRef}
           value={task.status}
           onChange={(e) => onStatusChange(e.target.value)}
@@ -224,40 +213,48 @@ export const TaskSidebar = forwardRef<TaskSidebarHandle, TaskSidebarProps>(funct
 
       {/* Priority */}
       <div>
-        <label className="text-xs font-medium text-muted block mb-2">Priority</label>
-        <Select value={task.priority} onChange={(e) => handlePriorityChange(e.target.value)}>
-          {PRIORITIES.map((priority) => (
-            <option key={priority} value={priority}>
-              {priority.charAt(0) + priority.slice(1).toLowerCase()}
-            </option>
-          ))}
-        </Select>
-        <div className="mt-2 flex items-center gap-2">
-          <span
-            className="w-3 h-3 rounded-full"
-            style={{ background: PRIORITY_COLORS[task.priority] }}
-          />
-          <span className="text-xs text-muted">{task.priority}</span>
+        <label htmlFor="task-priority" className="text-xs font-medium text-muted block mb-2">
+          {t('priority')}
+        </label>
+        <div className="flex items-center gap-2">
+          <PriorityMark priority={task.priority} withLabel={false} className="shrink-0" />
+          <Select
+            id="task-priority"
+            value={task.priority}
+            onChange={(e) => handlePriorityChange(e.target.value)}
+          >
+            {PRIORITIES.map((priority) => (
+              <option key={priority} value={priority}>
+                {tp('priorityName', { priority })}
+              </option>
+            ))}
+          </Select>
         </div>
       </div>
 
       {/* Assigned To */}
       <div>
-        <label className="text-xs font-medium text-muted block mb-2">Assigned To</label>
-        <Select value={task.assigned_to || ''} onChange={(e) => onAssign(e.target.value)}>
-          <option value="">Unassigned</option>
+        <label htmlFor="task-assignee" className="text-xs font-medium text-muted block mb-2">
+          {t('assignedTo')}
+        </label>
+        <Select
+          id="task-assignee"
+          value={task.assigned_to || ''}
+          onChange={(e) => onAssign(e.target.value)}
+        >
+          <option value="">{t('unassigned')}</option>
           {assignableAgents.map((agent) => (
             <option key={agent.id} value={agent.id}>
-              {agent.avatar} {agent.name}
+              {agent.name}
             </option>
           ))}
         </Select>
         {assignedAgent && (
           <div className="mt-2 flex items-center gap-2">
-            <span>{assignedAgent.avatar}</span>
+            <ParticipantMark agent={assignedAgent} />
             <span className="text-sm">{assignedAgent.name}</span>
             <Badge variant="secondary" size="sm">
-              {assignedAgent.status}
+              {t('agentStatus', { status: assignedAgent.status })}
             </Badge>
           </div>
         )}
@@ -266,16 +263,18 @@ export const TaskSidebar = forwardRef<TaskSidebarHandle, TaskSidebarProps>(funct
       {/* Created By */}
       {task.created_by && (
         <div>
-          <label className="text-xs font-medium text-muted block mb-2">Created By</label>
+          <h3 className="text-xs text-muted mb-2">{t('createdBy')}</h3>
           {(() => {
             const creatorAgent = agents.find((a) => a.id === task.created_by)
             return creatorAgent ? (
               <div className="flex items-center gap-2">
-                <span>{creatorAgent.avatar}</span>
+                <ParticipantMark agent={creatorAgent} />
                 <span className="text-sm">{creatorAgent.name}</span>
               </div>
             ) : (
-              <span className="text-sm text-muted">{task.created_by}</span>
+              <span className="text-sm text-muted">
+                {actorName(task.created_by, agents, tActors)}
+              </span>
             )
           })()}
         </div>
@@ -283,9 +282,15 @@ export const TaskSidebar = forwardRef<TaskSidebarHandle, TaskSidebarProps>(funct
 
       {/* Project */}
       <div>
-        <label className="text-xs font-medium text-muted block mb-2">Project</label>
-        <Select value={task.project_id || ''} onChange={(e) => handleProjectChange(e.target.value)}>
-          <option value="">No project</option>
+        <label htmlFor="task-project" className="text-xs font-medium text-muted block mb-2">
+          {t('project')}
+        </label>
+        <Select
+          id="task-project"
+          value={task.project_id || ''}
+          onChange={(e) => handleProjectChange(e.target.value)}
+        >
+          <option value="">{t('noProject')}</option>
           {projects.map((p) => (
             <option key={p.id} value={p.id}>
               {p.name}
@@ -296,9 +301,12 @@ export const TaskSidebar = forwardRef<TaskSidebarHandle, TaskSidebarProps>(funct
 
       {/* Repo URL */}
       <div>
-        <label className="text-xs font-medium text-muted block mb-2">Repo URL</label>
+        <label htmlFor="task-repo-url" className="text-xs font-medium text-muted block mb-2">
+          {t('repoUrl')}
+        </label>
         <div className="flex items-center gap-1.5">
           <Input
+            id="task-repo-url"
             type="text"
             value={task.repo_url || ''}
             onChange={(e) => handleRepoUrlChange(e.target.value)}
@@ -310,158 +318,75 @@ export const TaskSidebar = forwardRef<TaskSidebarHandle, TaskSidebarProps>(funct
               target="_blank"
               rel="noopener noreferrer"
               className="text-muted hover:text-foreground shrink-0"
-              title="Open repository"
+              title={t('openRepo')}
+              aria-label={t('openRepo')}
             >
-              <GitHubIcon size={14} />
+              <GitHubIcon size={14} aria-hidden />
             </a>
           )}
         </div>
         {!task.repo_url && task.primary_repo_url && (
-          <p className="text-2xs text-muted mt-1">From project primary repo</p>
+          <p className="text-xs text-muted mt-1">{t('repoFromProject')}</p>
         )}
       </div>
 
-      {/* Git Worktree */}
-      {(task.repo_url || task.primary_repo_url) && (
-        <div>
-          <label className="text-xs font-medium text-muted block mb-2">Git Worktree</label>
-          {!worktree ? (
-            <Button
-              variant="primary"
-              size="sm"
-              onClick={handleCreateWorktree}
-              disabled={worktreeLoading}
-            >
-              {worktreeLoading ? 'Creating...' : 'Create Worktree'}
-            </Button>
-          ) : (
-            <div className="space-y-2">
-              <div className="flex items-center gap-2">
-                <WorktreeBadge status={worktree.status} />
-                <span className="text-xs text-muted truncate" title={worktree.branch_name}>
-                  {worktree.branch_name}
-                </span>
-              </div>
-              {worktree.diff_stats && (
-                <div className="text-2xs text-muted">
-                  {worktree.diff_stats.files_changed} files
-                  <span className="text-green-400 ml-1">+{worktree.diff_stats.insertions}</span>
-                  <span className="text-red-400 ml-1">-{worktree.diff_stats.deletions}</span>
-                </div>
-              )}
-              <div className="flex flex-wrap gap-1">
-                {worktree.status === 'active' && (
-                  <>
-                    <Button
-                      variant="secondary"
-                      size="xs"
-                      onClick={() => handleWorktreeAction('review')}
-                      disabled={worktreeLoading}
-                    >
-                      Review
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="xs"
-                      onClick={() => handleWorktreeAction('merge')}
-                      disabled={worktreeLoading}
-                      className="bg-green-500/20 text-green-400 hover:bg-green-500/30"
-                    >
-                      Merge
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="xs"
-                      onClick={() => handleWorktreeAction('abort')}
-                      disabled={worktreeLoading}
-                      className="bg-red-500/20 text-red-400 hover:bg-red-500/30"
-                    >
-                      Abort
-                    </Button>
-                  </>
-                )}
-                {worktree.status === 'reviewing' && (
-                  <>
-                    <Button
-                      variant="ghost"
-                      size="xs"
-                      onClick={() => handleWorktreeAction('merge')}
-                      disabled={worktreeLoading}
-                      className="bg-green-500/20 text-green-400 hover:bg-green-500/30"
-                    >
-                      Merge
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="xs"
-                      onClick={() => handleWorktreeAction('abort')}
-                      disabled={worktreeLoading}
-                      className="bg-red-500/20 text-red-400 hover:bg-red-500/30"
-                    >
-                      Abort
-                    </Button>
-                  </>
-                )}
-              </div>
-              {worktree.error_message && (
-                <p className="text-2xs text-red-400">{worktree.error_message}</p>
-              )}
-            </div>
-          )}
-        </div>
-      )}
+      {(task.repo_url || task.primary_repo_url) && <WorktreePanel taskId={task.id} />}
 
       {/* Dependencies */}
       <div>
-        <label className="text-xs font-medium text-muted block mb-2">Dependencies</label>
+        <h3 className="text-xs text-muted mb-2">{t('dependencies')}</h3>
         {/* Blockers (this task is blocked by) */}
         {blockers.length > 0 && (
           <div className="mb-2">
-            <p className="text-2xs text-muted mb-1">Blocked by:</p>
+            <p className="text-xs text-muted mb-1">{t('blockedBy')}</p>
             <div className="space-y-1">
-              {blockers.map((b) => (
-                <div key={b.id} className="flex items-center gap-1.5 group">
-                  <span
-                    className={`w-1.5 h-1.5 rounded-full shrink-0 ${
-                      b.depends_on_status === 'DONE' || b.depends_on_status === 'REJECTED'
-                        ? 'bg-green-400'
-                        : 'bg-red-400'
-                    }`}
-                  />
-                  <Button
-                    variant="ghost"
-                    size="xs"
-                    onClick={() => router.push(`/task/${b.depends_on_task_id}`)}
-                    className="text-foreground hover:text-accent truncate text-left"
-                    title={b.depends_on_title}
-                  >
-                    {b.depends_on_title || shortTaskId(b.depends_on_task_id)}
-                  </Button>
-                  <Badge variant="secondary" size="sm" className="shrink-0">
-                    {b.depends_on_status}
-                  </Badge>
-                  <Button
-                    variant="ghost"
-                    size="xs"
-                    onClick={() => handleRemoveDependency(b.depends_on_task_id)}
-                    className="text-muted hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity shrink-0 ml-auto"
-                    title="Remove dependency"
-                  >
-                    ×
-                  </Button>
-                </div>
-              ))}
+              {blockers.map((b) => {
+                const resolved =
+                  b.depends_on_status === 'DONE' || b.depends_on_status === 'REJECTED'
+                const title = b.depends_on_title || shortTaskId(b.depends_on_task_id)
+                return (
+                  <div key={b.id} className="flex items-center gap-1.5 group">
+                    <span
+                      className={`w-1.5 h-1.5 rounded-full shrink-0 ${resolved ? 'bg-ok' : 'bg-alert'}`}
+                      role="img"
+                      aria-label={resolved ? t('resolved') : t('pending')}
+                    />
+                    <Button
+                      variant="ghost"
+                      size="xs"
+                      onClick={() => router.push(`/task/${b.depends_on_task_id}`)}
+                      className="text-foreground hover:text-accent truncate text-left"
+                      title={b.depends_on_title}
+                    >
+                      {title}
+                    </Button>
+                    <Badge variant="secondary" size="sm" className="shrink-0">
+                      {columnLabel(b.depends_on_status)}
+                    </Badge>
+                    <Button
+                      variant="ghost"
+                      size="xs"
+                      onClick={() => handleRemoveDependency(b.depends_on_task_id)}
+                      className="text-muted hover:text-alert opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity shrink-0 ml-auto"
+                      aria-label={t('removeBlocker', { title })}
+                      title={t('removeBlocker', { title })}
+                    >
+                      <X size={12} aria-hidden />
+                    </Button>
+                  </div>
+                )
+              })}
             </div>
           </div>
         )}
         {/* Dependents (tasks blocked by this one) */}
         {dependents.length > 0 && (
           <div className="mb-2">
-            <p className="text-2xs text-muted mb-1">Blocking:</p>
+            <p className="text-xs text-muted mb-1">{t('blocking')}</p>
             <div className="space-y-1">
               {dependents.map((d) => (
                 <div key={d.id} className="flex items-center gap-1.5">
-                  <span className="w-1.5 h-1.5 rounded-full bg-yellow-400 shrink-0" />
+                  <span className="w-1.5 h-1.5 rounded-full bg-person-ink shrink-0" aria-hidden />
                   <Button
                     variant="ghost"
                     size="xs"
@@ -472,7 +397,7 @@ export const TaskSidebar = forwardRef<TaskSidebarHandle, TaskSidebarProps>(funct
                     {d.task_title || shortTaskId(d.task_id)}
                   </Button>
                   <Badge variant="secondary" size="sm" className="shrink-0">
-                    {d.task_status}
+                    {columnLabel(d.task_status)}
                   </Badge>
                 </div>
               ))}
@@ -486,8 +411,10 @@ export const TaskSidebar = forwardRef<TaskSidebarHandle, TaskSidebarProps>(funct
             size="xs"
             onClick={() => setShowDepPicker(!showDepPicker)}
             className="text-muted hover:text-foreground"
+            aria-expanded={showDepPicker}
           >
-            + Add blocker
+            <Plus size={12} aria-hidden className="mr-1" />
+            {t('addBlocker')}
           </Button>
           <Dropdown open={showDepPicker} className="w-64 max-h-48 overflow-hidden">
             <div className="p-2 border-b border-border">
@@ -495,7 +422,8 @@ export const TaskSidebar = forwardRef<TaskSidebarHandle, TaskSidebarProps>(funct
                 type="text"
                 value={depSearch}
                 onChange={(e) => setDepSearch(e.target.value)}
-                placeholder="Search tasks…"
+                placeholder={t('searchTasks')}
+                aria-label={t('searchTasks')}
                 className="text-xs"
                 autoFocus
               />
@@ -530,15 +458,24 @@ export const TaskSidebar = forwardRef<TaskSidebarHandle, TaskSidebarProps>(funct
                   (depSearch === '' ||
                     t.title.toLowerCase().includes(depSearch.toLowerCase()) ||
                     t.id.toLowerCase().includes(depSearch.toLowerCase())),
-              ).length === 0 && <p className="px-3 py-2 text-xs text-muted">No matching tasks</p>}
+              ).length === 0 && (
+                <p className="px-3 py-2 text-xs text-muted">
+                  {depSearch ? t('noMatches', { query: depSearch }) : t('noOtherTasks')}
+                </p>
+              )}
             </div>
           </Dropdown>
         </div>
+        {depError && (
+          <p role="alert" className="text-xs text-alert mt-1">
+            {depError}
+          </p>
+        )}
       </div>
 
       {/* Confidence */}
       <div>
-        <label className="text-xs font-medium text-muted block mb-2">Confidence</label>
+        <p className="text-xs font-medium text-muted mb-2">{t('confidence')}</p>
         <Badge
           variant={
             task.confidence === 'auto-merge'
@@ -549,13 +486,15 @@ export const TaskSidebar = forwardRef<TaskSidebarHandle, TaskSidebarProps>(funct
           }
           size="sm"
         >
-          {task.confidence}
+          {task.confidence in CONFIDENCE_KEYS
+            ? t(CONFIDENCE_KEYS[task.confidence as keyof typeof CONFIDENCE_KEYS])
+            : task.confidence}
         </Badge>
       </div>
 
       {/* Tags */}
       <div>
-        <label className="text-xs font-medium text-muted block mb-2">Tags</label>
+        <p className="text-xs font-medium text-muted mb-2">{t('tags')}</p>
         <div className="flex flex-wrap gap-1.5 mb-2">
           {task.tags?.map((tag) => (
             <div key={tag} className="relative group">
@@ -565,6 +504,7 @@ export const TaskSidebar = forwardRef<TaskSidebarHandle, TaskSidebarProps>(funct
                 color={tagColors[tag]}
                 className="cursor-pointer"
                 onClick={() => setColorPickerTag(colorPickerTag === tag ? null : tag)}
+                title={t('tagColorFor', { tag })}
               >
                 #{tag}
                 <Button
@@ -576,9 +516,10 @@ export const TaskSidebar = forwardRef<TaskSidebarHandle, TaskSidebarProps>(funct
                     const currentTags = task.tags?.filter((t) => t !== tag) || []
                     await onUpdateTask({ tags: currentTags })
                   }}
-                  title="Remove tag"
+                  aria-label={t('removeTag', { tag })}
+                  title={t('removeTag', { tag })}
                 >
-                  ×
+                  <X size={10} aria-hidden />
                 </Button>
               </Badge>
               <Dropdown open={colorPickerTag === tag} className="p-2 w-[156px]">
@@ -597,7 +538,8 @@ export const TaskSidebar = forwardRef<TaskSidebarHandle, TaskSidebarProps>(funct
                         setTagColor(tag, color)
                         setColorPickerTag(null)
                       }}
-                      title={color}
+                      title={t('tagColor', { color })}
+                      aria-label={t('tagColor', { color })}
                     />
                   ))}
                 </div>
@@ -605,13 +547,13 @@ export const TaskSidebar = forwardRef<TaskSidebarHandle, TaskSidebarProps>(funct
                   <Button
                     variant="ghost"
                     size="xs"
-                    className="text-2xs text-muted hover:text-foreground mt-1.5 w-full text-center"
+                    className="text-xs text-muted hover:text-foreground mt-1.5 w-full text-center"
                     onClick={() => {
                       setTagColor(tag, null)
                       setColorPickerTag(null)
                     }}
                   >
-                    Reset color
+                    {t('resetColor')}
                   </Button>
                 )}
               </Dropdown>
@@ -627,12 +569,15 @@ export const TaskSidebar = forwardRef<TaskSidebarHandle, TaskSidebarProps>(funct
               if (e.key === 'Enter' && newTag.trim()) {
                 const currentTags = task.tags || []
                 if (!currentTags.includes(newTag.trim())) {
-                  await onUpdateTask({ tags: [...currentTags, newTag.trim()] })
+                  await onUpdateTask({
+                    tags: [...currentTags, newTag.trim()],
+                  })
                 }
                 setNewTag('')
               }
             }}
-            placeholder="Add tag…"
+            placeholder={t('addTag')}
+            aria-label={t('addTag')}
             className="text-xs"
           />
         </div>
@@ -643,18 +588,27 @@ export const TaskSidebar = forwardRef<TaskSidebarHandle, TaskSidebarProps>(funct
 
       {/* Due Date */}
       <div>
-        <label className="text-xs font-medium text-muted block mb-2">Due Date</label>
+        <label htmlFor="task-due-date" className="text-xs font-medium text-muted block mb-2">
+          {t('dueDate')}
+        </label>
         <Input
+          id="task-due-date"
           type="date"
           value={task.due_date ? task.due_date.split('T')[0] : ''}
           onChange={(e) => handleDueDateChange(e.target.value)}
         />
         {task.due_date && (
           <div className="mt-2 flex items-center gap-2">
-            <span className="text-sm">{formatDate(task.due_date)}</span>
+            <span className="text-sm">
+              {format.dateTime(new Date(task.due_date), {
+                month: 'short',
+                day: 'numeric',
+                year: 'numeric',
+              })}
+            </span>
             {task.status !== 'DONE' && isOverdue(task.due_date) && (
               <Badge variant="danger" size="sm">
-                Overdue
+                {t('overdue')}
               </Badge>
             )}
           </div>
@@ -663,33 +617,39 @@ export const TaskSidebar = forwardRef<TaskSidebarHandle, TaskSidebarProps>(funct
 
       {/* Estimate */}
       <div>
-        <label className="text-xs font-medium text-muted block mb-2">Estimate</label>
+        <label htmlFor="task-estimate" className="text-xs font-medium text-muted block mb-2">
+          {t('estimate')}
+        </label>
         <Input
+          id="task-estimate"
           type="text"
           value={estimateInput}
           onChange={(e) => setEstimateInput(e.target.value)}
           onBlur={handleEstimateBlur}
           onKeyDown={(e) => e.key === 'Enter' && handleEstimateBlur()}
-          placeholder="e.g., 2h 30m"
+          placeholder={t('estimatePlaceholder')}
         />
         {task.estimated_minutes &&
           task.time_spent_minutes !== undefined &&
           task.time_spent_minutes > 0 && (
             <div className="mt-2 text-xs">
               <div className="flex justify-between text-muted mb-1">
-                <span>Progress</span>
+                <span>{t('timeUsed')}</span>
                 <span>
-                  {formatMinutes(task.time_spent_minutes)} / {formatMinutes(task.estimated_minutes)}
+                  {t('timeOfEstimate', {
+                    spent: formatMinutes(task.time_spent_minutes),
+                    estimate: formatMinutes(task.estimated_minutes),
+                  })}
                 </span>
               </div>
               <div className="w-full h-2 bg-background rounded-full overflow-hidden">
                 <div
                   className={`h-full transition-all ${
                     task.time_spent_minutes > task.estimated_minutes
-                      ? 'bg-red-500'
+                      ? 'bg-alert'
                       : task.time_spent_minutes >= task.estimated_minutes * 0.8
-                        ? 'bg-yellow-500'
-                        : 'bg-green-500'
+                        ? 'bg-person-ink'
+                        : 'bg-ok'
                   }`}
                   style={{
                     width: `${Math.min(100, (task.time_spent_minutes / task.estimated_minutes) * 100)}%`,
@@ -703,10 +663,12 @@ export const TaskSidebar = forwardRef<TaskSidebarHandle, TaskSidebarProps>(funct
       {/* AI Cost */}
       {taskCost && taskCost.total_tokens > 0 && (
         <div>
-          <label className="text-xs font-medium text-muted block mb-2">AI Cost</label>
+          <p className="text-xs font-medium text-muted mb-2">{t('aiCost')}</p>
           <CostBadge costUsd={taskCost.total_cost_usd} tokens={taskCost.total_tokens} />
           {taskCost.session_count > 1 && (
-            <p className="text-2xs text-muted mt-1">{taskCost.session_count} sessions</p>
+            <p className="text-xs text-muted mt-1">
+              {t('sessions', { count: taskCost.session_count })}
+            </p>
           )}
         </div>
       )}
@@ -717,35 +679,38 @@ export const TaskSidebar = forwardRef<TaskSidebarHandle, TaskSidebarProps>(funct
       {/* Time Tracking */}
       {task.time_spent_minutes !== undefined && task.time_spent_minutes > 0 && (
         <div>
-          <label className="text-xs font-medium text-muted block mb-2">Time Spent</label>
+          <p className="text-xs font-medium text-muted mb-2">{t('timeSpent')}</p>
           <p className="text-sm">
-            {Math.floor(task.time_spent_minutes / 60)}h {task.time_spent_minutes % 60}m
+            {t('hoursMinutes', {
+              hours: Math.floor(task.time_spent_minutes / 60),
+              minutes: task.time_spent_minutes % 60,
+            })}
           </p>
         </div>
       )}
 
       {/* Timestamps */}
       <div>
-        <label className="text-xs font-medium text-muted block mb-2">Created</label>
-        <p className="text-sm">{formatRelativeTime(task.created_at)}</p>
+        <p className="text-xs font-medium text-muted mb-2">{t('created')}</p>
+        <p className="text-sm">{ago(task.created_at)}</p>
       </div>
 
       <div>
-        <label className="text-xs font-medium text-muted block mb-2">Updated</label>
-        <p className="text-sm">{formatRelativeTime(task.updated_at)}</p>
+        <p className="text-xs font-medium text-muted mb-2">{t('updated')}</p>
+        <p className="text-sm">{ago(task.updated_at)}</p>
       </div>
 
       {task.started_at && (
         <div>
-          <label className="text-xs font-medium text-muted block mb-2">Started</label>
-          <p className="text-sm">{formatRelativeTime(task.started_at)}</p>
+          <p className="text-xs font-medium text-muted mb-2">{t('started')}</p>
+          <p className="text-sm">{ago(task.started_at)}</p>
         </div>
       )}
 
       {task.completed_at && (
         <div>
-          <label className="text-xs font-medium text-muted block mb-2">Completed</label>
-          <p className="text-sm">{formatRelativeTime(task.completed_at)}</p>
+          <p className="text-xs font-medium text-muted mb-2">{t('completed')}</p>
+          <p className="text-sm">{ago(task.completed_at)}</p>
         </div>
       )}
     </div>

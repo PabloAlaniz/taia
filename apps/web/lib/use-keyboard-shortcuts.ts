@@ -2,15 +2,16 @@
 
 import { useEffect, useCallback } from 'react'
 
-// Board shortcuts. Moving or assigning a task with the keyboard needs task
-// selection on the board, which doesn't exist yet, so only global actions
-// are bound.
+// Board shortcuts: global actions plus triage of what waits on a person.
 
 interface UseKeyboardShortcutsProps {
   onNewTask: () => void
   onSearch: () => void
   onRefresh: () => void
   onEscape: () => void
+  onHelp: () => void
+  onNextWaiting: () => void
+  onToggleWaiting: () => void
 }
 
 export function useKeyboardShortcuts({
@@ -18,6 +19,9 @@ export function useKeyboardShortcuts({
   onSearch,
   onRefresh,
   onEscape,
+  onHelp,
+  onNextWaiting,
+  onToggleWaiting,
 }: UseKeyboardShortcutsProps) {
   const handleKeyDown = useCallback(
     (e: KeyboardEvent) => {
@@ -51,13 +55,25 @@ export function useKeyboardShortcuts({
         case 'escape':
           onEscape()
           break
+        case 'w':
+          if (!e.metaKey && !e.ctrlKey) {
+            e.preventDefault()
+            onNextWaiting()
+          }
+          break
+        case 't':
+          if (!e.metaKey && !e.ctrlKey) {
+            e.preventDefault()
+            onToggleWaiting()
+          }
+          break
         case '?':
           e.preventDefault()
-          showHelp()
+          onHelp()
           break
       }
     },
-    [onNewTask, onSearch, onRefresh, onEscape],
+    [onNewTask, onSearch, onRefresh, onEscape, onHelp, onNextWaiting, onToggleWaiting],
   )
 
   useEffect(() => {
@@ -66,13 +82,15 @@ export function useKeyboardShortcuts({
   }, [handleKeyDown])
 }
 
-function showHelp() {
-  alert(`⌨️ Atajos de teclado
-
-N - Nueva tarea
-/ - Buscar
-R - Refrescar
-Esc - Cerrar
-
-? - Mostrar esta ayuda`)
+/** Focus the title link of the next strip that waits on a person, wrapping around. */
+export function focusNextWaitingStrip(): boolean {
+  const links = Array.from(
+    document.querySelectorAll<HTMLAnchorElement>('[data-waiting="true"] a[data-strip-link]'),
+  )
+  if (links.length === 0) return false
+  const current = links.findIndex((l) => l === document.activeElement)
+  const next = links[(current + 1) % links.length]
+  next.focus()
+  next.scrollIntoView({ block: 'nearest', inline: 'nearest' })
+  return true
 }

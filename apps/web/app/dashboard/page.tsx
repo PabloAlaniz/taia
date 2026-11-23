@@ -1,29 +1,47 @@
 'use client'
 
 import { useState, useMemo } from 'react'
-import { useTranslations } from 'next-intl'
+import { useFormatter, useLocale, useNow, useTranslations } from 'next-intl'
 import Link from 'next/link'
-import { Task, Agent, Activity, CostDashboardMetrics } from '@taia/types'
-import { cn } from '../../lib/utils'
-import { Button, Select, ProgressBar } from '../../components/atoms'
-import { Card } from '@/components/molecules/card'
+import type { Task, Agent, Activity, BoardColumn, CostDashboardMetrics } from '@taia/types'
+import { Button, Select, Strip, type StripKind } from '../../components/atoms'
+import { FigureBar } from '@/components/atoms/figure-bar'
+import { RackSection } from '@/components/molecules/rack-section'
 import { PageHeader } from '@/components/molecules/page-header'
-import { StatCard } from '@/components/molecules/stat-card'
-import { computeDailyCompletions, getAgentColor } from '../../lib/dashboard-utils'
+import { ReadoutStrip, type Readout } from '@/components/molecules/readout-strip'
+import {
+  boardStages,
+  completedSlugs,
+  completionDate,
+  computeDailyCompletions,
+  isCompleted,
+  isOpen,
+  isStale,
+  stageCounts,
+} from '../../lib/dashboard-utils'
+import { cn } from '../../lib/utils'
 import { useResource } from '@/lib/use-resource'
+import { actorName, formatTokens, formatUsd, participantKind } from '@/lib/format'
 import { useStore } from '../../lib/store'
+import { useLiveStore, useWaiting } from '@/lib/use-shell-signals'
+import { useActivityText } from '@/lib/use-activity-text'
 
 type PeriodFilter = '24h' | 'week' | 'month' | 'all'
 
 interface Stats {
-  totalTasks: number
   completedToday: number
   completedThisWeek: number
   inProgress: number
   inReview: number
   blocked: number
   avgTimeMinutes: number
-  byAgent: { agent: Agent; total: number; done: number; pending: number; timeMinutes: number }[]
+  byAgent: {
+    agent: Agent
+    total: number
+    done: number
+    open: number
+    timeMinutes: number
+  }[]
   byProject: { project: string; count: number; done: number }[]
   staleTasks: Task[]
   recentActivity: Activity[]
@@ -78,12 +96,24 @@ async function optionalMetrics<T>(res: Response | null): Promise<T | null> {
   }
 }
 
+/** The workspace's columns, to know which ones count as completed. */
+async function optionalColumns(res: Response | null): Promise<BoardColumn[] | null> {
+  if (!res?.ok) return null
+  try {
+    const data = (await res.json()) as { columns?: BoardColumn[] }
+    return data.columns ?? null
+  } catch {
+    return null
+  }
+}
+
 interface DashboardData {
   stats: Stats
   costMetrics: CostDashboardMetrics | null
   usageMetrics: UsageAnalyticsMetrics | null
   tasks: Task[]
   agents: Agent[]
+  doneSlugs: ReadonlySet<string>
 }
 
 async function loadDashboard(
@@ -92,21 +122,38 @@ async function loadDashboard(
 ): Promise<DashboardData> {
   // Tasks and activity of the active workspace; agents and costs are shared.
   const scope = workspaceId ? `workspace_id=${encodeURIComponent(workspaceId)}` : ''
-  const [tasksRes, agentsRes, activityRes, costRes, usageRes] = await Promise.all([
+  const [tasksRes, agentsRes, activityRes, costRes, usageRes, columnsRes] = await Promise.all([
     fetch(`/api/tasks${scope ? `?${scope}` : ''}`),
     fetch('/api/agents'),
     fetch(`/api/activities?limit=20${scope ? `&${scope}` : ''}`),
     fetch(`/api/cost/dashboard?period=${period}`).catch(() => null),
     fetch(`/api/usage-analytics?${getUsageAnalyticsParams(period, workspaceId)}`).catch(() => null),
+    workspaceId
+      ? fetch(`/api/workspaces/${encodeURIComponent(workspaceId)}/columns`).catch(() => null)
+      : Promise.resolve(null),
   ])
 
   const { tasks: allTasks } = (await tasksRes.json()) as { tasks: Task[] }
-  const agentsData = (await agentsRes.json()) as { agents: Agent[]; source?: string }
+  const agentsData = (await agentsRes.json()) as {
+    agents: Agent[]
+    source?: string
+  }
   const agents = agentsData.agents
   const agentSource = agentsData.source
-  const { activities } = (await activityRes.json()) as { activities: Activity[] }
+  const { activities } = (await activityRes.json()) as {
+    activities: Activity[]
+  }
+  // Completed = in one of the workspace's finished columns (Hecho, Publicado…),
+  // the same columns the board files as done. In progress, in review and
+  // open read the columns too, the way the team page counts them.
+  const columns = await optionalColumns(columnsRes)
+  const doneSlugs = completedSlugs(columns)
+  const done = (t: Task) => isCompleted(t, doneSlugs)
+  const stages = boardStages(columns)
 
-  // Apply period filter
+  // The period filter applies to the breakdowns (by participant, by project,
+  // average time). "Now" and "today / this week" are their own windows, so
+  // they read every task of the workspace.
   const periodStart = getPeriodStart(period)
   const tasks = periodStart
     ? allTasks.filter((t) => new Date(t.created_at) >= periodStart)
@@ -117,17 +164,16 @@ async function loadDashboard(
   const weekStart = new Date(todayStart)
   weekStart.setDate(weekStart.getDate() - 7)
 
-  const completedTasks = tasks.filter((t) => t.status === 'DONE')
-  const completedToday = completedTasks.filter(
-    (t) => t.completed_at && new Date(t.completed_at) >= todayStart,
-  ).length
-  const completedThisWeek = completedTasks.filter(
-    (t) => t.completed_at && new Date(t.completed_at) >= weekStart,
-  ).length
+  const completedSince = (since: Date) =>
+    allTasks.filter((t) => {
+      if (!done(t)) return false
+      const at = completionDate(t)
+      return at !== null && at >= since
+    }).length
 
   // Time stats
-  const tasksWithTime = completedTasks.filter(
-    (t) => t.time_spent_minutes && t.time_spent_minutes > 0,
+  const tasksWithTime = tasks.filter(
+    (t) => done(t) && t.time_spent_minutes && t.time_spent_minutes > 0,
   )
   const avgTimeMinutes =
     tasksWithTime.length > 0
@@ -137,19 +183,19 @@ async function loadDashboard(
         )
       : 0
 
-  // By agent - now with done + pending
+  // By participant: what each one holds now (every open task, whatever the
+  // period, as the team page counts it) and what they finished in the period.
   const byAgent = agents
     .filter((a) => a.type !== 'orchestrator')
     .map((agent) => {
-      const agentTasks = tasks.filter((t) => t.assigned_to === agent.id)
-      const doneTasks = agentTasks.filter((t) => t.status === 'DONE')
-      const pendingTasks = agentTasks.filter((t) => t.status !== 'DONE' && t.status !== 'REJECTED')
+      const doneTasks = tasks.filter((t) => t.assigned_to === agent.id && done(t))
+      const open = allTasks.filter((t) => t.assigned_to === agent.id && isOpen(t, stages)).length
       const timeMinutes = doneTasks.reduce((sum, t) => sum + (t.time_spent_minutes || 0), 0)
       return {
         agent,
-        total: agentTasks.length,
+        total: doneTasks.length + open,
         done: doneTasks.length,
-        pending: pendingTasks.length,
+        open,
         timeMinutes,
       }
     })
@@ -161,23 +207,20 @@ async function loadDashboard(
     .map((project) => ({
       project: project!,
       count: tasks.filter((t) => t.project === project).length,
-      done: tasks.filter((t) => t.project === project && t.status === 'DONE').length,
+      done: tasks.filter((t) => t.project === project && done(t)).length,
     }))
     .sort((a, b) => b.count - a.count)
 
-  // Stale tasks (assigned >24h ago, not moving)
-  const oneDayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000)
-  const staleTasks = tasks.filter(
-    (t) => t.status === 'ASSIGNED' && new Date(t.updated_at) < oneDayAgo,
-  )
+  // Stale: someone holds it, it has not started, and nothing moved in a day.
+  const staleTasks = allTasks.filter((t) => isStale(t, stages, now))
+  const nowCounts = stageCounts(allTasks, stages)
 
   const stats: Stats = {
-    totalTasks: tasks.length,
-    completedToday,
-    completedThisWeek,
-    inProgress: tasks.filter((t) => t.status === 'IN_PROGRESS').length,
-    inReview: tasks.filter((t) => t.status === 'REVIEW').length,
-    blocked: tasks.filter(
+    completedToday: completedSince(todayStart),
+    completedThisWeek: completedSince(weekStart),
+    inProgress: nowCounts.in_progress,
+    inReview: nowCounts.review,
+    blocked: allTasks.filter(
       (t) => t.tags?.includes('blocked') || t.tags?.includes('needs-clarification'),
     ).length,
     avgTimeMinutes,
@@ -194,11 +237,24 @@ async function loadDashboard(
     usageMetrics: await optionalMetrics<UsageAnalyticsMetrics>(usageRes),
     tasks: allTasks,
     agents,
+    doneSlugs,
   }
+}
+
+/** Bar fill for a participant kind; tasks with no one on them stay neutral. */
+const KIND_FILL: Record<StripKind, string> = {
+  agent: 'bg-agent',
+  person: 'bg-person',
+  none: 'bg-field',
 }
 
 export default function DashboardPage() {
   const t = useTranslations('dashboard')
+  const tu = useTranslations('dashboardUi')
+  const tActors = useTranslations('actors')
+  const format = useFormatter()
+  const locale = useLocale()
+  const now = useNow({ updateInterval: 60_000 })
   const [period, setPeriod] = useState<PeriodFilter>('all')
   const activeWorkspaceId = useStore((state) => state.activeWorkspaceId)
   // Keeps the previous figures on screen while another period loads.
@@ -211,15 +267,26 @@ export default function DashboardPage() {
   const costMetrics = data?.costMetrics ?? null
   const usageMetrics = data?.usageMetrics ?? null
   const rawTasks = useMemo(() => data?.tasks ?? [], [data])
+  const doneSlugs = data?.doneSlugs
   const rawAgents = data?.agents ?? []
+  // Names the way the board shows them, never raw ids: TAIA's own actors
+  // (web-ui, system…) get a readable name too.
+  const agentName = (id?: string | null) => actorName(id, rawAgents, tActors) || '—'
+  const kindOf = (id?: string | null): StripKind =>
+    participantKind(rawAgents.find((a) => a.id === id)) ?? 'none'
+  const waitingCount = Object.keys(useWaiting()).length
+  // The same 24 h figure the top bar shows, from the same poll.
+  const spend24h = useLiveStore((s) => s.costToday)
+  const describe = useActivityText()
 
-  const dailyCompletions = useMemo(() => computeDailyCompletions(rawTasks), [rawTasks])
-
-  const chartAgentIds = useMemo(() => {
-    const ids = new Set<string>()
-    dailyCompletions.forEach((d) => d.byAgent.forEach((a) => ids.add(a.agentId)))
-    return Array.from(ids).sort()
-  }, [dailyCompletions])
+  // Only days that closed something: the rack is a log, not a calendar.
+  const completionDays = useMemo(
+    () =>
+      computeDailyCompletions(rawTasks, 30, doneSlugs)
+        .filter((d) => d.total > 0)
+        .reverse(),
+    [rawTasks, doneSlugs],
+  )
 
   function formatTime(minutes: number): string {
     if (minutes < 60) return `${minutes}m`
@@ -228,29 +295,114 @@ export default function DashboardPage() {
     return mins > 0 ? `${hours}h ${mins}m` : `${hours}h`
   }
 
+  /** YYYY-MM-DD day keys, shown as a short localized date. */
+  function formatDay(day: string): string {
+    const date = new Date(`${day.slice(0, 10)}T00:00:00Z`)
+    if (Number.isNaN(date.getTime())) return day
+    return format.dateTime(date, {
+      weekday: 'short',
+      day: 'numeric',
+      month: 'short',
+      timeZone: 'UTC',
+    })
+  }
+
   if (loading) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <span className="text-2xl">⏳</span>
+      <div className="min-h-full bg-background flex items-center justify-center">
+        <span role="status" className="text-sm text-muted">
+          {tu('loading')}
+        </span>
       </div>
     )
   }
 
   if (!stats) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <span className="text-red-500">Failed to load stats</span>
+      <div className="min-h-full bg-background flex flex-col items-center justify-center gap-3">
+        <span role="alert" className="text-alert">
+          {tu('loadFailed')}
+        </span>
+        <Button variant="secondary" size="sm" onClick={reload}>
+          {tu('retry')}
+        </Button>
       </div>
     )
   }
 
+  const staleCount = stats.staleTasks.length
+  const nowItems: Readout[] = [
+    {
+      id: 'waiting',
+      value: waitingCount,
+      label: tu('nowWaiting', { count: waitingCount }),
+      tone: 'waiting',
+      href: '/?view=waiting',
+      linkLabel: tu('nowWaitingLink', { count: waitingCount }),
+    },
+    { id: 'progress', value: stats.inProgress, label: tu('nowInProgress') },
+    { id: 'review', value: stats.inReview, label: tu('nowInReview') },
+    {
+      id: 'blocked',
+      value: stats.blocked,
+      label: tu('nowBlocked', { count: stats.blocked }),
+      tone: 'alert',
+    },
+    { id: 'stale', value: staleCount, label: tu('nowStale', { count: staleCount }) },
+  ]
+  if (spend24h !== null) {
+    nowItems.push({
+      id: 'spend',
+      value: formatUsd(locale, spend24h),
+      label: tu('nowSpend'),
+      zero: spend24h === 0,
+    })
+  }
+
+  const paceItems: Readout[] = [
+    {
+      id: 'today',
+      value: stats.completedToday,
+      label: tu('paceToday', { count: stats.completedToday }),
+    },
+    {
+      id: 'week',
+      value: stats.completedThisWeek,
+      label: tu('paceWeek', { count: stats.completedThisWeek }),
+    },
+    {
+      id: 'avg',
+      value: stats.avgTimeMinutes > 0 ? formatTime(stats.avgTimeMinutes) : '—',
+      label: tu('paceAvgTime'),
+      zero: stats.avgTimeMinutes === 0,
+    },
+  ]
+  if (usageMetrics) {
+    paceItems.push({
+      id: 'p95',
+      value: tu('days', {
+        days: format.number(usageMetrics.aging.p95_age_days, { maximumFractionDigits: 1 }),
+      }),
+      label: tu('paceP95'),
+      zero: usageMetrics.aging.p95_age_days === 0,
+    })
+  }
+
+  const maxDayTotal = Math.max(1, ...completionDays.map((d) => d.total))
+  const maxParticipantTotal = Math.max(1, ...stats.byAgent.map((a) => a.total))
+  const showSpend = !!costMetrics && costMetrics.totals.total_tokens > 0
+  const spendDays = costMetrics?.daily_trend.slice(0, 14) ?? []
+  const maxDailySpend = Math.max(0, ...spendDays.map((d) => d.cost_usd)) || 1
+  const maxAgentSpend = costMetrics?.by_agent[0]?.total_cost_usd || 1
+
   return (
-    <div className="min-h-screen bg-background">
-      <PageHeader title={t('title')}>
+    <div className="min-h-full">
+      <PageHeader width="data" title={t('title')}>
         <Select
           value={period}
           onChange={(e) => setPeriod(e.target.value as PeriodFilter)}
-          className="bg-background border border-border rounded-md px-2 py-1 text-xs w-auto"
+          aria-label={tu('period')}
+          className="w-auto py-1 text-sm"
         >
           <option value="24h">{t('last24h')}</option>
           <option value="week">{t('lastWeek')}</option>
@@ -262,383 +414,349 @@ export default function DashboardPage() {
         </Button>
       </PageHeader>
 
-      <div className="p-6 pt-8 max-w-6xl mx-auto">
-        {/* Overview Cards — hero size for primary metrics */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-10">
-          <StatCard label={t('totalTasks')} value={stats.totalTasks} icon="📋" size="hero" />
-          <StatCard
-            label={t('completedToday')}
-            value={stats.completedToday}
-            icon="✅"
-            color="text-green-500"
-            size="hero"
-          />
-          <StatCard
-            label={t('thisWeek')}
-            value={stats.completedThisWeek}
-            icon="📅"
-            color="text-blue-500"
-            size="hero"
-          />
-          <StatCard
-            label={t('avgTime')}
-            value={formatTime(stats.avgTimeMinutes)}
-            icon="⏱️"
-            size="hero"
-          />
-        </div>
+      <div className="mx-auto px-4 md:px-6 max-w-6xl pt-5 pb-10 space-y-5">
+        {/* Now: the shift in one line. What waits on you, what moves, what's
+            stuck, and what the last 24 h cost. */}
+        <RackSection title={tu('nowSection')} id="dash-now">
+          <ReadoutStrip label={tu('nowSection')} items={nowItems} />
+        </RackSection>
 
-        {/* Usage Analytics */}
-        {usageMetrics && (
-          <>
-            <div className="flex items-center justify-between gap-3 mb-3">
-              <h2 className="text-xs font-medium text-muted uppercase tracking-wider">
-                Usage Analytics
-              </h2>
-              <a
-                href={`/api/usage-analytics?${getUsageAnalyticsParams(period, activeWorkspaceId, 'csv')}`}
-                download="usage-analytics.csv"
-                className={cn(
-                  'rounded-md font-medium transition-colors cursor-pointer',
-                  'focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-1 focus-visible:ring-offset-background focus-visible:outline-hidden',
-                  'bg-background border border-border text-foreground hover:bg-card px-2.5 py-1 text-xs',
-                )}
-              >
-                Export CSV
-              </a>
-            </div>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-10">
-              <StatCard
-                label="Throughput"
-                value={usageMetrics.throughput.completed_count}
-                icon="🚀"
-                color="text-green-500"
-              />
-              <StatCard
-                label="Avg aging"
-                value={`${usageMetrics.aging.average_age_days}d`}
-                icon="🕰️"
-              />
-              <StatCard label="P95 aging" value={`${usageMetrics.aging.p95_age_days}d`} icon="📈" />
-              <StatCard
-                label="Tracked time"
-                value={formatTime(
-                  usageMetrics.time_by_column.reduce((sum, row) => sum + row.total_minutes, 0),
-                )}
-                icon="⏱️"
-              />
-            </div>
-          </>
-        )}
+        <div className="grid gap-5 lg:grid-cols-[minmax(0,7fr)_minmax(0,5fr)] lg:items-start">
+          <div className="space-y-5 min-w-0">
+            {/* Pace: what got closed, day by day. */}
+            <RackSection
+              title={tu('flowSection')}
+              id="dash-pace"
+              aside={
+                usageMetrics ? (
+                  <a
+                    href={`/api/usage-analytics?${getUsageAnalyticsParams(period, activeWorkspaceId, 'csv')}`}
+                    download="usage-analytics.csv"
+                    aria-label={tu('exportCsvLabel')}
+                    className="rounded border border-rack-line px-2.5 py-1 text-xs font-semibold text-on-rack no-underline hover:text-white hover:border-on-rack-muted focus-visible:outline-2 focus-visible:outline-white"
+                  >
+                    {tu('exportCsv')}
+                  </a>
+                ) : undefined
+              }
+            >
+              <ReadoutStrip label={tu('flowSection')} items={paceItems} />
+              {usageMetrics && (
+                <p className="text-xs text-on-rack-muted max-w-prose">{tu('agingNote')}</p>
+              )}
 
-        {/* Status Overview */}
-        <h2 className="text-xs font-medium text-muted uppercase tracking-wider mb-3">
-          {t('statusSection') || 'Status'}
-        </h2>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-10">
-          <StatCard
-            label={t('inProgress')}
-            value={stats.inProgress}
-            icon="🔨"
-            color="text-yellow-500"
-          />
-          <StatCard label={t('blocked')} value={stats.blocked} icon="🚫" color="text-red-500" />
-          <StatCard
-            label={t('inReview')}
-            value={stats.inReview}
-            icon="👀"
-            color="text-purple-500"
-          />
-          <StatCard
-            label={t('stale')}
-            value={stats.staleTasks.length}
-            icon="⚠️"
-            color="text-orange-500"
-          />
-        </div>
-
-        {/* Cost Overview */}
-        {costMetrics && costMetrics.totals.total_tokens > 0 && (
-          <>
-            <h2 className="text-xs font-medium text-muted uppercase tracking-wider mb-3">
-              {t('costSection') || 'Cost'}
-            </h2>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-              <StatCard
-                label={t('totalCost')}
-                value={
-                  costMetrics.totals.total_cost_usd < 1
-                    ? `$${costMetrics.totals.total_cost_usd.toFixed(3)}`
-                    : `$${costMetrics.totals.total_cost_usd.toFixed(2)}`
-                }
-                icon="💰"
-                color="text-green-400"
-              />
-              <StatCard
-                label={t('totalTokens')}
-                value={
-                  costMetrics.totals.total_tokens >= 1_000_000
-                    ? `${(costMetrics.totals.total_tokens / 1_000_000).toFixed(1)}M`
-                    : costMetrics.totals.total_tokens >= 1_000
-                      ? `${(costMetrics.totals.total_tokens / 1_000).toFixed(1)}K`
-                      : costMetrics.totals.total_tokens
-                }
-                icon="🔢"
-              />
-              <StatCard
-                label={t('sessionCount')}
-                value={costMetrics.totals.session_count}
-                icon="🔗"
-              />
-              <StatCard label={t('models')} value={costMetrics.by_model.length} icon="🤖" />
-            </div>
-          </>
-        )}
-
-        {/* Daily Completions Stacked Bar Chart */}
-        {dailyCompletions.length > 0 && (
-          <Card padding="md" className="rounded-lg mb-8">
-            <h2 className="text-sm font-medium mb-3">{t('chartTitle')}</h2>
-            {chartAgentIds.length > 0 ? (
-              <>
-                {/* Legend */}
-                <div className="flex flex-wrap gap-2 mb-3">
-                  {chartAgentIds.map((id) => {
-                    const agent = rawAgents.find((a) => a.id === id)
-                    return (
-                      <span key={id} className="flex items-center gap-1 text-xs text-muted">
-                        <span
-                          className={cn('w-3 h-3 rounded-xs', getAgentColor(id, chartAgentIds))}
-                        />
-                        {agent?.name || id}
-                      </span>
-                    )
-                  })}
-                </div>
-                {/* Bars */}
-                {(() => {
-                  const maxTotal = Math.max(...dailyCompletions.map((d) => d.total), 1)
-                  return (
-                    <div className="space-y-1">
-                      {dailyCompletions.map((day) => (
-                        <div key={day.date} className="flex items-center gap-3">
-                          <span className="text-xs text-muted w-14 shrink-0 font-mono">
-                            {day.date.slice(5)}
-                          </span>
-                          <div className="flex-1 h-4 bg-background rounded-sm overflow-hidden">
-                            {day.total > 0 && (
-                              <div
-                                className="h-full flex rounded-sm overflow-hidden"
-                                style={{ width: `${(day.total / maxTotal) * 100}%` }}
-                              >
-                                {day.byAgent.map(({ agentId, count }) => (
-                                  <div
-                                    key={agentId}
-                                    className={cn('h-full', getAgentColor(agentId, chartAgentIds))}
-                                    style={{ width: `${(count / day.total) * 100}%` }}
-                                    title={`${agentId}: ${count}`}
-                                  />
-                                ))}
-                              </div>
-                            )}
-                          </div>
-                          <span className="text-xs font-mono w-8 text-right shrink-0 text-muted">
+              <RackSubhead>{tu('completedByDay')}</RackSubhead>
+              {completionDays.length === 0 ? (
+                <p className="text-mid text-on-rack-muted">{t('noCompletions')}</p>
+              ) : (
+                <ul className="flex flex-col gap-1.5" aria-label={tu('completedByDay')}>
+                  {completionDays.map((day) => (
+                    <li key={day.date}>
+                      <Strip className="py-1.5">
+                        <div className="grid grid-cols-[5.5rem_minmax(0,1fr)_2.5rem] items-center gap-x-3 gap-y-1">
+                          <span className="text-mid text-muted">{formatDay(day.date)}</span>
+                          <FigureBar
+                            max={maxDayTotal}
+                            segments={day.byAgent.map(({ agentId, count }) => ({
+                              value: count,
+                              className: KIND_FILL[kindOf(agentId)],
+                            }))}
+                          />
+                          <span className="text-right text-sm font-semibold tabular-nums">
                             {day.total}
                           </span>
+                          <span className="col-start-2 col-span-2 text-mid text-muted truncate">
+                            {day.byAgent
+                              .map(({ agentId, count }) =>
+                                tu('nameCount', {
+                                  name:
+                                    agentId === 'unassigned'
+                                      ? tu('unassigned')
+                                      : agentName(agentId),
+                                  count,
+                                }),
+                              )
+                              .join(' · ')}
+                          </span>
                         </div>
-                      ))}
-                    </div>
-                  )
-                })()}
-              </>
-            ) : (
-              <p className="text-muted text-sm">{t('noCompletions')}</p>
-            )}
-          </Card>
-        )}
-
-        <div className="grid md:grid-cols-2 gap-6">
-          {/* By Agent */}
-          <Card padding="md" className="rounded-lg">
-            <h2 className="text-sm font-medium mb-4">
-              {t('byAgent')}
-              {stats.agentSource === 'database-fallback' && (
-                <span className="ml-2 text-xs text-yellow-500">{t('offlineMode')}</span>
+                      </Strip>
+                    </li>
+                  ))}
+                </ul>
               )}
-            </h2>
-            {stats.byAgent.length === 0 ? (
-              <p className="text-muted text-sm">{t('noAgentData')}</p>
-            ) : (
-              <div className="space-y-3">
-                {stats.byAgent.map(({ agent, total, done, pending, timeMinutes }) => (
-                  <div key={agent.id} className="flex items-center gap-3">
-                    <span className="text-xl">{agent.avatar}</span>
-                    <div className="flex-1 min-w-0">
-                      <div className="text-sm font-medium truncate">{agent.name}</div>
-                      <div className="text-xs text-muted">
-                        {t('tracked', { time: formatTime(timeMinutes) })}
-                      </div>
-                      <ProgressBar
-                        className="mt-1"
-                        segments={
-                          total > 0
-                            ? [
-                                { percent: (done / total) * 100, color: 'bg-green-500' },
-                                { percent: (pending / total) * 100, color: 'bg-yellow-500' },
-                              ]
-                            : []
-                        }
-                      />
-                    </div>
-                    <div className="text-right">
-                      <div className="text-sm">
-                        <span className="text-green-500 font-bold">{done}</span>
-                        <span className="text-muted"> / </span>
-                        <span className="text-yellow-500">{pending}</span>
-                      </div>
-                      <div className="text-2xs text-muted">{t('doneVsPending')}</div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </Card>
+            </RackSection>
 
-          {/* By Project */}
-          <Card padding="md" className="rounded-lg">
-            <h2 className="text-sm font-medium mb-4">{t('byProject')}</h2>
-            {stats.byProject.length === 0 ? (
-              <p className="text-muted text-sm">{t('noProjects')}</p>
-            ) : (
-              <div className="space-y-3">
-                {stats.byProject.slice(0, 8).map(({ project, count, done }) => (
-                  <div key={project} className="flex items-center gap-3">
-                    <div className="flex-1 min-w-0">
-                      <div className="text-sm font-medium truncate">{project}</div>
-                      <ProgressBar
-                        className="mt-1"
-                        segments={[{ percent: (done / count) * 100, color: 'bg-green-500' }]}
-                      />
-                    </div>
-                    <div className="text-xs text-muted whitespace-nowrap">
-                      {done}/{count}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </Card>
-
-          {/* Stale Tasks */}
-          {stats.staleTasks.length > 0 && (
-            <Card padding="md" className="rounded-lg">
-              <h2 className="text-sm font-medium mb-4 text-orange-500">{t('staleTasks')}</h2>
-              <div className="space-y-2">
-                {stats.staleTasks.slice(0, 5).map((task) => (
-                  <Link
-                    key={task.id}
-                    href={`/?task=${task.id}`}
-                    className="block p-2 rounded-sm hover:bg-background transition-colors"
+            {/* Who holds what: one strip per participant, agents and people alike. */}
+            <RackSection
+              title={t('byAgent')}
+              id="dash-participants"
+              aside={stats.agentSource === 'database-fallback' ? t('offlineMode') : undefined}
+            >
+              {stats.byAgent.length === 0 ? (
+                <p className="text-mid text-on-rack-muted">{t('noAgentData')}</p>
+              ) : (
+                <>
+                  <div
+                    aria-hidden="true"
+                    className="hidden sm:grid grid-cols-[minmax(0,1fr)_4.5rem_4.5rem_5.5rem] gap-x-3 pl-4 pr-3 text-xs font-semibold tracking-[0.08em] uppercase text-on-rack-muted"
                   >
-                    <div className="text-sm truncate">{task.title}</div>
-                    <div className="text-xs text-muted">
-                      {task.assigned_to} · {new Date(task.updated_at).toLocaleDateString()}
-                    </div>
-                  </Link>
-                ))}
-              </div>
-            </Card>
-          )}
-
-          {/* Recent Activity */}
-          <Card padding="md" className="rounded-lg">
-            <h2 className="text-sm font-medium mb-4">{t('recentActivity')}</h2>
-            <div className="space-y-2 max-h-64 overflow-y-auto">
-              {stats.recentActivity.slice(0, 10).map((activity) => (
-                <div key={activity.id} className="text-xs border-b border-border pb-2">
-                  <div className="text-muted">
-                    {new Date(activity.created_at).toLocaleTimeString()}
+                    <span />
+                    <span className="text-right">{tu('colOpen')}</span>
+                    <span className="text-right">{tu('colDone')}</span>
+                    <span className="text-right">{tu('colTime')}</span>
                   </div>
-                  <div className="truncate">{activity.message}</div>
-                </div>
-              ))}
-            </div>
-          </Card>
+                  <ul className="flex flex-col gap-1.5" aria-label={t('byAgent')}>
+                    {stats.byAgent.map(({ agent, done, open, timeMinutes }) => (
+                      <li key={agent.id}>
+                        <Strip kind={participantKind(agent) ?? 'none'} className="py-2">
+                          <div className="sm:grid sm:grid-cols-[minmax(0,1fr)_4.5rem_4.5rem_5.5rem] sm:items-center sm:gap-x-3">
+                            <div className="min-w-0">
+                              <div className="text-sm font-semibold truncate">{agent.name}</div>
+                              <FigureBar
+                                className="mt-1.5 max-w-48"
+                                max={maxParticipantTotal}
+                                segments={[
+                                  { value: done, className: 'bg-ok' },
+                                  { value: open, className: 'bg-field' },
+                                ]}
+                              />
+                            </div>
+                            <div className="mt-1.5 flex flex-wrap gap-x-4 sm:contents">
+                              <Figure value={open} label={tu('colOpen')} />
+                              <Figure value={done} label={tu('colDone')} />
+                              <Figure
+                                value={timeMinutes > 0 ? formatTime(timeMinutes) : '—'}
+                                label={tu('colTime')}
+                                quiet={timeMinutes === 0}
+                              />
+                            </div>
+                          </div>
+                        </Strip>
+                      </li>
+                    ))}
+                  </ul>
+                </>
+              )}
+            </RackSection>
+          </div>
 
-          {/* Cost by Agent */}
-          {costMetrics && costMetrics.by_agent.length > 0 && (
-            <Card padding="md" className="rounded-lg">
-              <h2 className="text-sm font-medium mb-4">{t('costByAgent')}</h2>
-              <div className="space-y-3">
-                {costMetrics.by_agent.map((agent) => {
-                  const maxCost = costMetrics.by_agent[0]?.total_cost_usd || 1
-                  return (
-                    <div key={agent.agent_id} className="flex items-center gap-3">
-                      <div className="flex-1 min-w-0">
-                        <div className="text-sm font-medium truncate">{agent.agent_id}</div>
-                        <div className="text-xs text-muted">
-                          {agent.session_count} sesiones ·{' '}
-                          {agent.by_model.map((m) => m.model).join(', ')}
-                        </div>
-                        <ProgressBar
-                          className="mt-1"
-                          segments={[
-                            {
-                              percent: (agent.total_cost_usd / maxCost) * 100,
-                              color: 'bg-green-500',
-                            },
-                          ]}
-                        />
-                      </div>
-                      <div className="text-right shrink-0">
-                        <div className="text-sm font-bold text-green-400">
-                          $
-                          {agent.total_cost_usd < 1
-                            ? agent.total_cost_usd.toFixed(3)
-                            : agent.total_cost_usd.toFixed(2)}
-                        </div>
-                        <div className="text-2xs text-muted">
-                          {agent.total_tokens >= 1000
-                            ? `${(agent.total_tokens / 1000).toFixed(1)}K`
-                            : agent.total_tokens}{' '}
-                          tok
-                        </div>
-                      </div>
-                    </div>
-                  )
-                })}
-              </div>
-            </Card>
-          )}
-
-          {/* Daily Cost Trend */}
-          {costMetrics && costMetrics.daily_trend.length > 0 && (
-            <Card padding="md" className="rounded-lg">
-              <h2 className="text-sm font-medium mb-4">{t('dailyCostTrend')}</h2>
-              <div className="space-y-2">
-                {costMetrics.daily_trend.slice(0, 14).map((day) => {
-                  const maxDailyCost =
-                    Math.max(...costMetrics.daily_trend.map((d) => d.cost_usd)) || 1
-                  return (
-                    <div key={day.date} className="flex items-center gap-3">
-                      <span className="text-xs text-muted w-20 shrink-0">{day.date}</span>
-                      <div className="flex-1 h-4 bg-background rounded-sm overflow-hidden">
-                        <div
-                          className="h-full bg-blue-500/60 rounded-sm"
-                          style={{ width: `${(day.cost_usd / maxDailyCost) * 100}%` }}
-                        />
-                      </div>
-                      <span className="text-xs font-mono w-16 text-right shrink-0">
-                        ${day.cost_usd < 1 ? day.cost_usd.toFixed(3) : day.cost_usd.toFixed(2)}
+          <div className="space-y-5 min-w-0">
+            {/* Stale Tasks: strips straight in the rack, like any list of work. */}
+            {staleCount > 0 && (
+              <RackSection title={t('staleTasks')} count={staleCount} id="dash-stale">
+                {stats.staleTasks.slice(0, 5).map((task) => (
+                  <Strip key={task.id} kind={kindOf(task.assigned_to)} className="hover:bg-card">
+                    <Link
+                      href={`/task/${task.id}`}
+                      className="block no-underline text-foreground focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent rounded-[2px]"
+                    >
+                      <span className="block text-sm font-semibold truncate">{task.title}</span>
+                      <span className="block text-mid text-muted">
+                        {agentName(task.assigned_to)} ·{' '}
+                        {format.relativeTime(new Date(task.updated_at), now)}
                       </span>
-                    </div>
-                  )
-                })}
-              </div>
-            </Card>
-          )}
+                    </Link>
+                  </Strip>
+                ))}
+              </RackSection>
+            )}
+
+            {/* The log of the shift: who did what, newest first. */}
+            <RackSection title={t('recentActivity')} id="dash-activity">
+              {stats.recentActivity.length === 0 ? (
+                <p className="text-mid text-on-rack-muted">{tu('noActivity')}</p>
+              ) : (
+                <ul className="flex flex-col gap-1.5" aria-label={t('recentActivity')}>
+                  {stats.recentActivity.slice(0, 10).map((activity) => (
+                    <li key={activity.id}>
+                      <Strip kind={kindOf(activity.agent_id)} className="py-1.5">
+                        <div className="flex items-baseline gap-2 text-mid">
+                          {activity.agent_id && (
+                            <span className="font-semibold truncate">
+                              {agentName(activity.agent_id)}
+                            </span>
+                          )}
+                          <span className="ml-auto shrink-0 text-muted">
+                            {format.relativeTime(new Date(activity.created_at), now)}
+                          </span>
+                        </div>
+                        <div className="text-mid text-muted truncate">{describe(activity)}</div>
+                      </Strip>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </RackSection>
+
+            {/* By Project */}
+            <RackSection title={t('byProject')} id="dash-projects">
+              {stats.byProject.length === 0 ? (
+                <p className="text-mid text-on-rack-muted">{t('noProjects')}</p>
+              ) : (
+                <ul className="flex flex-col gap-1.5" aria-label={t('byProject')}>
+                  {stats.byProject.slice(0, 8).map(({ project, count, done }) => (
+                    <li key={project}>
+                      <Strip className="py-2">
+                        <div className="flex items-baseline gap-3">
+                          <span className="flex-1 min-w-0 text-sm font-semibold truncate">
+                            {project}
+                          </span>
+                          <span className="text-mid text-muted tabular-nums whitespace-nowrap">
+                            {tu('doneOfTotal', { done, total: count })}
+                          </span>
+                        </div>
+                        <FigureBar
+                          className="mt-1.5"
+                          max={count}
+                          segments={[{ value: done, className: 'bg-ok' }]}
+                        />
+                      </Strip>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </RackSection>
+          </div>
         </div>
+        {/* Spend TAIA recorded from past sessions: it outlives the runtime that
+                ran them, so it reads as a record, not as live state. */}
+        {showSpend && costMetrics && (
+          <RackSection title={t('costSection')} id="dash-spend">
+            <ReadoutStrip
+              label={t('costSection')}
+              items={[
+                {
+                  id: 'total',
+                  value: formatUsd(locale, costMetrics.totals.total_cost_usd),
+                  label: tu('spendTotal'),
+                  zero: costMetrics.totals.total_cost_usd === 0,
+                },
+                {
+                  id: 'tokens',
+                  value: formatTokens(costMetrics.totals.total_tokens),
+                  label: tu('spendTokens'),
+                },
+                {
+                  id: 'sessions',
+                  value: costMetrics.totals.session_count,
+                  label: tu('spendSessions', { count: costMetrics.totals.session_count }),
+                },
+                {
+                  id: 'models',
+                  value: costMetrics.by_model.length,
+                  label: tu('spendModels', { count: costMetrics.by_model.length }),
+                },
+              ]}
+            />
+            <p className="text-xs text-on-rack-muted max-w-prose">{t('costNote')}</p>
+
+            <div className="grid gap-x-5 gap-y-1.5 lg:grid-cols-2 lg:items-start">
+              {costMetrics.by_agent.length > 0 && (
+                <div className="flex flex-col gap-1.5 min-w-0">
+                  <RackSubhead>{tu('spendByParticipant')}</RackSubhead>
+                  <ul className="flex flex-col gap-1.5" aria-label={tu('spendByParticipant')}>
+                    {costMetrics.by_agent.map((row) => (
+                      <li key={row.agent_id}>
+                        <Strip kind={kindOf(row.agent_id)} className="py-2">
+                          <div className="grid grid-cols-[minmax(0,1fr)_auto] items-baseline gap-x-3">
+                            <span className="text-sm font-semibold truncate">
+                              {agentName(row.agent_id)}
+                            </span>
+                            <span className="text-sm font-semibold tabular-nums text-right">
+                              {formatUsd(locale, row.total_cost_usd)}
+                            </span>
+                            <span className="text-mid text-muted truncate">
+                              {tu('agentSessions', {
+                                count: row.session_count,
+                                models: row.by_model.map((m) => m.model).join(', '),
+                              })}
+                            </span>
+                            <span className="text-mid text-muted tabular-nums text-right">
+                              {tu('tokens', { count: formatTokens(row.total_tokens) })}
+                            </span>
+                          </div>
+                          <FigureBar
+                            className="mt-1.5"
+                            max={maxAgentSpend}
+                            segments={[
+                              {
+                                value: row.total_cost_usd,
+                                className: KIND_FILL[kindOf(row.agent_id)],
+                              },
+                            ]}
+                          />
+                        </Strip>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {spendDays.length > 0 && (
+                <div className="flex flex-col gap-1.5 min-w-0">
+                  <RackSubhead>{tu('spendByDay')}</RackSubhead>
+                  <ul className="flex flex-col gap-1.5" aria-label={tu('spendByDay')}>
+                    {spendDays.map((day) => (
+                      <li key={day.date}>
+                        <Strip className="py-1.5">
+                          <div className="grid grid-cols-[5.5rem_minmax(0,1fr)_auto] items-center gap-x-3">
+                            <span className="text-mid text-muted">{formatDay(day.date)}</span>
+                            <FigureBar
+                              max={maxDailySpend}
+                              segments={[{ value: day.cost_usd, className: 'bg-field' }]}
+                            />
+                            <span className="min-w-[4.5rem] text-right text-sm font-semibold tabular-nums">
+                              {formatUsd(locale, day.cost_usd)}
+                            </span>
+                          </div>
+                        </Strip>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
+          </RackSection>
+        )}
       </div>
     </div>
+  )
+}
+
+/** A small rack label inside a rack: splits one rack into parts. */
+function RackSubhead({ children }: { children: React.ReactNode }) {
+  return (
+    <h3 className="mt-2 text-xs font-semibold tracking-[0.08em] uppercase text-on-rack-muted">
+      {children}
+    </h3>
+  )
+}
+
+/**
+ * One right-aligned figure in a participant strip. The column header names it
+ * from sm up; below that the words sit next to the number.
+ */
+function Figure({
+  value,
+  label,
+  quiet,
+}: {
+  value: string | number
+  label: string
+  quiet?: boolean
+}) {
+  const zero = quiet ?? value === 0
+  return (
+    <span className="flex items-baseline gap-1.5 sm:justify-end">
+      <span
+        className={cn(
+          'text-sm tabular-nums',
+          zero ? 'font-medium text-muted' : 'font-semibold text-foreground',
+        )}
+      >
+        {value}
+      </span>
+      <span className="text-mid text-muted sm:sr-only">{label}</span>
+    </span>
   )
 }

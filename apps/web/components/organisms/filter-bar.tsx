@@ -68,7 +68,7 @@ export function FilterBar({
               e.stopPropagation()
               onDeleteFilter(filter.id)
             }}
-            className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white rounded-full text-[8px] flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity p-0 border-none hover:bg-red-600 hover:text-white"
+            className="absolute -top-1 -right-1 w-4 h-4 bg-alert text-white rounded-full text-xxs leading-none flex items-center justify-center opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 focus-visible:opacity-100 transition-opacity p-0 border-none"
             title={t('deleteFilter')}
           >
             ×

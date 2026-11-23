@@ -77,6 +77,23 @@ export async function getTaskCost(taskId: string): Promise<CostSummary> {
   }
 }
 
+/**
+ * Cost per task for many tasks at once, for the board: one query instead of
+ * one per card. Tasks without sessions are left out of the map.
+ */
+export async function getTaskCosts(taskIds: string[]): Promise<Record<string, number>> {
+  if (taskIds.length === 0) return {}
+  const res = await pool.query(
+    `SELECT task_id, COALESCE(SUM(estimated_cost_usd), 0) AS total_cost_usd
+     FROM session_costs WHERE task_id = ANY($1::text[])
+     GROUP BY task_id`,
+    [taskIds],
+  )
+  const costs: Record<string, number> = {}
+  for (const row of res.rows) costs[row.task_id] = Number(row.total_cost_usd)
+  return costs
+}
+
 /** Get all session costs for a task */
 export async function getTaskSessionCosts(taskId: string): Promise<SessionCost[]> {
   const res = await pool.query(

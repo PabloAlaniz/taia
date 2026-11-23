@@ -105,8 +105,9 @@ export {
   updateProject,
   updateProjectKnowledge,
   deleteProject,
+  getProjectSummaries,
 } from './repositories/project.repository'
-export type { ProjectRow } from './repositories/project.repository'
+export type { ProjectRow, ProjectSummary } from './repositories/project.repository'
 
 // Agent context (typed bundle persistence)
 export {
@@ -170,6 +171,7 @@ export {
   upsertSessionCost,
   getSessionCost,
   getTaskCost,
+  getTaskCosts,
   getTaskSessionCosts,
   getAgentCostSummary,
   getCostDashboard,
@@ -316,5 +318,6 @@ export {
   deleteColumn,
   reorderColumns,
   getDoneStateSlugs,
+  getColumnStates,
   getInitialSlug,
 } from './repositories/board-column.repository'

@@ -1,19 +1,44 @@
 'use client'
 
+import { cn } from '@/lib/utils'
+import { useTranslations } from 'next-intl'
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { Button, Input } from '@/components/atoms'
+import { Button, Input, Strip } from '@/components/atoms'
 import { PageHeader } from '@/components/molecules/page-header'
 import { fetchJson } from '@/lib/use-resource'
-import { SectionCard } from '@/components/molecules/section-card'
+import { RackSection } from '@/components/molecules/rack-section'
+
+/** IANA zones the browser knows, offered as suggestions; free text still works. */
+const TIME_ZONES: string[] =
+  typeof Intl !== 'undefined' && 'supportedValuesOf' in Intl
+    ? (Intl as unknown as { supportedValuesOf: (k: string) => string[] }).supportedValuesOf(
+        'timeZone',
+      )
+    : ['UTC']
+
+function isValidTimeZone(tz: string): boolean {
+  if (!tz.trim()) return true
+  try {
+    new Intl.DateTimeFormat('en', { timeZone: tz.trim() })
+    return true
+  } catch {
+    return false
+  }
+}
 
 export default function GeneralSettingsPage() {
+  const tp = useTranslations('pageTitles')
+  const t = useTranslations('settingsGeneral')
+  const tc = useTranslations('settingsCommon')
+  const tCommon = useTranslations('common')
   const [wsUrl, setWsUrl] = useState('ws://localhost:13334')
   const [defaultTz, setDefaultTz] = useState('UTC')
+  const tzInvalid = !isValidTimeZone(defaultTz)
 
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
-  const [saveMessage, setSaveMessage] = useState('')
+  const [saveMessage, setSaveMessage] = useState<{ ok: boolean; text: string } | null>(null)
 
   useEffect(() => {
     fetchJson<{ ok: boolean; settings: Record<string, string> }>('/api/settings?prefix=app.')
@@ -29,7 +54,7 @@ export default function GeneralSettingsPage() {
 
   async function handleSave() {
     setSaving(true)
-    setSaveMessage('')
+    setSaveMessage(null)
     try {
       const res = await fetch('/api/settings', {
         method: 'PUT',
@@ -43,103 +68,132 @@ export default function GeneralSettingsPage() {
       })
       const data = await res.json()
       if (data.ok) {
-        setSaveMessage('Guardado')
-        setTimeout(() => setSaveMessage(''), 3000)
+        setSaveMessage({ ok: true, text: tc('saved') })
+        setTimeout(() => setSaveMessage(null), 3000)
       } else {
-        setSaveMessage(`Error: ${data.error}`)
+        setSaveMessage({ ok: false, text: tc('saveFailed', { error: String(data.error) }) })
       }
     } catch (e) {
-      setSaveMessage(`Error: ${e instanceof Error ? e.message : String(e)}`)
+      setSaveMessage({
+        ok: false,
+        text: tc('saveFailed', { error: e instanceof Error ? e.message : String(e) }),
+      })
     }
     setSaving(false)
   }
 
-  const inputClass =
-    'w-full px-3 py-2 bg-background border border-border rounded-md text-foreground text-sm focus:outline-hidden focus:border-accent'
-
   if (loading) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <span className="text-muted text-sm">Cargando...</span>
+      <div className="min-h-full bg-background">
+        <PageHeader
+          width="form"
+          title={tp('general')}
+          backHref="/settings"
+          backLabel={tp('settings')}
+        />
+        <div className="mx-auto px-4 md:px-6 max-w-2xl pt-5 pb-10">
+          <span className="text-muted text-sm" role="status">
+            {tc('loadingPage')}
+          </span>
+        </div>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      <PageHeader title="General" backHref="/settings" />
+    <div className="min-h-full bg-background">
+      <PageHeader
+        width="form"
+        title={tp('general')}
+        backHref="/settings"
+        backLabel={tp('settings')}
+      />
 
-      <div className="p-6 pt-8 max-w-2xl mx-auto space-y-8">
+      <div className="mx-auto px-4 md:px-6 max-w-2xl pt-5 pb-10 space-y-4">
         {/* WebSocket Section */}
-        <SectionCard
-          title="WebSocket"
-          description="Conexion en tiempo real para actualizaciones del tablero."
-        >
-          <div>
-            <label className="text-xs text-muted block mb-1">WebSocket URL</label>
-            <Input
-              value={wsUrl}
-              onChange={(e) => setWsUrl(e.target.value)}
-              placeholder="ws://localhost:13334"
-              className={inputClass}
-            />
-            <p className="text-xs text-muted mt-1">
-              URL del servidor WebSocket. Por defecto: ws://localhost:13334
-            </p>
-          </div>
-        </SectionCard>
+        <RackSection id="settings-websocket" title={t('websocketTitle')}>
+          <Strip className="p-4 space-y-4">
+            <p className="text-sm text-muted">{t('websocketDesc')}</p>
+            <div>
+              <label htmlFor="settings-ws-url" className="text-xs text-muted block mb-1">
+                {t('wsUrlLabel')}
+              </label>
+              <Input
+                id="settings-ws-url"
+                value={wsUrl}
+                onChange={(e) => setWsUrl(e.target.value)}
+                placeholder="ws://localhost:13334"
+              />
+              <p className="text-xs text-muted mt-1">
+                {t('wsUrlHelp', { default: 'ws://localhost:13334' })}
+              </p>
+            </div>
+          </Strip>
+        </RackSection>
 
         {/* Timezone Section */}
-        <SectionCard
-          title="Zona horaria"
-          description="Zona horaria por defecto para cron jobs de agentes."
-        >
-          <div>
-            <label className="text-xs text-muted block mb-1">Timezone</label>
-            <Input
-              value={defaultTz}
-              onChange={(e) => setDefaultTz(e.target.value)}
-              placeholder="UTC"
-              className={inputClass}
-            />
-            <p className="text-xs text-muted mt-1">
-              Formato IANA (ej: UTC, America/Argentina/Buenos_Aires, Europe/Madrid).
-            </p>
-          </div>
-        </SectionCard>
+        <RackSection id="settings-timezone" title={t('timezoneTitle')}>
+          <Strip className="p-4 space-y-4">
+            <p className="text-sm text-muted">{t('timezoneDesc')}</p>
+            <div>
+              <label htmlFor="settings-default-tz" className="text-xs text-muted block mb-1">
+                {t('timezoneLabel')}
+              </label>
+              <Input
+                id="settings-default-tz"
+                list="settings-tz-options"
+                value={defaultTz}
+                onChange={(e) => setDefaultTz(e.target.value)}
+                placeholder="UTC"
+                aria-invalid={tzInvalid || undefined}
+                aria-describedby="settings-tz-help"
+              />
+              <datalist id="settings-tz-options">
+                {TIME_ZONES.map((tz) => (
+                  <option key={tz} value={tz} />
+                ))}
+              </datalist>
+              <p
+                id="settings-tz-help"
+                className={cn('text-xs mt-1', tzInvalid ? 'text-alert' : 'text-muted')}
+              >
+                {tzInvalid ? t('timezoneInvalid') : t('timezoneHelp')}
+              </p>
+            </div>
+          </Strip>
+        </RackSection>
 
         {/* AI Planning Section */}
-        <SectionCard
-          title="Planificación IA"
-          description="El asistente de planificación descompone objetivos en tareas."
-        >
-          <p className="text-xs text-muted">
-            Usa el runtime activo, que tiene que soportar sesiones (OpenClaw, Claude por API, Claude
-            Code o Aider). Configuralo en{' '}
-            <Link href="/settings/runtime" className="underline">
-              Ajustes › Runtime
-            </Link>
-            .
-          </p>
-        </SectionCard>
+        <RackSection id="settings-planning" title={t('planningTitle')}>
+          <Strip className="p-4 space-y-4">
+            <p className="text-sm text-muted">{t('planningDesc')}</p>
+            <p className="text-xs text-muted">
+              {t.rich('planningBody', {
+                link: (chunks) => (
+                  <Link href="/settings/runtime" className="underline">
+                    {chunks}
+                  </Link>
+                ),
+              })}
+            </p>
+          </Strip>
+        </RackSection>
 
         {/* Save Button */}
         <div className="flex items-center justify-end gap-3 pt-4 border-t border-border">
           {saveMessage && (
-            <span
-              className={`text-sm ${saveMessage.startsWith('Error') ? 'text-red-500' : 'text-green-500'}`}
-            >
-              {saveMessage}
+            <span role="status" className={`text-sm ${saveMessage.ok ? 'text-ok' : 'text-alert'}`}>
+              {saveMessage.text}
             </span>
           )}
           <Link
             href="/settings"
             className="text-muted px-4 py-2 text-sm no-underline hover:text-foreground"
           >
-            Cancelar
+            {tCommon('cancel')}
           </Link>
-          <Button variant="primary" size="lg" onClick={handleSave} disabled={saving}>
-            {saving ? 'Guardando...' : 'Guardar'}
+          <Button variant="primary" size="lg" onClick={handleSave} disabled={saving || tzInvalid}>
+            {saving ? tc('saving') : tc('saveChanges')}
           </Button>
         </div>
       </div>

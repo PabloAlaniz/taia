@@ -8,6 +8,8 @@ vi.mock('../../../../../../packages/core/src/db', () => ({
   getActivities: vi.fn(),
   getSetting: vi.fn(),
   logActivity: vi.fn(),
+  // No columns known: the legacy DONE / REJECTED rule applies.
+  getColumnStates: vi.fn().mockResolvedValue([]),
 }))
 
 import { getUsageAnalytics, usageAnalyticsToCsv } from '@taia/core/services/usage-analytics.service'

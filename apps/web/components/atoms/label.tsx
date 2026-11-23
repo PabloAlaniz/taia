@@ -8,7 +8,11 @@ export function Label({ required, className, children, ...props }: LabelProps) {
   return (
     <label className={cn('text-xs text-muted block mb-1', className)} {...props}>
       {children}
-      {required && <span className="text-red-500 ml-0.5">*</span>}
+      {required && (
+        <span className="text-alert ml-0.5" aria-hidden="true">
+          *
+        </span>
+      )}
     </label>
   )
 }

@@ -1,27 +1,32 @@
 'use client'
 
-import { useState, useEffect, useCallback, useMemo } from 'react'
-import { useRouter } from 'next/navigation'
+import { Suspense, useState, useEffect, useCallback, useMemo } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { useTranslations } from 'next-intl'
 import type { TaskStatus, SavedFilterConfig } from '@taia/types'
 import { useStore } from '../lib/store'
 import { useRealtimeUpdates } from '../lib/use-websocket'
+import { useBoardSignals } from '../lib/use-board-signals'
 import { useRuntimeStatus } from '../lib/use-runtime-status'
-import { useKeyboardShortcuts } from '@/lib/use-keyboard-shortcuts'
+import { useHideChrome } from '../lib/chrome'
+import { focusNextWaitingStrip, useKeyboardShortcuts } from '@/lib/use-keyboard-shortcuts'
+import { ShortcutsDialog } from '../components/organisms/shortcuts-dialog'
 import { useFontScale } from '@/lib/use-font-scale'
 import { applyAllFilters } from '../lib/filter-utils'
 import { CreateWorkspaceModal } from '../components/organisms/create-workspace-modal'
+import { OnboardingShell } from '../components/templates/onboarding-shell'
 import { StepConnection } from '../components/organisms/onboarding/step-connection'
 import { StepProject } from '../components/organisms/onboarding/step-project'
-import { Button, Kbd } from '../components/atoms'
+import { Button, Kbd, MateMark } from '../components/atoms'
 
 // Molecules
 import { WipLimitModal } from '../components/molecules/wip-limit-modal'
 import { Toast } from '../components/molecules/toast'
 import { ActiveFiltersPanel } from '../components/molecules/active-filters-panel'
+import { EmptyState } from '../components/molecules/empty-state'
 
 // Organisms
-import { Header, MobileNav } from '../components/organisms/header'
+import { BoardHeader, type BoardView } from '../components/organisms/board-header'
 import { BoardToolbar } from '../components/organisms/board-toolbar'
 import { SearchBar } from '../components/organisms/search-bar'
 import { KanbanBoard } from '../components/organisms/kanban-board'
@@ -31,9 +36,20 @@ import { AddTaskModal } from '../components/organisms/add-task-modal'
 import { useIsClient } from '@/lib/use-is-client'
 import { PlanningWizard } from '../components/organisms/planning-wizard'
 
-export default function Home() {
+export default function BoardPage() {
+  // useSearchParams needs a Suspense boundary to prerender.
+  return (
+    <Suspense>
+      <Home />
+    </Suspense>
+  )
+}
+
+function Home() {
   const t = useTranslations('home')
   const to = useTranslations('onboarding')
+  const tos = useTranslations('onboardingShell')
+  const te = useTranslations('emptyBoard')
   const {
     agents,
     tasks,
@@ -67,6 +83,42 @@ export default function Home() {
   const filteredTasks = useMemo(
     () => applyAllFilters(tasks, activeFilterConfig, boardColumns, selectedProjectId),
     [tasks, activeFilterConfig, boardColumns, selectedProjectId],
+  )
+
+  const signals = useBoardSignals(tasks)
+  const runtime = useRuntimeStatus()
+  const searchParams = useSearchParams()
+  const urlView: BoardView = searchParams.get('view') === 'waiting' ? 'waiting' : 'all'
+  const [view, setView] = useState<BoardView>(urlView)
+  // The top bar's counter links here; follow it when already on the board.
+  const [seenUrlView, setSeenUrlView] = useState(urlView)
+  if (urlView !== seenUrlView) {
+    setSeenUrlView(urlView)
+    setView(urlView)
+  }
+  const visibleTasks = useMemo(
+    () => (view === 'waiting' ? filteredTasks.filter((t) => signals.waiting[t.id]) : filteredTasks),
+    [view, filteredTasks, signals.waiting],
+  )
+  const changeView = (next: BoardView) => {
+    setView(next)
+    const url = new URL(window.location.href)
+    if (next === 'waiting') url.searchParams.set('view', 'waiting')
+    else url.searchParams.delete('view')
+    window.history.replaceState(null, '', url)
+  }
+  const currentUserId = useStore((s) => s.currentUserId)
+  const { pending, decisionErrors, queueDecision, undoDecision } = signals
+  const approvals = useMemo(
+    () => ({
+      pending,
+      errors: decisionErrors,
+      canDecide: !!currentUserId,
+      queue: (approvalId: string, decision: 'approved' | 'rejected') =>
+        currentUserId && queueDecision(approvalId, decision, currentUserId),
+      undo: undoDecision,
+    }),
+    [pending, decisionErrors, queueDecision, undoDecision, currentUserId],
   )
 
   // Compute available tags from all tasks
@@ -115,9 +167,12 @@ export default function Home() {
   const [showModal, setShowModal] = useState(false)
   const [showPlanWizard, setShowPlanWizard] = useState(false)
   const [showSearch, setShowSearch] = useState(false)
-  const [showCreateWorkspace, setShowCreateWorkspace] = useState(false)
+  const [showShortcuts, setShowShortcuts] = useState(false)
   const [assigning, setAssigning] = useState<string | null>(null)
-  const [showActivity, setShowActivity] = useState(true)
+  // The activity rail only opens by default where the bays still fit beside it.
+  const [showActivity, setShowActivity] = useState(
+    () => typeof window !== 'undefined' && window.innerWidth >= 1700,
+  )
   const [showMobileAgents, setShowMobileAgents] = useState(false)
   const [wipModalStatus, setWipModalStatus] = useState<string | null>(null)
   const [wipWarning, setWipWarning] = useState<string | null>(null)
@@ -130,6 +185,8 @@ export default function Home() {
   // first workspace (how the work flows).
   const [projectStepDone, setProjectStepDone] = useState(false)
   const [runtimeConfigured, setRuntimeConfigured] = useState(false)
+  // Onboarding is its own full-screen moment: no top bar until it ends.
+  useHideChrome(onboardingCompleted === false)
 
   // Prevent hydration mismatch from DragDropContext (generates different IDs on server vs client)
   const mounted = useIsClient()
@@ -148,8 +205,6 @@ export default function Home() {
     enabled: onboardingCompleted === true,
   })
 
-  const runtimeStatus = useRuntimeStatus(onboardingCompleted === true)
-
   // Keyboard shortcuts
   useKeyboardShortcuts({
     onNewTask: () => setShowModal(true),
@@ -158,7 +213,13 @@ export default function Home() {
     onEscape: () => {
       setShowSearch(false)
       setShowModal(false)
+      setShowShortcuts(false)
     },
+    onHelp: () => setShowShortcuts(true),
+    onNextWaiting: () => {
+      if (!focusNextWaitingStrip() && view !== 'waiting') changeView('waiting')
+    },
+    onToggleWaiting: () => changeView(view === 'waiting' ? 'all' : 'waiting'),
   })
 
   // Sync filter from URL on mount
@@ -207,14 +268,14 @@ export default function Home() {
       const currentCount = tasks.filter((t) => t.status === newStatus).length
       if (currentCount >= wipLimit) {
         const col = boardColumns.find((c) => c.slug === newStatus)
-        setWipWarning(`WIP limit exceeded for ${col?.icon || ''} ${col?.label || newStatus}`)
+        setWipWarning(t('wipExceeded', { column: col?.label || newStatus }))
         setTimeout(() => setWipWarning(null), 3000)
       }
     }
     try {
       await moveTask(taskId, newStatus)
     } catch {
-      setWipWarning('Cannot move: task has unresolved dependencies')
+      setWipWarning(t('moveBlocked'))
       setTimeout(() => setWipWarning(null), 4000)
     }
   }
@@ -224,7 +285,8 @@ export default function Home() {
     const result = await assignTask(taskId, agentId)
     setAssigning(null)
     if (!result.ok) {
-      alert(`Error: ${result.error}`)
+      setWipWarning(t('assignFailed', { error: result.error ?? '' }))
+      setTimeout(() => setWipWarning(null), 4000)
     }
   }
 
@@ -233,8 +295,8 @@ export default function Home() {
   // Loading onboarding status
   if (onboardingCompleted === null) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <span className="text-2xl animate-pulse">🧉</span>
+      <div className="h-full min-h-[50vh] flex items-center justify-center">
+        <MateMark size={40} title="TAIA" className="text-muted motion-safe:animate-pulse" />
       </div>
     )
   }
@@ -243,45 +305,43 @@ export default function Home() {
   if (onboardingCompleted === false && !runtimeConfigured && !showFirstWorkspace) {
     if (!showConnectionStep) {
       return (
-        <div className="min-h-screen bg-background flex items-center justify-center">
-          <div className="text-center space-y-6">
-            <div className="text-6xl">🧉</div>
-            <div>
-              <h1 className="text-2xl font-bold">TAIA</h1>
-              <p className="text-muted text-sm mt-1">{to('subtitle')}</p>
-            </div>
-            <p className="text-muted text-sm max-w-sm">{to('welcomeText')}</p>
-            <Button variant="primary" size="lg" onClick={() => setShowConnectionStep(true)}>
-              {to('setupButton')}
-            </Button>
-          </div>
-        </div>
+        <OnboardingShell>
+          <h1 className="text-3xl font-semibold leading-tight text-balance">
+            {tos('welcomeTitle')}
+          </h1>
+          <p className="text-muted mt-3 max-w-prose">{to('welcomeText')}</p>
+          <Button
+            variant="primary"
+            size="lg"
+            className="mt-8"
+            onClick={() => setShowConnectionStep(true)}
+          >
+            {tos('start')}
+          </Button>
+        </OnboardingShell>
       )
     }
 
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center p-4">
-        <div className="w-full max-w-lg bg-card border border-border rounded-lg p-6">
-          <StepConnection
-            onConnected={() => {
-              setShowConnectionStep(false)
-              setShowFirstWorkspace(true)
-            }}
-          />
-          <div className="flex justify-between mt-4">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => {
-                setShowConnectionStep(false)
-                setShowFirstWorkspace(true)
-              }}
-            >
-              {to('skipConnection')}
-            </Button>
-          </div>
-        </div>
-      </div>
+      <OnboardingShell step="runtime">
+        <StepConnection
+          onConnected={() => {
+            setShowConnectionStep(false)
+            setShowFirstWorkspace(true)
+          }}
+        />
+        <Button
+          variant="ghost"
+          size="sm"
+          className="mt-4"
+          onClick={() => {
+            setShowConnectionStep(false)
+            setShowFirstWorkspace(true)
+          }}
+        >
+          {to('skipConnection')}
+        </Button>
+      </OnboardingShell>
     )
   }
 
@@ -292,11 +352,9 @@ export default function Home() {
     !projectStepDone
   ) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center p-4">
-        <div className="w-full max-w-lg bg-card border border-border rounded-lg p-6">
-          <StepProject onDone={() => setProjectStepDone(true)} />
-        </div>
-      </div>
+      <OnboardingShell step="project">
+        <StepProject onDone={() => setProjectStepDone(true)} />
+      </OnboardingShell>
     )
   }
 
@@ -317,19 +375,22 @@ export default function Home() {
   }
 
   return (
-    <div className="flex flex-col h-screen pb-12 md:pb-0">
-      <Header
+    <div className="flex flex-col h-full">
+      <BoardHeader
+        taskCount={tasks.length}
+        agentCount={agents.filter((a) => a.type !== 'human').length}
+        liveAgents={runtime.configured ? signals.liveAgents : null}
+        waitingCount={signals.waitingCount}
+        view={view}
+        onViewChange={changeView}
         isConnected={isConnected}
-        runtimeStatus={runtimeStatus}
         loading={loading}
         showActivity={showActivity}
         showAgents={showMobileAgents}
         onToggleActivity={() => setShowActivity(!showActivity)}
         onToggleAgents={() => setShowMobileAgents(!showMobileAgents)}
-        onRefresh={refresh}
         onAddTask={() => setShowModal(true)}
         onPlanWizard={() => setShowPlanWizard(true)}
-        onCreateWorkspace={() => setShowCreateWorkspace(true)}
       />
 
       <BoardToolbar
@@ -352,7 +413,32 @@ export default function Home() {
         onDeleteFilter={deleteSavedFilter}
         onSearch={() => setShowSearch(true)}
         fontScale={fontScale}
+        hint={t.rich('shortcutHint', { key: (chunks) => <Kbd>{chunks}</Kbd> })}
       />
+
+      {tasks.length === 0 && !loading && (
+        <div className="mx-4 md:mx-6 mb-3 rounded-md border border-border bg-card">
+          <EmptyState
+            title={te('title')}
+            description={te('body')}
+            action={
+              <div className="flex flex-wrap gap-2">
+                <Button variant="primary" size="md" onClick={() => setShowModal(true)}>
+                  {te('newTask')}
+                </Button>
+                <a
+                  href="https://pabloalaniz.github.io/taia/guias/cliente-mcp/"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="rounded border border-border bg-background px-3 py-1.5 text-sm font-semibold no-underline text-foreground hover:bg-strip"
+                >
+                  {te('mcp')}
+                </a>
+              </div>
+            }
+          />
+        </div>
+      )}
 
       {/* Active filters panel (MercadoLibre-style chips) */}
       <ActiveFiltersPanel
@@ -376,7 +462,7 @@ export default function Home() {
 
         {/* Kanban Board */}
         <KanbanBoard
-          tasks={filteredTasks}
+          tasks={visibleTasks}
           agents={agents}
           projects={projects}
           columns={boardColumns}
@@ -388,6 +474,10 @@ export default function Home() {
           onSelectTask={() => {}}
           onAssign={handleAssign}
           onEditWipLimit={setWipModalStatus}
+          costs={signals.costs}
+          waiting={signals.waiting}
+          running={signals.running}
+          approvals={approvals}
         />
 
         {/* Right Sidebar: Activity Feed - hidden on mobile/tablet */}
@@ -441,7 +531,7 @@ export default function Home() {
           wipModalStatus
             ? (() => {
                 const col = boardColumns.find((c) => c.slug === wipModalStatus)
-                return col ? `${col.icon} ${col.label}` : wipModalStatus
+                return col ? col.label : wipModalStatus
               })()
             : undefined
         }
@@ -450,22 +540,10 @@ export default function Home() {
         onSave={(status, limit) => setColumnWipLimit(status, limit)}
       />
 
+      <ShortcutsDialog open={showShortcuts} onClose={() => setShowShortcuts(false)} />
+
       {/* WIP Warning Toast */}
-      {wipWarning && <Toast variant="warning">⚠️ {wipWarning}</Toast>}
-
-      {/* Create Workspace Modal */}
-      <CreateWorkspaceModal
-        open={showCreateWorkspace}
-        onClose={() => setShowCreateWorkspace(false)}
-      />
-
-      {/* Keyboard shortcut hint - hidden on mobile where bottom nav is */}
-      <div className="fixed bottom-4 right-4 text-2xs text-muted opacity-50 hover:opacity-100 transition-opacity hidden md:block">
-        {t.rich('shortcutHint', { key: (chunks) => <Kbd>{chunks}</Kbd> })}
-      </div>
-
-      {/* Mobile bottom navigation */}
-      <MobileNav />
+      {wipWarning && <Toast variant="warning">{wipWarning}</Toast>}
     </div>
   )
 }

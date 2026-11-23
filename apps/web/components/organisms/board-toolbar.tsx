@@ -1,6 +1,7 @@
 'use client'
 
 import { useTranslations } from 'next-intl'
+import { Ban, Search } from 'lucide-react'
 import { Select, Button, Divider, IconButton } from '../atoms'
 import {
   AppearancePopover,
@@ -45,6 +46,8 @@ interface BoardToolbarProps {
   // Search
   onSearch?: () => void
   fontScale?: FontScale
+  /** Quiet hint shown at the end of the row (e.g. the shortcuts key). */
+  hint?: React.ReactNode
 }
 
 export function BoardToolbar({
@@ -67,6 +70,7 @@ export function BoardToolbar({
   onDeleteFilter,
   onSearch,
   fontScale,
+  hint,
 }: BoardToolbarProps) {
   const t = useTranslations('board')
   const tc = useTranslations('common')
@@ -75,14 +79,14 @@ export function BoardToolbar({
   const hasBlockedFilter = !!activeFilterConfig.has_blockers
 
   return (
-    <div className="min-h-9 bg-card border-b border-border flex items-center px-2 md:px-4 gap-2 md:gap-3 shrink-0 flex-wrap py-1">
+    <div className="flex items-center px-4 md:px-6 pb-3 gap-2 md:gap-3 shrink-0 flex-wrap">
       {/* Left: View Controls */}
       <div className="flex items-center gap-2 shrink-0">
-        <span className="text-2xs text-muted hidden sm:inline">{t('groupLabel')}</span>
+        <span className="text-xs text-muted hidden sm:inline">{t('groupLabel')}</span>
         <Select
           value={groupBy}
           onChange={(e) => onGroupByChange(e.target.value as GroupBy)}
-          className="text-xs bg-background border border-border rounded-sm px-1.5 py-0.5 text-foreground focus:outline-hidden focus:border-accent w-auto"
+          className="text-sm bg-card border border-border rounded px-2 py-1 text-foreground focus:outline-hidden focus:border-accent w-auto"
           aria-label={t('groupBy')}
         >
           <option value="none">{t('groupNone')}</option>
@@ -94,11 +98,11 @@ export function BoardToolbar({
         {projects.length > 0 && (
           <>
             <Divider orientation="vertical" className="hidden sm:block" />
-            <span className="text-2xs text-muted hidden sm:inline">{t('projectLabel')}</span>
+            <span className="text-xs text-muted hidden sm:inline">{t('projectLabel')}</span>
             <Select
               value={selectedProjectId || ''}
               onChange={(e) => onSelectProject(e.target.value || null)}
-              className="text-xs bg-background border border-border rounded-sm px-1.5 py-0.5 text-foreground focus:outline-hidden focus:border-accent w-auto hidden sm:block"
+              className="text-sm bg-card border border-border rounded px-2 py-1 text-foreground focus:outline-hidden focus:border-accent w-auto hidden sm:block"
               aria-label={t('filterByProject')}
             >
               <option value="">{tc('all')}</option>
@@ -123,51 +127,56 @@ export function BoardToolbar({
       </div>
 
       {/* Center: Filter Dropdowns */}
-      <div className="flex items-center gap-1.5 flex-wrap hidden sm:flex">
-        <Divider orientation="vertical" />
+      {/* Filters only once there is something to filter. */}
+      {tasks.length > 0 && (
+        <div className="items-center gap-1.5 flex-wrap hidden sm:flex">
+          <Divider orientation="vertical" />
 
-        <AssignedToDropdown
-          agents={agents}
-          tasks={tasks}
-          selectedAgentId={activeFilterConfig.assigned_to}
-          showUnassigned={!!activeFilterConfig.unassigned}
-          onSelectAgent={(id) => {
-            onSetFilterField('assigned_to', id)
-            if (id) onSetFilterField('unassigned', undefined)
-          }}
-          onSelectUnassigned={(val) => {
-            onSetFilterField('unassigned', val || undefined)
-            if (val) onSetFilterField('assigned_to', undefined)
-          }}
-        />
+          <AssignedToDropdown
+            agents={agents}
+            tasks={tasks}
+            selectedAgentId={activeFilterConfig.assigned_to}
+            showUnassigned={!!activeFilterConfig.unassigned}
+            onSelectAgent={(id) => {
+              onSetFilterField('assigned_to', id)
+              if (id) onSetFilterField('unassigned', undefined)
+            }}
+            onSelectUnassigned={(val) => {
+              onSetFilterField('unassigned', val || undefined)
+              if (val) onSetFilterField('assigned_to', undefined)
+            }}
+          />
 
-        <DueFilterDropdown
-          value={activeFilterConfig.due}
-          onChange={(val) => onSetFilterField('due', val)}
-        />
+          <DueFilterDropdown
+            value={activeFilterConfig.due}
+            onChange={(val) => onSetFilterField('due', val)}
+          />
 
-        <TagFilterDropdown
-          availableTags={availableTags}
-          tagColors={tagColors}
-          selectedTags={activeFilterConfig.tags || []}
-          onChange={(tags) => onSetFilterField('tags', tags.length > 0 ? tags : undefined)}
-        />
+          <TagFilterDropdown
+            availableTags={availableTags}
+            tagColors={tagColors}
+            selectedTags={activeFilterConfig.tags || []}
+            onChange={(tags) => onSetFilterField('tags', tags.length > 0 ? tags : undefined)}
+          />
 
-        {/* Blocked toggle */}
-        <Button
-          size="xs"
-          variant="ghost"
-          onClick={() => onSetFilterField('has_blockers', hasBlockedFilter ? undefined : true)}
-          className={cn(
-            'text-xs border rounded-sm px-1.5 py-0.5 transition-colors',
-            hasBlockedFilter
-              ? 'bg-accent/15 text-accent border-accent/30'
-              : 'bg-background text-foreground border-border hover:border-foreground/30',
-          )}
-        >
-          🚫 {tf('blocked')}
-        </Button>
-      </div>
+          {/* Blocked toggle */}
+          <Button
+            size="xs"
+            variant="ghost"
+            onClick={() => onSetFilterField('has_blockers', hasBlockedFilter ? undefined : true)}
+            aria-pressed={hasBlockedFilter}
+            className={cn(
+              'flex items-center gap-1.5 text-sm border rounded px-2 py-1 transition-colors',
+              hasBlockedFilter
+                ? 'bg-alert/10 text-alert border-alert/40'
+                : 'bg-card text-foreground border-border hover:border-foreground/30',
+            )}
+          >
+            <Ban size={13} aria-hidden="true" />
+            {tf('blocked')}
+          </Button>
+        </div>
+      )}
 
       {/* Custom saved filters */}
       {savedFilters.length > 0 && (
@@ -184,13 +193,10 @@ export function BoardToolbar({
 
       {/* Right: Search + Appearance */}
       <div className="ml-auto flex items-center gap-1.5 shrink-0">
+        {hint && <span className="hidden lg:inline text-xs text-muted mr-1">{hint}</span>}
         {onSearch && (
-          <IconButton
-            onClick={onSearch}
-            aria-label={tf('search')}
-            className="text-muted hover:text-foreground"
-          >
-            🔍
+          <IconButton onClick={onSearch} aria-label={tf('search')} variant="ghost">
+            <Search size={16} aria-hidden="true" />
           </IconButton>
         )}
         <AppearancePopover fontScale={fontScale} />

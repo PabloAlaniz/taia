@@ -1,5 +1,10 @@
 import { describe, it, expect } from 'vitest'
-import { computeDailyCompletions, getAgentColor, AGENT_COLORS } from '@/lib/dashboard-utils'
+import {
+  completedSlugs,
+  completionDate,
+  computeDailyCompletions,
+  isCompleted,
+} from '@/lib/dashboard-utils'
 import type { Task } from '@taia/types'
 
 function makeTask(overrides: Partial<Task> = {}): Task {
@@ -133,40 +138,55 @@ describe('computeDailyCompletions', () => {
   })
 })
 
-describe('getAgentColor', () => {
-  it('assigns colors consistently regardless of input order', () => {
-    const ids1 = ['zeta', 'alpha', 'mango']
-    const ids2 = ['mango', 'zeta', 'alpha']
+describe('completion on boards whose tasks never got completed_at', () => {
+  it('falls back to updated_at when completed_at is missing', () => {
+    // Rows that reached the finished column before completed_at was stamped
+    // there: the board shows them in Hecho, so the dashboard must count them.
+    const tasks = [
+      makeTask({ id: '1', completed_at: undefined }),
+      makeTask({ id: '2', completed_at: null as unknown as undefined }),
+    ]
 
-    expect(getAgentColor('alpha', ids1)).toBe(getAgentColor('alpha', ids2))
-    expect(getAgentColor('zeta', ids1)).toBe(getAgentColor('zeta', ids2))
-    expect(getAgentColor('mango', ids1)).toBe(getAgentColor('mango', ids2))
+    const result = computeDailyCompletions(tasks)
+    expect(result[result.length - 1].total).toBe(2)
   })
 
-  it('returns a valid color from AGENT_COLORS', () => {
-    const ids = ['a', 'b', 'c']
-    ids.forEach((id) => {
-      expect(AGENT_COLORS).toContain(getAgentColor(id, ids))
-    })
+  it('prefers completed_at over updated_at', () => {
+    const yesterday = new Date()
+    yesterday.setDate(yesterday.getDate() - 1)
+    const task = makeTask({ completed_at: yesterday.toISOString() })
+    expect(completionDate(task)?.toISOString()).toBe(yesterday.toISOString())
   })
 
-  it('wraps around when more agents than colors', () => {
-    const ids = Array.from(
-      { length: AGENT_COLORS.length + 2 },
-      (_, i) => `agent-${String(i).padStart(2, '0')}`,
-    )
-    // Should not throw
-    ids.forEach((id) => {
-      const color = getAgentColor(id, ids)
-      expect(AGENT_COLORS).toContain(color)
-    })
+  it('returns null for a task with no usable date', () => {
+    expect(completionDate({ completed_at: undefined, updated_at: 'nope' })).toBeNull()
+  })
+})
+
+describe('completedSlugs', () => {
+  it('uses the workspace finished columns, without REJECTED', () => {
+    const slugs = completedSlugs([
+      { slug: 'EN_REVISION', is_done_state: false },
+      { slug: 'PUBLICADO', is_done_state: true },
+      { slug: 'REJECTED', is_done_state: true },
+    ])
+    expect([...slugs]).toEqual(['PUBLICADO'])
   })
 
-  it('alphabetical sorting determines index', () => {
-    const ids = ['charlie', 'alpha', 'bravo']
-    // sorted: alpha, bravo, charlie → indices 0, 1, 2
-    expect(getAgentColor('alpha', ids)).toBe(AGENT_COLORS[0])
-    expect(getAgentColor('bravo', ids)).toBe(AGENT_COLORS[1])
-    expect(getAgentColor('charlie', ids)).toBe(AGENT_COLORS[2])
+  it('falls back to DONE when the columns are unknown', () => {
+    expect([...completedSlugs(null)]).toEqual(['DONE'])
+    expect([...completedSlugs([])]).toEqual(['DONE'])
+  })
+
+  it('counts a custom finished column in the daily completions', () => {
+    const slugs = completedSlugs([{ slug: 'PUBLICADO', is_done_state: true }])
+    const tasks = [
+      makeTask({ id: '1', status: 'PUBLICADO' as Task['status'] }),
+      makeTask({ id: '2', status: 'DONE' }),
+    ]
+    expect(isCompleted(tasks[0], slugs)).toBe(true)
+    expect(isCompleted(tasks[1], slugs)).toBe(false)
+    const result = computeDailyCompletions(tasks, 30, slugs)
+    expect(result[result.length - 1].total).toBe(1)
   })
 })

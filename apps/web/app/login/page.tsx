@@ -3,7 +3,7 @@
 import { Suspense, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { useTranslations } from 'next-intl'
-import { Alert, Button, Input, Label } from '@/components/atoms'
+import { Alert, Button, Input, Label, MateMark } from '@/components/atoms'
 
 /** Only same-site paths: `next` comes from the URL. */
 function safeNext(next: string | null): string {
@@ -42,9 +42,7 @@ function LoginForm() {
   return (
     <form onSubmit={submit} className="w-full max-w-sm space-y-4">
       <div className="text-center space-y-2">
-        <div className="text-4xl" aria-hidden="true">
-          🧉
-        </div>
+        <MateMark size={48} className="mx-auto [&_rect]:stroke-person" />
         <h1 className="text-xl font-semibold">{t('title')}</h1>
         <p className="text-sm text-muted">{t('description')}</p>
       </div>

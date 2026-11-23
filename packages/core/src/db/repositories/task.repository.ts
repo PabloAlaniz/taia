@@ -3,6 +3,28 @@
 import type { Task, TaskStatus, TaskPriority, Confidence } from '@taia/types'
 import { pool, generateId } from '../pool'
 
+/**
+ * SQL that is TRUE when `status` is a finished column of `workspace`: the
+ * workspace's own column decides (its is_done_state), and a status with no
+ * column row (boards from before configurable columns) falls back to the
+ * legacy DONE / REJECTED. Inside an UPDATE, column references read the row
+ * as it was before the update.
+ */
+export function doneStateSql(status: string, workspace: string): string {
+  return `COALESCE((SELECT bc.is_done_state FROM board_columns bc WHERE bc.workspace_id = ${workspace} AND bc.slug = ${status} LIMIT 1), ${status} IN ('DONE', 'REJECTED'))`
+}
+
+/**
+ * completed_at for a task whose status becomes `status`: stamped when it lands
+ * in a finished column (kept if it was already finished), cleared when it
+ * leaves one. Meant for `SET completed_at = …` in an UPDATE on tasks.
+ */
+export function completedAtSql(status: string): string {
+  const willBeDone = doneStateSql(status, 'tasks.workspace_id')
+  const wasDone = doneStateSql('tasks.status', 'tasks.workspace_id')
+  return `CASE WHEN ${willBeDone} THEN (CASE WHEN ${wasDone} THEN COALESCE(tasks.completed_at, NOW()) ELSE NOW() END) ELSE NULL END`
+}
+
 export async function getAllTasks(options?: {
   archiveBefore?: Date
   workspaceId?: string
@@ -97,8 +119,9 @@ export async function createTask(data: {
 
     await client.query(
       `
-      INSERT INTO tasks (id, title, description, status, priority, confidence, project, project_id, workspace_id, repo_url, assigned_to, created_by)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+      INSERT INTO tasks (id, title, description, status, priority, confidence, project, project_id, workspace_id, repo_url, assigned_to, created_by, completed_at)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12,
+        CASE WHEN ${doneStateSql('$4::text', '$9::text')} THEN NOW() END)
     `,
       [
         id,
@@ -144,19 +167,6 @@ export async function updateTask(id: string, updates: Partial<Task>): Promise<Ta
     updates.status = 'ASSIGNED' as TaskStatus
   }
 
-  // Auto-set completed_at when status changes to DONE or REJECTED, clear it when moving away
-  const isTerminal = (s: string) => s === 'DONE' || s === 'REJECTED'
-  if (
-    updates.status &&
-    isTerminal(updates.status) &&
-    !isTerminal(task.status) &&
-    !updates.completed_at
-  ) {
-    updates.completed_at = new Date().toISOString()
-  } else if (updates.status && !isTerminal(updates.status) && isTerminal(task.status)) {
-    updates.completed_at = null
-  }
-
   const allowedFields = [
     'title',
     'description',
@@ -184,6 +194,16 @@ export async function updateTask(id: string, updates: Partial<Task>): Promise<Ta
       values.push(value)
       paramIndex++
     }
+  }
+
+  // A status change stamps or clears completed_at from the workspace's own
+  // columns (any is_done_state column, not only DONE), unless the caller set
+  // completed_at itself.
+  if (updates.status && updates.completed_at === undefined) {
+    const statusParam = Object.keys(updates)
+      .filter((key) => allowedFields.includes(key))
+      .indexOf('status')
+    sets.push(`completed_at = ${completedAtSql(`$${statusParam + 1}::text`)}`)
   }
 
   if (sets.length > 0) {
@@ -272,20 +292,13 @@ export async function moveTask(
   try {
     await client.query('BEGIN')
 
-    // Set completed_at when moving to DONE or REJECTED, clear it when moving away
-    if (status === 'DONE' || status === 'REJECTED') {
-      await client.query('UPDATE tasks SET status = $1, completed_at = NOW() WHERE id = $2', [
-        status,
-        id,
-      ])
-    } else if (oldStatus === 'DONE' || oldStatus === 'REJECTED') {
-      await client.query('UPDATE tasks SET status = $1, completed_at = NULL WHERE id = $2', [
-        status,
-        id,
-      ])
-    } else {
-      await client.query('UPDATE tasks SET status = $1 WHERE id = $2', [status, id])
-    }
+    // Stamp completed_at when the task lands in a finished column of its
+    // workspace (any is_done_state column, not only DONE), clear it when it
+    // leaves one.
+    await client.query(
+      `UPDATE tasks SET status = $1::text, completed_at = ${completedAtSql('$1::text')} WHERE id = $2`,
+      [status, id],
+    )
 
     // NOTE: Activity logging moved to task.service.ts (single responsibility)
     await client.query('COMMIT')

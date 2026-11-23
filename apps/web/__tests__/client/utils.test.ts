@@ -1,12 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import {
-  cn,
-  formatRelativeTime,
-  timeUntil,
-  PRIORITY_COLORS,
-  COLUMN_LABELS,
-  ACTIVITY_ICONS,
-} from '@/lib/utils'
+import { cn, formatRelativeTime, timeUntil } from '@/lib/utils'
 
 describe('cn (className merge)', () => {
   it('merges class names', () => {
@@ -83,25 +76,5 @@ describe('timeUntil', () => {
 
   it('returns hours when 60 minutes or more', () => {
     expect(timeUntil('2026-02-04T23:00:00Z')).toBe('in 3h')
-  })
-})
-
-describe('constants', () => {
-  it('PRIORITY_COLORS has all expected keys', () => {
-    expect(PRIORITY_COLORS).toHaveProperty('LOW')
-    expect(PRIORITY_COLORS).toHaveProperty('MEDIUM')
-    expect(PRIORITY_COLORS).toHaveProperty('HIGH')
-    expect(PRIORITY_COLORS).toHaveProperty('URGENT')
-  })
-
-  it('COLUMN_LABELS has all expected columns', () => {
-    expect(Object.keys(COLUMN_LABELS)).toContain('INBOX')
-    expect(Object.keys(COLUMN_LABELS)).toContain('IN_PROGRESS')
-    expect(Object.keys(COLUMN_LABELS)).toContain('DONE')
-  })
-
-  it('ACTIVITY_ICONS has expected activity types', () => {
-    expect(ACTIVITY_ICONS.task_created).toBe('📝')
-    expect(ACTIVITY_ICONS.task_completed).toBe('✅')
   })
 })
