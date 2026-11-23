@@ -188,7 +188,7 @@ function Bay({
             >
               <Link
                 href={`/task/${task.id}`}
-                className="block no-underline text-foreground focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-accent rounded-[2px]"
+                className="block no-underline text-foreground focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent rounded-[2px]"
               >
                 {reason && <WaitingLine reason={reason} />}
                 {/* Same anatomy as the board strip: id above the title. */}

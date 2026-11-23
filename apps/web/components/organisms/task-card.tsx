@@ -115,7 +115,7 @@ export const TaskCard = memo(function TaskCard({
       className={cn(
         'group relative rounded-[2px] cursor-pointer transition-[box-shadow,transform,background-color]',
         'pl-3.5 pr-2.5 py-1.5',
-        'has-[a[data-strip-link]:focus-visible]:outline-2 has-[a[data-strip-link]:focus-visible]:outline-offset-2 has-[a[data-strip-link]:focus-visible]:outline-accent',
+        'has-[a[data-strip-link]:focus-visible]:outline-2 has-[a[data-strip-link]:focus-visible]:-outline-offset-2 has-[a[data-strip-link]:focus-visible]:outline-accent',
         waiting
           ? '-ml-4 bg-card pb-2.5 shadow-[0_0_0_1px_var(--person),0_6px_14px_rgba(0,0,0,0.35)]'
           : done
@@ -123,7 +123,7 @@ export const TaskCard = memo(function TaskCard({
             : 'bg-strip shadow-[0_1px_0_rgba(0,0,0,0.3)] hover:bg-card',
         blocked && !waiting && 'shadow-[inset_0_0_0_1px_var(--alert),0_1px_0_rgba(0,0,0,0.3)]',
         isDragging && 'rotate-1 shadow-[0_8px_18px_rgba(0,0,0,0.4)]',
-        isSelected && 'outline-2 outline-offset-2 outline-accent',
+        isSelected && 'outline-2 -outline-offset-2 outline-accent',
         isAssigning && 'opacity-70',
       )}
     >

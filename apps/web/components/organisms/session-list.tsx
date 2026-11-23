@@ -144,7 +144,7 @@ export function SessionList() {
                   href={sessionHref(s.key, s.instanceId)}
                   className={cn(
                     COLS,
-                    'no-underline text-foreground focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-accent rounded-[2px]',
+                    'no-underline text-foreground focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent rounded-[2px]',
                   )}
                 >
                   <span className="min-w-0 flex items-baseline gap-2">

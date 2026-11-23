@@ -70,7 +70,8 @@ export function TopBar({ onCreateWorkspace }: { onCreateWorkspace?: () => void }
     <header className="h-[52px] shrink-0 bg-rack border-b border-rack-deep text-on-rack flex items-center gap-2 sm:gap-3 md:gap-5 px-3 md:px-6 min-w-0">
       <Link
         href="/"
-        className="flex items-center gap-2 font-bold text-lg tracking-[0.14em] text-white no-underline focus-visible:outline-2 focus-visible:outline-white rounded-sm"
+        aria-label="TAIA"
+        className="flex items-center gap-2 min-h-11 min-w-11 justify-center sm:justify-start font-bold text-lg tracking-[0.14em] text-white no-underline focus-visible:outline-2 focus-visible:outline-white rounded-sm"
       >
         <MateMark size={22} className="text-white [&_rect]:stroke-person" />
         <span className="hidden sm:inline">TAIA</span>

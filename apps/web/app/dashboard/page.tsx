@@ -543,7 +543,7 @@ export default function DashboardPage() {
                   <Strip key={task.id} kind={kindOf(task.assigned_to)} className="hover:bg-card">
                     <Link
                       href={`/task/${task.id}`}
-                      className="block no-underline text-foreground focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-accent rounded-[2px]"
+                      className="block no-underline text-foreground focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent rounded-[2px]"
                     >
                       <span className="block text-sm font-semibold truncate">{task.title}</span>
                       <span className="block text-mid text-muted">

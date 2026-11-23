@@ -88,11 +88,7 @@ function ProfileVersionDrawer({
 
   if (!isOpen) return null
   return (
-    <div
-      className="fixed inset-0 z-50 flex justify-end"
-      style={{ background: 'rgba(0,0,0,0.4)' }}
-      onClick={close}
-    >
+    <div className="fixed inset-0 z-50 flex justify-end bg-black/40" onClick={close}>
       <div
         onClick={(e) => e.stopPropagation()}
         className="bg-card border-l border-border h-full w-full max-w-[480px] flex flex-col"

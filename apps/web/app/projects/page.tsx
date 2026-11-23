@@ -166,7 +166,7 @@ function ProjectRow({ project, summary }: { project: Project; summary?: ProjectS
     <Strip className="py-2.5">
       <Link
         href={`/projects/${project.id}`}
-        className="grid grid-cols-[minmax(0,1fr)_auto] md:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)_auto] items-center gap-x-6 gap-y-2 no-underline text-foreground group focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-accent rounded-[2px]"
+        className="grid grid-cols-[minmax(0,1fr)_auto] md:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)_auto] items-center gap-x-6 gap-y-2 no-underline text-foreground group focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent rounded-[2px]"
       >
         <div className="min-w-0">
           <h3 className="font-semibold text-base truncate">{project.name}</h3>

@@ -73,7 +73,7 @@ function ActiveSessionRow({ session }: { session: ActiveSession }) {
     <Strip kind="agent" quiet={!isLive}>
       <Link
         href={sessionHref(session.key, session.instanceId)}
-        className="grid grid-cols-[minmax(0,1fr)_auto] gap-x-4 no-underline text-foreground group focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-accent rounded-[2px]"
+        className="grid grid-cols-[minmax(0,1fr)_auto] gap-x-4 no-underline text-foreground group focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent rounded-[2px]"
       >
         <div className="min-w-0">
           <div className="flex items-baseline gap-2 min-w-0">

@@ -123,7 +123,7 @@ export default function SettingsPage() {
                     <Strip className="p-0 hover:bg-card transition-colors">
                       <Link
                         href={section.href}
-                        className="group flex items-center gap-3 pl-4 pr-3 py-2.5 no-underline text-foreground rounded-[2px] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+                        className="group flex items-center gap-3 pl-4 pr-3 py-2.5 no-underline text-foreground rounded-[2px] focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent"
                       >
                         <Icon size={16} className="shrink-0 text-muted" aria-hidden="true" />
                         <span className="min-w-0 flex-1">
