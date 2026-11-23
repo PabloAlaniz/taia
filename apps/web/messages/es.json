@@ -85,7 +85,8 @@
     "sendsIn": "se envía en {seconds} s",
     "undo": "Deshacer",
     "pickUserToDecide": "Elegí quién sos (arriba a la derecha) para aprobar o rechazar.",
-    "priority": "prioridad {priority, select, LOW {baja} MEDIUM {media} HIGH {alta} URGENT {urgente} other {{priority}}}"
+    "priority": "prioridad {priority, select, LOW {baja} MEDIUM {media} HIGH {alta} URGENT {urgente} other {{priority}}}",
+    "reviewContent": "Revisar {lines, plural, one {# línea} other {# líneas}}"
   },
   "addTask": {
     "title": "Nueva Tarea",
@@ -142,7 +143,7 @@
     "triggering": "Ejecutando {name}",
     "viewTranscript": "Ver transcript completo",
     "deleteSubtask": "Eliminar subtarea",
-    "selectAgent": "Seleccionar agente {name}",
+    "selectAgent": "Seleccionar a {name}",
     "openTasks": "Tareas abiertas",
     "triggered": "lanzado",
     "triggerFailed": "falló"
@@ -389,7 +390,6 @@
     "description": "Descripción",
     "create": "Crear",
     "cancel": "Cancelar",
-    "manage": "Editar contexto y repos",
     "notFound": "Proyecto no encontrado.",
     "repositories": "Repositorios",
     "glossaryTerms": "{count, plural, one {# término en el glosario} other {# términos en el glosario}}",
@@ -405,7 +405,10 @@
     "workspaces": "{count, plural, one {# workspace} other {# workspaces}}",
     "tasksLabel": "Tareas",
     "costLabel": "Costo",
-    "glossaryLabel": "Glosario"
+    "glossaryLabel": "Glosario",
+    "views": "Vistas del proyecto",
+    "viewOverview": "Tablero",
+    "viewSettings": "Configurar"
   },
   "worktree": {
     "title": "Worktree de git",
@@ -572,7 +575,7 @@
     "intro": "Acá están los agentes y las personas del equipo: los dos toman tareas del mismo tablero. Sumá a cada uno en su sección y abrí una fila para ver qué puede hacer.",
     "agentsSection": "Agentes",
     "peopleSection": "Personas",
-    "working": "{count, plural, =0 {nadie con tareas en curso} one {# con tareas en curso} other {# con tareas en curso}}",
+    "working": "{count, plural, =0 {nadie con tareas en progreso} one {# con tareas en progreso} other {# con tareas en progreso}}",
     "noAgents": "Todavía no hay agentes",
     "noAgentsHint": "Sumá un agente para que pueda tomar tareas del tablero o por MCP.",
     "noPeople": "Todavía no hay personas en el equipo",
@@ -587,8 +590,8 @@
     "schedule": "horario",
     "lastRun": "última",
     "nextRun": "próxima",
-    "assigned": "asignadas",
-    "inProgress": "en curso",
+    "assigned": "por empezar",
+    "inProgress": "en progreso",
     "inReview": "revisión",
     "enable": "Activar",
     "disable": "Desactivar",
@@ -655,7 +658,7 @@
       "agent": "agente",
       "person": "persona"
     },
-    "rowLabel": "{name}, {kind}: {assigned, plural, one {# asignada} other {# asignadas}}, {inProgress} en curso, {review} en revisión"
+    "rowLabel": "{name}, {kind}: {assigned} por empezar, {inProgress} en progreso, {review} en revisión"
   },
   "taskPage": {
     "backToBoard": "Volver al tablero",
@@ -855,12 +858,10 @@
     "loadingPage": "Cargando ajustes…"
   },
   "settingsIndex": {
-    "intro": "Ajustes de esta instalación de TAIA: qué ejecuta a los agentes, quién participa y qué saben de tu trabajo.",
+    "intro": "Ajustes de esta instalación de TAIA: qué ejecuta a los agentes, qué saben de vos y cómo se comporta el sistema. El equipo y los proyectos se configuran desde sus propias páginas.",
     "generalDesc": "Conexión en vivo del tablero y zona horaria de los cron de agentes.",
     "runtimeDesc": "Qué ejecuta a los agentes: OpenClaw, Claude, un CLI o ninguno (standalone).",
     "modelsDesc": "Qué modelo usa cada agente en el runtime activo.",
-    "teamDesc": "Los agentes y las personas que toman tareas del tablero.",
-    "projectsDesc": "Proyectos, sus repositorios y el contexto que reciben los agentes.",
     "profileDesc": "Lo que todos los agentes saben de vos: nombre, datos, preferencias y límites.",
     "worktreesDesc": "Dónde se crean los worktrees de cada tarea, cuándo se limpian y qué corre al crearlos.",
     "auditDesc": "Quién cambió qué ajuste o API key, y cuándo."
@@ -905,12 +906,6 @@
     "autoCreateHelp": "Cuando asignás una tarea a un agente, TAIA le crea su worktree."
   },
   "settingsProjects": {
-    "listTitle": "Proyectos",
-    "listDesc": "Cada proyecto agrupa tareas de varios workspaces, sus repositorios y el contexto que reciben los agentes.",
-    "add": "Nuevo proyecto",
-    "empty": "Todavía no hay proyectos. Creá uno para agrupar tareas y darles contexto a los agentes.",
-    "expand": "Mostrar contexto y repositorios de {name}",
-    "collapse": "Ocultar contexto y repositorios de {name}",
     "deleting": "Eliminando…",
     "contextHeading": "Contexto del proyecto",
     "reposHeading": "Repositorios",
@@ -924,13 +919,10 @@
     "repoPrimaryLabel": "Repositorio principal",
     "repoCreate": "Agregar repositorio",
     "repoUpdate": "Guardar repositorio",
-    "newTitle": "Nuevo proyecto",
-    "editTitle": "Editar {name}",
     "nameLabel": "Nombre",
     "namePlaceholder": "Sitio web",
     "descLabel": "Descripción (opcional)",
     "descPlaceholder": "De qué se trata el proyecto",
-    "create": "Crear proyecto",
     "update": "Guardar cambios",
     "confirmDelete": {
       "title": "¿Eliminar el proyecto {name}?",
@@ -943,7 +935,6 @@
       "action": "Quitar repositorio"
     },
     "errors": {
-      "load": "No se pudieron cargar los proyectos. Recargá la página para reintentar.",
       "nameRequired": "Escribí un nombre para el proyecto.",
       "repoRequired": "Completá el nombre y la URL del repositorio.",
       "save": "No se pudo guardar el proyecto: {error}",
@@ -952,14 +943,16 @@
       "repoDelete": "No se pudo quitar el repositorio: {error}",
       "unknown": "error desconocido"
     },
-    "emptyTitle": "Todavía no hay proyectos",
-    "emptyHint": "Creá uno para agrupar tareas de varios workspaces y darles contexto a los agentes."
+    "detailsHeading": "Nombre y descripción",
+    "detailsSaved": "Proyecto guardado.",
+    "dangerHeading": "Eliminar",
+    "deleteHint": "Borra el proyecto, su contexto y sus repositorios. Las tareas quedan en sus workspaces, sin proyecto."
   },
   "settingsProjectContext": {
     "loading": "Cargando contexto…",
     "loadFailed": "No se pudo cargar el contexto del proyecto: {error}",
-    "descriptionLabel": "Descripción",
-    "descriptionPlaceholder": "De qué se trata el proyecto. Los agentes lo reciben en su prompt de sistema.",
+    "descriptionLabel": "Qué tienen que saber los agentes",
+    "descriptionPlaceholder": "Lo que un agente necesita para trabajar en este proyecto: el stack, las convenciones, qué no tocar.",
     "glossaryLabel": "Glosario",
     "glossaryHelp": "Términos del dominio que los agentes tienen que conocer, con su definición.",
     "termPlaceholder": "Término",
@@ -1217,7 +1210,6 @@
     "completedByDay": "Completadas por día · 30 días",
     "nameCount": "{name} {count}",
     "unassigned": "Sin asignar",
-    "colPending": "en curso",
     "colDone": "hechas",
     "colTime": "tiempo",
     "spendTotal": "gasto total",
@@ -1226,7 +1218,8 @@
     "spendModels": "{count, plural, one {modelo} other {modelos}}",
     "spendByParticipant": "Por participante",
     "spendByDay": "Por día",
-    "doneOfTotal": "{done}/{total} hechas"
+    "doneOfTotal": "{done}/{total} hechas",
+    "colOpen": "abiertas"
   },
   "sessionCard": {
     "tokens": "{count} tokens"
@@ -1298,8 +1291,8 @@
   },
   "settingsHub": {
     "groupWork": "Trabajo",
-    "groupPeople": "Personas y contexto",
-    "groupSystem": "Sistema"
+    "groupSystem": "Sistema",
+    "groupContext": "Contexto"
   },
   "priority": {
     "LOW": "baja",
@@ -1313,5 +1306,13 @@
     "mcp": "Cliente MCP",
     "cli": "CLI",
     "planningWizard": "Asistente de planificación"
+  },
+  "approvalPayload": {
+    "writes": "Escribe {lines, plural, one {# línea} other {# líneas}}:",
+    "edit": "Reemplazo:",
+    "editN": "Reemplazo {n} de {total}:",
+    "before": "Antes",
+    "after": "Después",
+    "allParams": "Ver todos los parámetros"
   }
 }

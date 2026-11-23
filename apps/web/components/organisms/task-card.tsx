@@ -12,6 +12,7 @@ import { useStore } from '../../lib/store'
 import { Button, Badge, GitHubIcon, BlockerIcon, UndoCountdown } from '../atoms'
 import { Card } from '../molecules'
 import { shortTaskId } from '@taia/domain/domain/task/task-id'
+import { approvalPayload, approvalSubject } from '../../lib/approval-detail'
 
 interface TaskCardProps {
   task: Task
@@ -34,14 +35,6 @@ interface TaskCardProps {
 const SYSTEM_TAGS = ['blocked', 'needs-clarification']
 
 /** The command an approval asks about, when the tool input carries one. */
-function approvalSubject(input: Record<string, unknown> | null): string | null {
-  if (!input) return null
-  for (const key of ['command', 'cmd', 'path', 'file_path', 'url']) {
-    const value = input[key]
-    if (typeof value === 'string' && value) return value
-  }
-  return null
-}
 
 /**
  * A task as a flight strip: one slim line for identity, one for who has it,
@@ -259,35 +252,49 @@ export const TaskCard = memo(function TaskCard({
       {waiting && (
         // biome-ignore lint/a11y/noStaticElementInteractions: stops the strip's own click
         <div className="flex flex-wrap gap-1.5 mt-2" onClick={stop} onKeyDown={stop}>
-          {waiting.kind === 'approval' && approvalId && !pendingDecision && (
-            <>
-              <Button
-                variant="primary"
-                size="xs"
-                disabled={!approvals?.canDecide}
-                // biome-ignore lint/a11y/noAutofocus: returns focus after Deshacer
-                autoFocus={justUndone}
-                data-decide="approve"
-                aria-keyshortcuts="A"
-                onClick={() => approvals?.queue(approvalId, 'approved')}
-              >
-                {t('approve')}
+          {waiting.kind === 'approval' &&
+            approvalId &&
+            !pendingDecision &&
+            approvalPayload(waiting.approval.tool_input) && (
+              // Content to read first: decided on the task page, where it shows.
+              <Button variant="primary" size="xs" onClick={open}>
+                {t('reviewContent', {
+                  lines: approvalPayload(waiting.approval.tool_input)?.lines ?? 0,
+                })}
               </Button>
-              <Button
-                variant="danger"
-                size="xs"
-                disabled={!approvals?.canDecide}
-                data-decide="reject"
-                aria-keyshortcuts="X"
-                onClick={() => approvals?.queue(approvalId, 'rejected')}
-              >
-                {t('reject')}
-              </Button>
-              {!approvals?.canDecide && (
-                <p className="basis-full text-xs text-muted">{t('pickUserToDecide')}</p>
-              )}
-            </>
-          )}
+            )}
+          {waiting.kind === 'approval' &&
+            approvalId &&
+            !pendingDecision &&
+            !approvalPayload(waiting.approval.tool_input) && (
+              <>
+                <Button
+                  variant="primary"
+                  size="xs"
+                  disabled={!approvals?.canDecide}
+                  // biome-ignore lint/a11y/noAutofocus: returns focus after Deshacer
+                  autoFocus={justUndone}
+                  data-decide="approve"
+                  aria-keyshortcuts="A"
+                  onClick={() => approvals?.queue(approvalId, 'approved')}
+                >
+                  {t('approve')}
+                </Button>
+                <Button
+                  variant="danger"
+                  size="xs"
+                  disabled={!approvals?.canDecide}
+                  data-decide="reject"
+                  aria-keyshortcuts="X"
+                  onClick={() => approvals?.queue(approvalId, 'rejected')}
+                >
+                  {t('reject')}
+                </Button>
+                {!approvals?.canDecide && (
+                  <p className="basis-full text-xs text-muted">{t('pickUserToDecide')}</p>
+                )}
+              </>
+            )}
           {waiting.kind === 'approval' && approvalId && pendingDecision && (
             <div role="status" className="basis-full flex items-center gap-2">
               <span

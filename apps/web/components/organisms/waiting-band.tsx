@@ -8,6 +8,8 @@ import { useStore } from '../../lib/store'
 import { UNDO_MS, useBoardSignals } from '../../lib/use-board-signals'
 import { Button, Kbd, UndoCountdown } from '../atoms'
 import { REVIEW_MERGE } from './worktree-panel'
+import { ApprovalPayloadView } from '../molecules/approval-payload'
+import { approvalSubject } from '../../lib/approval-detail'
 
 /**
  * On a task that waits on a person, the first thing on the page: why, and the
@@ -82,11 +84,7 @@ export function WaitingBand({ task }: { task: Task }) {
 
   const approval = waiting.kind === 'approval' ? waiting.approval : null
   const pending = approval ? signals.pending[approval.id] : undefined
-  const subject = approval?.tool_input
-    ? (['command', 'cmd', 'path', 'file_path', 'url']
-        .map((k) => approval.tool_input?.[k])
-        .find((v) => typeof v === 'string' && v) as string | undefined)
-    : undefined
+  const subject = approvalSubject(approval?.tool_input) ?? undefined
 
   return (
     <section
@@ -126,6 +124,7 @@ export function WaitingBand({ task }: { task: Task }) {
               {subject}
             </code>
           )}
+          <ApprovalPayloadView input={approval.tool_input ?? null} />
         </div>
       )}
       {waiting.kind === 'merge' && waiting.worktree.diff_stats && (

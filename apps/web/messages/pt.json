@@ -85,7 +85,8 @@
     "sendsIn": "enviado em {seconds} s",
     "undo": "Desfazer",
     "pickUserToDecide": "Escolha quem você é (no canto superior direito) para aprovar ou rejeitar.",
-    "priority": "prioridade {priority, select, LOW {baixa} MEDIUM {média} HIGH {alta} URGENT {urgente} other {{priority}}}"
+    "priority": "prioridade {priority, select, LOW {baixa} MEDIUM {média} HIGH {alta} URGENT {urgente} other {{priority}}}",
+    "reviewContent": "Revisar {lines, plural, one {# linha} other {# linhas}}"
   },
   "addTask": {
     "title": "Nova Tarefa",
@@ -142,7 +143,7 @@
     "triggering": "Executando {name}",
     "viewTranscript": "Ver transcrição completa",
     "deleteSubtask": "Excluir subtarefa",
-    "selectAgent": "Selecionar agente {name}",
+    "selectAgent": "Selecionar {name}",
     "openTasks": "Tareas abiertas",
     "triggered": "lanzado",
     "triggerFailed": "falló"
@@ -389,7 +390,6 @@
     "description": "Descrição",
     "create": "Criar",
     "cancel": "Cancelar",
-    "manage": "Editar contexto e repositórios",
     "notFound": "Projeto não encontrado.",
     "repositories": "Repositórios",
     "glossaryTerms": "{count, plural, one {# termo no glossário} other {# termos no glossário}}",
@@ -405,7 +405,10 @@
     "workspaces": "{count, plural, one {# workspace} other {# workspaces}}",
     "tasksLabel": "Tarefas",
     "costLabel": "Custo",
-    "glossaryLabel": "Glossário"
+    "glossaryLabel": "Glossário",
+    "views": "Visões do projeto",
+    "viewOverview": "Quadro",
+    "viewSettings": "Configurar"
   },
   "worktree": {
     "title": "Worktree do git",
@@ -587,7 +590,7 @@
     "schedule": "horário",
     "lastRun": "última",
     "nextRun": "próxima",
-    "assigned": "atribuídas",
+    "assigned": "a fazer",
     "inProgress": "em andamento",
     "inReview": "revisão",
     "enable": "Ativar",
@@ -655,7 +658,7 @@
       "agent": "agente",
       "person": "pessoa"
     },
-    "rowLabel": "{name}, {kind}: {assigned, plural, one {# atribuída} other {# atribuídas}}, {inProgress} em andamento, {review} em revisão"
+    "rowLabel": "{name}, {kind}: {assigned} a fazer, {inProgress} em andamento, {review} em revisão"
   },
   "taskPage": {
     "backToBoard": "Voltar ao quadro",
@@ -855,12 +858,10 @@
     "loadingPage": "Carregando configurações…"
   },
   "settingsIndex": {
-    "intro": "Configurações desta instalação do TAIA: o que executa os agentes, quem participa e o que eles sabem do seu trabalho.",
+    "intro": "Configurações desta instalação do TAIA: o que executa os agentes, o que eles sabem sobre você e como o sistema se comporta. A equipe e os projetos são configurados nas próprias páginas.",
     "generalDesc": "Conexão ao vivo do quadro e fuso horário dos crons dos agentes.",
     "runtimeDesc": "O que executa os agentes: OpenClaw, Claude, uma CLI ou nenhum (standalone).",
     "modelsDesc": "Qual modelo cada agente usa no runtime ativo.",
-    "teamDesc": "Os agentes e as pessoas que recebem tarefas do quadro.",
-    "projectsDesc": "Projetos, seus repositórios e o contexto que os agentes recebem.",
     "profileDesc": "O que todos os agentes sabem sobre você: nome, fatos, preferências e limites.",
     "worktreesDesc": "Onde os worktrees de cada tarefa são criados, quando são limpos e o que roda ao criá-los.",
     "auditDesc": "Quem alterou qual configuração ou API key, e quando."
@@ -905,12 +906,6 @@
     "autoCreateHelp": "Quando você atribui uma tarefa a um agente, o TAIA cria o worktree dela."
   },
   "settingsProjects": {
-    "listTitle": "Projetos",
-    "listDesc": "Cada projeto agrupa tarefas de vários workspaces, seus repositórios e o contexto que os agentes recebem.",
-    "add": "Novo projeto",
-    "empty": "Ainda não há projetos. Crie um para agrupar tarefas e dar contexto aos agentes.",
-    "expand": "Mostrar contexto e repositórios de {name}",
-    "collapse": "Ocultar contexto e repositórios de {name}",
     "deleting": "Excluindo…",
     "contextHeading": "Contexto do projeto",
     "reposHeading": "Repositórios",
@@ -924,13 +919,10 @@
     "repoPrimaryLabel": "Repositório principal",
     "repoCreate": "Adicionar repositório",
     "repoUpdate": "Salvar repositório",
-    "newTitle": "Novo projeto",
-    "editTitle": "Editar {name}",
     "nameLabel": "Nome",
     "namePlaceholder": "Site",
     "descLabel": "Descrição (opcional)",
     "descPlaceholder": "Do que se trata o projeto",
-    "create": "Criar projeto",
     "update": "Salvar alterações",
     "confirmDelete": {
       "title": "Excluir o projeto {name}?",
@@ -943,7 +935,6 @@
       "action": "Remover repositório"
     },
     "errors": {
-      "load": "Não foi possível carregar os projetos. Recarregue a página para tentar de novo.",
       "nameRequired": "Escreva um nome para o projeto.",
       "repoRequired": "Preencha o nome e a URL do repositório.",
       "save": "Não foi possível salvar o projeto: {error}",
@@ -952,14 +943,16 @@
       "repoDelete": "Não foi possível remover o repositório: {error}",
       "unknown": "erro desconhecido"
     },
-    "emptyTitle": "Ainda não há projetos",
-    "emptyHint": "Crie um para agrupar tarefas de vários workspaces e dar contexto aos agentes."
+    "detailsHeading": "Nome e descrição",
+    "detailsSaved": "Projeto salvo.",
+    "dangerHeading": "Excluir",
+    "deleteHint": "Apaga o projeto, seu contexto e seus repositórios. As tarefas continuam nos seus workspaces, sem projeto."
   },
   "settingsProjectContext": {
     "loading": "Carregando contexto…",
     "loadFailed": "Não foi possível carregar o contexto do projeto: {error}",
-    "descriptionLabel": "Descrição",
-    "descriptionPlaceholder": "Do que se trata o projeto. Os agentes recebem isso no prompt de sistema.",
+    "descriptionLabel": "O que os agentes precisam saber",
+    "descriptionPlaceholder": "O que um agente precisa para trabalhar neste projeto: a stack, as convenções, o que não mexer.",
     "glossaryLabel": "Glossário",
     "glossaryHelp": "Termos do domínio que os agentes precisam conhecer, com sua definição.",
     "termPlaceholder": "Termo",
@@ -1205,7 +1198,7 @@
     "nowSection": "Agora",
     "nowWaiting": "{count, plural, one {espera você} other {esperam você}}",
     "nowWaitingLink": "{count, plural, one {# tarefa espera você: ver no quadro} other {# tarefas esperam você: ver no quadro}}",
-    "nowInProgress": "em progresso",
+    "nowInProgress": "em andamento",
     "nowInReview": "em revisão",
     "nowBlocked": "{count, plural, one {bloqueada} other {bloqueadas}}",
     "nowStale": "{count, plural, one {parada} other {paradas}} +24 h",
@@ -1217,7 +1210,6 @@
     "completedByDay": "Concluídas por dia · 30 dias",
     "nameCount": "{name} {count}",
     "unassigned": "Sem responsável",
-    "colPending": "em curso",
     "colDone": "feitas",
     "colTime": "tempo",
     "spendTotal": "gasto total",
@@ -1226,7 +1218,8 @@
     "spendModels": "{count, plural, one {modelo} other {modelos}}",
     "spendByParticipant": "Por participante",
     "spendByDay": "Por dia",
-    "doneOfTotal": "{done}/{total} feitas"
+    "doneOfTotal": "{done}/{total} feitas",
+    "colOpen": "abertas"
   },
   "sessionCard": {
     "tokens": "{count} tokens"
@@ -1298,8 +1291,8 @@
   },
   "settingsHub": {
     "groupWork": "Trabalho",
-    "groupPeople": "Pessoas e contexto",
-    "groupSystem": "Sistema"
+    "groupSystem": "Sistema",
+    "groupContext": "Contexto"
   },
   "priority": {
     "LOW": "baixa",
@@ -1313,5 +1306,13 @@
     "mcp": "Cliente MCP",
     "cli": "CLI",
     "planningWizard": "Assistente de planejamento"
+  },
+  "approvalPayload": {
+    "writes": "Escreve {lines, plural, one {# linha} other {# linhas}}:",
+    "edit": "Substituição:",
+    "editN": "Substituição {n} de {total}:",
+    "before": "Antes",
+    "after": "Depois",
+    "allParams": "Ver todos os parâmetros"
   }
 }
