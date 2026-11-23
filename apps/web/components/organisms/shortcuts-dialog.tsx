@@ -34,7 +34,7 @@ export function ShortcutsDialog({ open, onClose }: { open: boolean; onClose: () 
             </div>
           ))}
         </dl>
-        <p className="text-xs text-muted mt-3">{t('taskPage')}</p>
+        <p className="text-xs text-muted mt-3 text-pretty">{t('taskPage')}</p>
       </ModalBody>
       <ModalFooter>
         <Button variant="secondary" size="sm" onClick={onClose}>

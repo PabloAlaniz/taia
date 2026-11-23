@@ -152,7 +152,7 @@ function ViewChip({
       size="sm"
       aria-pressed={active}
       onClick={onClick}
-      className="flex items-center"
+      className="flex items-center min-h-9 md:min-h-0"
     >
       {children}
     </Button>

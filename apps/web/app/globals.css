@@ -82,7 +82,8 @@
   --field: #7f8a95;
   --foreground: #15191d;
   --muted: #4f5a63;
-  --accent: #176087;
+  /* Neutral: focus, links, selection. Cyan stays the agents' colour. */
+  --accent: #2b3138;
   --rack: #2b3138;
   --rack-deep: #232930;
   --rack-line: #3a424b;
@@ -114,7 +115,7 @@
   --field: #67737f;
   --foreground: #e6ebef;
   --muted: #b4bfc8;
-  --accent: #6cc0ea;
+  --accent: #c5cdd4;
   --rack: #1d2329;
   --rack-deep: #161b20;
   --rack-line: #2e363e;
@@ -242,4 +243,10 @@ select:not([multiple]):not([size]) {
 }
 .dark select:not([multiple]):not([size]) {
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23b4bfc8' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+}
+
+/* Links in accent ink are told apart by their underline, not by hue. */
+a.text-accent {
+  text-decoration-line: underline;
+  text-underline-offset: 2px;
 }

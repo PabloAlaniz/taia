@@ -16,8 +16,8 @@ colors:
   foreground-dark: "#e6ebef"
   muted: "#4f5a63"
   muted-dark: "#b4bfc8"
-  accent: "#176087"
-  accent-dark: "#6cc0ea"
+  accent: "#2b3138"
+  accent-dark: "#c5cdd4"
   rack: "#2b3138"
   rack-dark: "#1d2329"
   rack-deep: "#232930"
@@ -197,7 +197,7 @@ A graphite-and-paper neutral system with two equal participant hues and one fail
 
 ### Primary
 - **Agent Cyan** (`agent`): the edge tab, participant mark and legend for an agent; the running dot; text selection tint (30%). Same value in both themes.
-- **Agent Ink** (`agent-ink` / `agent-ink-dark`): agent names on strips and "running" text, where cyan itself would not reach text contrast. Doubles as the focus and selection accent (`accent`).
+- **Agent Ink** (`agent-ink` / `agent-ink-dark`): agent names on strips and "running" text, where cyan itself would not reach text contrast. It is no longer the focus accent: `accent` is neutral graphite ink (#2b3138 / dark #c5cdd4), so cyan means "agent" and nothing else. Links in accent ink carry an underline.
 
 ### Secondary
 - **Person Orange** (`person`): the edge tab, participant mark and legend for a person; also the "waiting on you" counter, the TE ESPERA tag and the outline of a pulled-out strip. Same value in both themes.
@@ -372,3 +372,8 @@ Every text in every page, in both themes, clears WCAG AA 4.5:1 (3:1 for large ty
 - **Disabled is a flat strip with muted ink,** not a 50% opacity ghost.
 - **No opacity on text.** Quieter text uses `muted`, never `/alpha` or `opacity-*`.
 - **Done strips** keep red off: alert ink on `strip-done` would fall below 4.5:1.
+
+## Undoable decisions
+
+Approvals and rejections wait 8 s before they are sent. The strip or band shows a ticking "se envía en N s" with a draining person-orange hairline, and focus moves to Deshacer; undoing returns it to Aprobar. Once sent, the task page leaves a filed line ("Aprobaste y se envió al agente: …") that takes focus, so nothing vanishes without a trace.
+

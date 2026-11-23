@@ -198,8 +198,7 @@ export function KanbanBoard({
 
   return (
     <DragDropContext onDragEnd={handleDragEnd}>
-      <main
-        id="main-content"
+      <div
         className={cn(
           'flex-1 px-4 md:px-6 pb-4 pt-1 min-h-0',
           !isSwimlane && 'flex gap-3 overflow-x-auto',
@@ -291,7 +290,7 @@ export function KanbanBoard({
             </div>
           )
         })}
-      </main>
+      </div>
     </DragDropContext>
   )
 }

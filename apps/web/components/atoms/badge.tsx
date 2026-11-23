@@ -9,7 +9,7 @@ export interface BadgeProps extends React.HTMLAttributes<HTMLSpanElement> {
 
 const variants = {
   default: 'bg-background text-muted',
-  accent: 'bg-agent-ink text-white dark:text-rack-deep',
+  accent: 'bg-foreground text-background',
   muted: 'bg-card text-muted',
   secondary: 'bg-card border border-border text-foreground',
   // State badges: ink-strength text with a ring, no fill, so they read on any

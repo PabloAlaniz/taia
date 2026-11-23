@@ -95,7 +95,7 @@ export const Column = memo(function Column({
             onClick={() => onEditWipLimit(column.slug)}
             aria-label={t('editWipLimit', { name: column.label })}
             title={t('editWipLimit', { name: column.label })}
-            className="self-center p-1 rounded text-on-rack-muted hover:text-white hover:bg-rack-line focus-visible:outline-2 focus-visible:outline-white"
+            className="self-center p-1 max-md:p-2.5 max-md:-m-1.5 rounded text-on-rack-muted hover:text-white hover:bg-rack-line focus-visible:outline-2 focus-visible:outline-white"
           >
             <SlidersHorizontal size={13} aria-hidden="true" />
           </button>

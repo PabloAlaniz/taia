@@ -326,7 +326,7 @@ export const TaskSidebar = forwardRef<TaskSidebarHandle, TaskSidebarProps>(funct
           )}
         </div>
         {!task.repo_url && task.primary_repo_url && (
-          <p className="text-2xs text-muted mt-1">{t('repoFromProject')}</p>
+          <p className="text-xs text-muted mt-1">{t('repoFromProject')}</p>
         )}
       </div>
 
@@ -338,7 +338,7 @@ export const TaskSidebar = forwardRef<TaskSidebarHandle, TaskSidebarProps>(funct
         {/* Blockers (this task is blocked by) */}
         {blockers.length > 0 && (
           <div className="mb-2">
-            <p className="text-2xs text-muted mb-1">{t('blockedBy')}</p>
+            <p className="text-xs text-muted mb-1">{t('blockedBy')}</p>
             <div className="space-y-1">
               {blockers.map((b) => {
                 const resolved =
@@ -382,7 +382,7 @@ export const TaskSidebar = forwardRef<TaskSidebarHandle, TaskSidebarProps>(funct
         {/* Dependents (tasks blocked by this one) */}
         {dependents.length > 0 && (
           <div className="mb-2">
-            <p className="text-2xs text-muted mb-1">{t('blocking')}</p>
+            <p className="text-xs text-muted mb-1">{t('blocking')}</p>
             <div className="space-y-1">
               {dependents.map((d) => (
                 <div key={d.id} className="flex items-center gap-1.5">
@@ -467,7 +467,7 @@ export const TaskSidebar = forwardRef<TaskSidebarHandle, TaskSidebarProps>(funct
           </Dropdown>
         </div>
         {depError && (
-          <p role="alert" className="text-2xs text-alert mt-1">
+          <p role="alert" className="text-xs text-alert mt-1">
             {depError}
           </p>
         )}
@@ -547,7 +547,7 @@ export const TaskSidebar = forwardRef<TaskSidebarHandle, TaskSidebarProps>(funct
                   <Button
                     variant="ghost"
                     size="xs"
-                    className="text-2xs text-muted hover:text-foreground mt-1.5 w-full text-center"
+                    className="text-xs text-muted hover:text-foreground mt-1.5 w-full text-center"
                     onClick={() => {
                       setTagColor(tag, null)
                       setColorPickerTag(null)
@@ -666,7 +666,7 @@ export const TaskSidebar = forwardRef<TaskSidebarHandle, TaskSidebarProps>(funct
           <p className="text-xs font-medium text-muted mb-2">{t('aiCost')}</p>
           <CostBadge costUsd={taskCost.total_cost_usd} tokens={taskCost.total_tokens} />
           {taskCost.session_count > 1 && (
-            <p className="text-2xs text-muted mt-1">
+            <p className="text-xs text-muted mt-1">
               {t('sessions', { count: taskCost.session_count })}
             </p>
           )}

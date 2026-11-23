@@ -51,14 +51,9 @@ export default function ModelsPage() {
 
   return (
     <div className="min-h-full bg-background">
-      <PageHeader
-        width="medium"
-        title={t('title')}
-        backHref="/settings"
-        backLabel={tp('settings')}
-      />
+      <PageHeader width="form" title={t('title')} backHref="/settings" backLabel={tp('settings')} />
 
-      <div className="px-4 md:px-6 pt-5 pb-10 max-w-4xl mx-auto space-y-4">
+      <div className="px-4 md:px-6 pt-5 pb-10 max-w-2xl mx-auto space-y-4">
         <p className="text-muted text-sm max-w-prose">{t('description')}</p>
 
         {unsupportedProvider && (

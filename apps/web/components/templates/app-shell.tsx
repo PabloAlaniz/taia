@@ -29,7 +29,16 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   return (
     <div className={bare ? undefined : 'flex flex-col h-dvh'}>
       {!bare && <TopBar onCreateWorkspace={() => setCreatingWorkspace(true)} />}
-      <div className={bare ? undefined : 'flex-1 min-h-0 overflow-auto pb-14 md:pb-0'}>
+      {/* The page's main landmark (the skip link's target). Same element in
+          both modes so the page never remounts; bare pages bring their own. */}
+      <div
+        id={bare ? undefined : 'main-content'}
+        role={bare ? undefined : 'main'}
+        tabIndex={bare ? undefined : -1}
+        className={
+          bare ? undefined : 'flex-1 min-h-0 overflow-auto pb-14 md:pb-0 focus:outline-none'
+        }
+      >
         {children}
       </div>
       {!bare && <MobileNav pathname={pathname} />}

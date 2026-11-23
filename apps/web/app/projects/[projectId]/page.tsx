@@ -191,10 +191,11 @@ function Bay({
                 className="block no-underline text-foreground focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-accent rounded-[2px]"
               >
                 {reason && <WaitingLine reason={reason} />}
+                {/* Same anatomy as the board strip: id above the title. */}
+                <span className="block font-mono text-xxs text-muted leading-none mb-0.5">
+                  {shortTaskId(task.id)}
+                </span>
                 <span className="flex items-baseline gap-2">
-                  <span className="font-mono text-xxs text-muted shrink-0">
-                    {shortTaskId(task.id)}
-                  </span>
                   <span
                     className={cn(
                       'text-sm leading-snug line-clamp-2',

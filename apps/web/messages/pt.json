@@ -129,7 +129,7 @@
     "statusIdle": "inativo",
     "statusOffline": "desconectado",
     "statusStarting": "iniciando...",
-    "human": "Humano",
+    "human": "Pessoa",
     "trigger": "Executar {name}",
     "triggering": "Executando {name}",
     "viewTranscript": "Ver transcrição completa",
@@ -201,8 +201,8 @@
     "models": "Modelos usados",
     "chartTitle": "Tarefas concluídas por dia (últimos 30 dias)",
     "noCompletions": "Não há tarefas concluídas nos últimos 30 dias",
-    "byAgent": "Por agente",
-    "offlineMode": "(modo offline)",
+    "byAgent": "Carga por participante",
+    "offlineMode": "(standalone)",
     "noAgentData": "Sem dados de agentes",
     "tracked": "{time} registrado",
     "doneVsPending": "concluídas / pendentes",
@@ -454,7 +454,9 @@
       "merge": "O merge falhou. Verifique conflitos na branch e tente de novo.",
       "abort": "Não foi possível descartar o worktree.",
       "diff": "Não foi possível carregar as alterações.",
-      "network": "Sem conexão com o TAIA. Tente de novo."
+      "network": "Sem conexão com o TAIA. Tente de novo.",
+      "gitMissing": "O servidor do TAIA não encontra o git: instale-o ou verifique o PATH. Detalhe:",
+      "diffReason": "Detalhe:"
     },
     "status": {
       "creating": "criando",
@@ -1249,7 +1251,9 @@
     "mcp": "Como conectar um agente"
   },
   "waitingBand": {
-    "mergeInto": "Integra {branch} em {base}: {files, plural, one {# arquivo} other {# arquivos}}"
+    "mergeInto": "Integra {branch} em {base}: {files, plural, one {# arquivo} other {# arquivos}}",
+    "filedApproved": "Você aprovou e foi enviado ao agente:",
+    "filedRejected": "Você rejeitou e o agente foi avisado:"
   },
   "costBadge": {
     "withTokens": "{cost} · {tokens} tokens"

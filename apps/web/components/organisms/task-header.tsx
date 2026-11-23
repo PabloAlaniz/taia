@@ -27,7 +27,7 @@ export function TaskHeader({ task, onBack }: TaskHeaderProps) {
         <Divider orientation="vertical" />
 
         <div className="flex items-center gap-3">
-          <code className="text-xs text-muted">#{shortTaskId(task.id)}</code>
+          <code className="text-xs text-muted whitespace-nowrap">#{shortTaskId(task.id)}</code>
 
           <PriorityMark priority={task.priority} />
 

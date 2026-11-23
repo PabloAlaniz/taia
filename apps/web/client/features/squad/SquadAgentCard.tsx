@@ -1,5 +1,6 @@
 'use client'
 
+import { useRuntimeStatus } from '@/lib/use-runtime-status'
 import { useId, useState } from 'react'
 import Link from 'next/link'
 import { useFormatter, useNow, useTranslations } from 'next-intl'
@@ -33,7 +34,8 @@ export function SquadAgentCard({
   const [cronSchedule, setCronSchedule] = useState(
     member.cron?.scheduleRaw || member.cron?.schedule || '',
   )
-  const [newCronSchedule, setNewCronSchedule] = useState('0 */6 * * *')
+  const runtime = useRuntimeStatus()
+  const [newCronSchedule, setNewCronSchedule] = useState('')
   const panelId = useId()
   const [scheduleOpen, setScheduleOpen] = useState(false)
   const [contextOpen, setContextOpen] = useState(false)
@@ -419,7 +421,12 @@ export function SquadAgentCard({
                         {t('save')}
                       </Button>
                     ) : (
-                      <Button variant="primary" size="sm" onClick={createCron}>
+                      <Button
+                        variant="primary"
+                        size="sm"
+                        onClick={createCron}
+                        disabled={!runtime.configured || !newCronSchedule.trim()}
+                      >
                         {t('create')}
                       </Button>
                     )}
