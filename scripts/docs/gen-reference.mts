@@ -18,8 +18,13 @@ function write(path: string, content: string) {
   writeFileSync(path, content)
 }
 
+/** Text for a Markdown table cell: backslashes first, so `\|` cannot be undone. */
 function escapeCell(text: string): string {
-  return text.replace(/\|/g, '\\|').replace(/\n+/g, ' ').trim()
+  return text
+    .replace(/\\/g, '\\\\')
+    .replace(/\|/g, '\\|')
+    .replace(/\n+/g, ' ')
+    .trim()
 }
 
 // --- MCP tools -------------------------------------------------------------
@@ -68,7 +73,7 @@ function zodParam(name: string, expr: ts.Expression): ToolParam {
   const base = calls[0]
   let type = base?.method ?? 'unknown'
   if (type === 'enum' && base?.args[0] && ts.isArrayLiteralExpression(base.args[0])) {
-    type = base.args[0].elements.map((e) => stringValue(e as ts.Expression) ?? '?').join(' \\| ')
+    type = base.args[0].elements.map((e) => stringValue(e as ts.Expression) ?? '?').join(' | ')
   } else if (type === 'array' && base?.args[0]) {
     const inner = zodParam('', base.args[0])
     type = `${inner.type}[]`
@@ -223,7 +228,7 @@ function adrPages() {
   for (const file of readdirSync(dir).filter((f) => f.endsWith('.md'))) {
     const raw = readFileSync(join(dir, file), 'utf8')
     const match = raw.match(/^#\s+(.+)$/m)
-    const title = (match?.[1] ?? file).replace(/"/g, '\\"')
+    const title = match?.[1] ?? file
     const isIndex = file === 'README.md'
     // Sibling ADRs: from the index they are ./slug/, from an ADR ../slug/.
     const sibling = isIndex ? './' : '../'
@@ -239,7 +244,8 @@ function adrPages() {
     const name = isIndex ? 'index.md' : file.toLowerCase()
     write(
       join(out, name),
-      `---\ntitle: "${file === 'README.md' ? 'Decisiones de arquitectura (ADRs)' : title}"\n---\n\n${BANNER}\n${body}`,
+      // JSON strings are valid YAML double-quoted scalars, escapes included.
+      `---\ntitle: ${JSON.stringify(isIndex ? 'Decisiones de arquitectura (ADRs)' : title)}\n---\n\n${BANNER}\n${body}`,
     )
   }
 }
