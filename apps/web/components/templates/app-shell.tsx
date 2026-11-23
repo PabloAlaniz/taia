@@ -47,7 +47,7 @@ const MOBILE = [
   { href: '/', key: 'board', Icon: LayoutGrid },
   { href: '/sessions', key: 'sessions', Icon: PlayCircle },
   { href: '/projects', key: 'projects', Icon: FolderKanban },
-  { href: '/squad', key: 'agents', Icon: Users },
+  { href: '/squad', key: 'team', Icon: Users },
   { href: '/dashboard', key: 'dashboard', Icon: BarChart3 },
   { href: '/settings', key: 'settingsShort', Icon: Settings },
 ] as const

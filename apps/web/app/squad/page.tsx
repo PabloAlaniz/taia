@@ -75,7 +75,7 @@ export default function SquadPage() {
   return (
     <div className="min-h-full">
       {/* Each rack carries its own add action, so agents and people are added alike. */}
-      <PageHeader width="medium" title={tp('agents')} />
+      <PageHeader width="medium" title={tp('team')} />
 
       <div className="px-4 md:px-6 pt-4 pb-10 max-w-4xl mx-auto space-y-4">
         <p className="text-sm text-muted max-w-prose">{t('intro')}</p>
@@ -176,9 +176,7 @@ export default function SquadPage() {
       <ConfirmDialog
         open={!!deleting}
         title={t('confirmDelete.title', { name: deleting?.name ?? '' })}
-        body={
-          deleting?.type === 'human' ? t('confirmDelete.bodyPerson') : t('confirmDelete.bodyAgent')
-        }
+        body={t('confirmDelete.body')}
         confirmLabel={t('confirmDelete.action')}
         cancelLabel={t('cancel')}
         destructive

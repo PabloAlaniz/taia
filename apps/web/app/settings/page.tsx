@@ -3,7 +3,6 @@
 import Link from 'next/link'
 import { useTranslations } from 'next-intl'
 import {
-  Bot,
   Brain,
   ChevronRight,
   FolderGit2,
@@ -15,7 +14,7 @@ import {
   Users,
   type LucideIcon,
 } from 'lucide-react'
-import { Strip, type StripKind } from '@/components/atoms/strip'
+import { Strip } from '@/components/atoms/strip'
 import { PageHeader } from '@/components/molecules/page-header'
 import { RackSection } from '@/components/molecules/rack-section'
 
@@ -24,8 +23,6 @@ interface Section {
   icon: LucideIcon
   title: string
   description: string
-  /** Participant pages carry their kind's edge tab. */
-  kind?: StripKind
 }
 
 interface Group {
@@ -45,13 +42,6 @@ export default function SettingsPage() {
       id: 'settings-work',
       title: th('groupWork'),
       sections: [
-        {
-          href: '/settings/agents',
-          icon: Bot,
-          title: t('agentsTitle'),
-          description: ti('agentsDesc'),
-          kind: 'agent',
-        },
         {
           href: '/settings/runtime',
           icon: Plug,
@@ -77,11 +67,10 @@ export default function SettingsPage() {
       title: th('groupPeople'),
       sections: [
         {
-          href: '/settings/team',
+          href: '/squad',
           icon: Users,
           title: tp('team'),
           description: ti('teamDesc'),
-          kind: 'person',
         },
         {
           href: '/settings/profile',
@@ -131,7 +120,7 @@ export default function SettingsPage() {
                 const Icon = section.icon
                 return (
                   <li key={section.href}>
-                    <Strip kind={section.kind} className="p-0 hover:bg-card transition-colors">
+                    <Strip className="p-0 hover:bg-card transition-colors">
                       <Link
                         href={section.href}
                         className="group flex items-center gap-3 pl-4 pr-3 py-2.5 no-underline text-foreground rounded-[2px] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"

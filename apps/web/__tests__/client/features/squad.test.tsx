@@ -197,15 +197,26 @@ describe('SquadAgentCard', () => {
 
   it('keeps delete quiet at rest and hands it to the confirmation', () => {
     const { onDelete } = renderCard(agent())
-    const del = screen.getByRole('button', { name: 'deleteAgent' })
+    const del = screen.getByRole('button', { name: 'deleteMember' })
     expect(del.className).not.toMatch(/text-alert/)
     fireEvent.click(del)
     expect(onDelete).toHaveBeenCalledWith('revisor')
   })
 
+  it('names the row button in words, not a run of counts', () => {
+    renderCard(agent())
+    const row = screen.getByRole('button', { name: /^rowLabel / })
+    const label = row.getAttribute('aria-label') ?? ''
+    expect(JSON.parse(label.slice('rowLabel '.length))).toMatchObject({
+      name: 'Revisor',
+      kind: 'kind.agent',
+    })
+    expect(row).toHaveAttribute('aria-expanded', 'true')
+  })
+
   it('shows a person only the actions, no schedule or context', () => {
     renderCard(agent({ id: 'ana', name: 'Ana', type: 'human', cron: undefined }))
-    expect(screen.getByRole('button', { name: 'removePerson' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'deleteMember' })).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /scheduleSection/ })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /contextSection/ })).not.toBeInTheDocument()
   })

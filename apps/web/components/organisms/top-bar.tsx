@@ -22,7 +22,7 @@ const NAV = [
   { href: '/projects', key: 'projects', match: (p: string) => p.startsWith('/projects') },
   {
     href: '/squad',
-    key: 'agents',
+    key: 'team',
     match: (p: string) => p.startsWith('/squad'),
   },
   { href: '/dashboard', key: 'dashboard', match: (p: string) => p.startsWith('/dashboard') },
@@ -193,7 +193,7 @@ function ThemeSwitch() {
       onClick={() => setTheme(dark ? 'light' : 'dark')}
       aria-label={dark ? t('toLight') : t('toDark')}
       title={dark ? t('toLight') : t('toDark')}
-      className="hidden md:block p-1.5 rounded text-on-rack-muted hover:text-white hover:bg-rack-line focus-visible:outline-2 focus-visible:outline-white"
+      className="p-1.5 rounded text-on-rack-muted hover:text-white hover:bg-rack-line focus-visible:outline-2 focus-visible:outline-white"
     >
       {dark ? <Sun size={17} aria-hidden="true" /> : <Moon size={17} aria-hidden="true" />}
     </button>

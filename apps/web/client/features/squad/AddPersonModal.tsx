@@ -9,9 +9,8 @@ import { FormField, cleanId, idProblem, slugify } from './fields'
 type Errors = { name?: string; id?: string }
 
 /**
- * Adds a person to the team: the same record Settings → Equipo creates
- * (POST /api/agents with type "human"), from the roster where people live
- * next to agents.
+ * Adds a person to the team (POST /api/agents with type "human"), from the
+ * Equipo page where people live next to agents.
  */
 export function AddPersonModal({
   takenIds = [],

@@ -209,6 +209,15 @@ export function SquadAgentCard({
         onClick={() => setExpanded(!expanded)}
         aria-expanded={expanded}
         aria-controls={expanded ? panelId : undefined}
+        // The visible counts read as a run of numbers; the name says what they count.
+        aria-label={t('rowLabel', {
+          name: member.name,
+          kind: isPerson ? t('kind.person') : t('kind.agent'),
+          assigned: member.tasks.assigned,
+          inProgress: member.tasks.inProgress,
+          review: member.tasks.review,
+        })}
+        aria-describedby={`${panelId}-state`}
         className="w-full grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 pl-4 pr-3 py-2.5 text-left focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent rounded-[2px]"
       >
         <div className="min-w-0">
@@ -221,16 +230,19 @@ export function SquadAgentCard({
             >
               {member.name}
             </span>
-            {member.role && !(isPerson && member.role === 'Agent') && (
-              <span className="text-sm text-muted truncate">{member.role}</span>
-            )}
-            {!member.enabled && <StateChip tone="muted">{t('disabled')}</StateChip>}
-            {member.enabled && member.cron && (
-              <StateChip tone={member.cron.enabled ? 'ok' : 'muted'}>
-                {member.cron.enabled ? t('cronOn') : t('cronPaused')}
-              </StateChip>
-            )}
-            {member.cron?.lastError && <StateChip tone="alert">{t('lastRunFailed')}</StateChip>}
+            {/* Role and state stay announced as the row's description. */}
+            <span id={`${panelId}-state`} className="contents">
+              {member.role && !(isPerson && member.role === 'Agent') && (
+                <span className="text-sm text-muted truncate">{member.role}</span>
+              )}
+              {!member.enabled && <StateChip tone="muted">{t('disabled')}</StateChip>}
+              {member.enabled && member.cron && (
+                <StateChip tone={member.cron.enabled ? 'ok' : 'muted'}>
+                  {member.cron.enabled ? t('cronOn') : t('cronPaused')}
+                </StateChip>
+              )}
+              {member.cron?.lastError && <StateChip tone="alert">{t('lastRunFailed')}</StateChip>}
+            </span>
           </div>
           <div className="flex items-baseline gap-2 mt-0.5 text-mid text-muted min-w-0 flex-wrap">
             {member.model && (
@@ -340,7 +352,7 @@ export function SquadAgentCard({
               className="flex items-center gap-1.5"
             >
               <Trash2 size={14} aria-hidden="true" />
-              {isPerson ? t('removePerson') : t('deleteAgent')}
+              {t('deleteMember')}
             </Button>
           </div>
 

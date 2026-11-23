@@ -43,6 +43,9 @@ export default function ModelsPage() {
   const { data, loading, error } = useResource('/api/models', loadModels)
   const models = data?.models ?? []
   const unsupportedProvider = data?.supported === false ? (data.provider ?? null) : null
+  // No runtime at all (standalone): nothing configures models. What past
+  // sessions used is a record, shown on the dashboard, not a configuration.
+  const standalone = data?.supported === false && !data.provider
   // Name the instances only when there is more than one to tell apart.
   const multiInstance = (data?.instances?.length ?? 0) > 1
 
@@ -67,6 +70,19 @@ export default function ModelsPage() {
           </Alert>
         )}
 
+        {standalone && (
+          <Alert variant="info">
+            {t('standalone')}{' '}
+            <Link href="/dashboard" className="underline">
+              {t('standaloneDashboardLink')}
+            </Link>{' '}
+            ·{' '}
+            <Link href="/settings/runtime" className="underline">
+              {t('runtimeLink')}
+            </Link>
+          </Alert>
+        )}
+
         {error && (
           <Alert variant="error">
             <p>{tm('loadFailed')}</p>
@@ -74,7 +90,7 @@ export default function ModelsPage() {
           </Alert>
         )}
 
-        {(loading || models.length > 0 || (!error && !unsupportedProvider)) && (
+        {(loading || models.length > 0 || (!error && !unsupportedProvider && !standalone)) && (
           <RackSection
             id="settings-models"
             title={t('title')}

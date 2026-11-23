@@ -43,7 +43,7 @@ export function UserSwitcher() {
   if (humanAgents.length === 0) {
     return (
       <Link
-        href="/settings/team"
+        href="/squad"
         className="p-1.5 rounded text-on-rack-muted hover:text-white hover:bg-rack-line focus-visible:outline-2 focus-visible:outline-white"
         aria-label={t('addTeam')}
         title={t('addTeam')}
@@ -93,7 +93,7 @@ export function UserSwitcher() {
         ))}
         <div className="border-t border-border mt-1 pt-1">
           <Link
-            href="/settings/team"
+            href="/squad"
             onClick={() => setOpen(false)}
             className="w-full px-3 py-2 text-left text-sm text-accent hover:bg-strip transition-colors flex items-center gap-2 no-underline"
           >
