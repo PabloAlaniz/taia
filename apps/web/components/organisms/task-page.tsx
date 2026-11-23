@@ -47,6 +47,8 @@ export function TaskPage({
 
   const handleKeyDown = useCallback(
     (e: KeyboardEvent) => {
+      // A dialog handled it, or one is open: not the page's key.
+      if (e.defaultPrevented || document.querySelector('[role="dialog"]')) return
       // Ignore if user is typing in an input
       const target = e.target as HTMLElement
       if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable) {

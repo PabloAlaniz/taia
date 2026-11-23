@@ -299,7 +299,11 @@ export const TaskCard = memo(function TaskCard({
             </div>
           )}
           {waiting.kind === 'merge' && (
-            <Button variant="primary" size="xs" onClick={open}>
+            <Button
+              variant="primary"
+              size="xs"
+              onClick={() => router.push(`/task/${task.id}?review=merge`)}
+            >
               {t('reviewAndMerge')}
             </Button>
           )}

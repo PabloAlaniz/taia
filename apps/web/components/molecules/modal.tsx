@@ -37,6 +37,10 @@ export function Modal({
   const handleKeyDown = useCallback(
     (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
+        // The dialog owns this Escape: the page underneath must not also act
+        // on it (the task page would otherwise leave for the board).
+        e.preventDefault()
+        e.stopPropagation()
         onClose()
         return
       }

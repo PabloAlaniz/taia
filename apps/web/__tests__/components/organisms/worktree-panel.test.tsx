@@ -100,8 +100,11 @@ describe('WorktreePanel', () => {
     render(<WorktreePanel taskId="t-1" />)
     fireEvent.click(await screen.findByText('merge'))
     expect(await screen.findByText('errors.diff')).toBeInTheDocument()
+    // Without the diff, merging is demoted and says so; a retry is offered.
+    expect(screen.getByText('retryDiff')).toBeInTheDocument()
+    expect(screen.queryByText('confirmMerge.action {"base":"main"}')).not.toBeInTheDocument()
 
-    fireEvent.click(screen.getByText('confirmMerge.action {"base":"main"}'))
+    fireEvent.click(screen.getByText('confirmMerge.blind {"base":"main"}'))
 
     expect(await screen.findByText('Merge conflict in src/a.ts')).toBeInTheDocument()
   })

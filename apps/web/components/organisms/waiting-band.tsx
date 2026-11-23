@@ -6,6 +6,7 @@ import { cn } from '../../lib/utils'
 import { useStore } from '../../lib/store'
 import { UNDO_MS, useBoardSignals } from '../../lib/use-board-signals'
 import { Button } from '../atoms'
+import { REVIEW_MERGE } from './worktree-panel'
 
 /**
  * On a task that waits on a person, the first thing on the page: why, and the
@@ -146,7 +147,14 @@ export function WaitingBand({ task }: { task: Task }) {
           </p>
         )}
         {waiting.kind === 'merge' && (
-          <Button variant="primary" size="sm" onClick={() => focus('worktree')}>
+          <Button
+            variant="primary"
+            size="sm"
+            onClick={() => {
+              focus('worktree')
+              window.dispatchEvent(new Event(REVIEW_MERGE))
+            }}
+          >
             {t('reviewAndMerge')}
           </Button>
         )}

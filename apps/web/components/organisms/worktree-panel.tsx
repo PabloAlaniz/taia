@@ -12,6 +12,9 @@ import { announceWaitingChanged } from '../../lib/use-shell-signals'
 const TERMINAL = ['merged', 'failed', 'cleanup']
 const FILE_PREVIEW_LIMIT = 8
 
+/** Window event: open this task's merge review (full diff, then confirm). */
+export const REVIEW_MERGE = 'taia:review-merge'
+
 type Confirming = 'merge' | 'discard' | null
 type Outcome = { kind: 'success' | 'error'; message: string } | null
 
@@ -40,17 +43,37 @@ export function WorktreePanel({ taskId }: { taskId: string }) {
       .catch(() => setWorktree(null))
   }, [taskId])
 
-  // The merge dialog shows what is about to land, so it loads the diff fresh.
-  const openMerge = () => {
-    if (!worktree) return
+  const loadDiff = (wt: Worktree, thenShow = false) => {
     setDiff(null)
     setDiffError(false)
-    setConfirming('merge')
     api.worktrees
-      .diff(worktree.id)
-      .then((data) => (data.ok && data.diff ? setDiff(data.diff) : setDiffError(true)))
+      .diff(wt.id)
+      .then((data) => {
+        if (data.ok && data.diff) {
+          setDiff(data.diff)
+          if (thenShow) setShowDiff(true)
+        } else setDiffError(true)
+      })
       .catch(() => setDiffError(true))
   }
+
+  // The merge dialog shows what is about to land, so it loads the diff fresh.
+  // "Review" opens the full diff first; closing it leaves the confirmation.
+  const openMerge = (review = false) => {
+    if (!worktree) return
+    setConfirming('merge')
+    loadDiff(worktree, review)
+  }
+
+  // "Revisar y mergear" (board strip or the task's waiting band) lands here.
+  useEffect(() => {
+    if (worktree?.status !== 'reviewing') return
+    const open = () => openMerge(true)
+    if (new URLSearchParams(window.location.search).get('review') === 'merge') open()
+    window.addEventListener(REVIEW_MERGE, open)
+    return () => window.removeEventListener(REVIEW_MERGE, open)
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- re-bind only when the worktree changes
+  }, [worktree?.id, worktree?.status])
 
   const create = async () => {
     setBusy(true)
@@ -128,7 +151,7 @@ export function WorktreePanel({ taskId }: { taskId: string }) {
               </Button>
             )}
             {worktree.status === 'reviewing' && (
-              <Button variant="primary" size="xs" onClick={openMerge} disabled={busy}>
+              <Button variant="primary" size="xs" onClick={() => openMerge()} disabled={busy}>
                 {t('merge')}
               </Button>
             )}
@@ -182,9 +205,12 @@ export function WorktreePanel({ taskId }: { taskId: string }) {
           <ModalBody className="space-y-3">
             {!diff && !diffError && <p className="text-xs text-muted">{t('loadingDiff')}</p>}
             {diffError && (
-              <p role="alert" className="text-xs text-alert">
-                {t('errors.diff')}
-              </p>
+              <div role="alert" className="flex flex-wrap items-center gap-2">
+                <p className="text-sm text-alert">{t('errors.diff')}</p>
+                <Button variant="secondary" size="xs" onClick={() => loadDiff(worktree)}>
+                  {t('retryDiff')}
+                </Button>
+              </div>
             )}
             {stats && (
               <p className="text-sm tabular-nums">
@@ -221,8 +247,18 @@ export function WorktreePanel({ taskId }: { taskId: string }) {
             <Button variant="ghost" size="sm" onClick={() => setConfirming(null)} disabled={busy}>
               {t('cancel')}
             </Button>
-            <Button variant="primary" size="sm" onClick={() => run('merge')} disabled={busy}>
-              {busy ? t('merging') : t('confirmMerge.action', { base: worktree.base_branch })}
+            {/* Without the diff, merging is still possible but never the default. */}
+            <Button
+              variant={diffError ? 'secondary' : 'primary'}
+              size="sm"
+              onClick={() => run('merge')}
+              disabled={busy || (!diff && !diffError)}
+            >
+              {busy
+                ? t('merging')
+                : diffError
+                  ? t('confirmMerge.blind', { base: worktree.base_branch })
+                  : t('confirmMerge.action', { base: worktree.base_branch })}
             </Button>
           </ModalFooter>
         </Modal>
