@@ -4,10 +4,14 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { act, renderHook } from '@testing-library/react'
 
 const decide = vi.fn()
+const decideOnLeave = vi.fn()
 vi.mock('@/lib/api', () => ({
   api: {
     cost: { forTasks: vi.fn().mockResolvedValue({ ok: true, costs: {} }) },
-    approvals: { decide: (...args: unknown[]) => decide(...args) },
+    approvals: {
+      decide: (...args: unknown[]) => decide(...args),
+      decideOnLeave: (...args: unknown[]) => decideOnLeave(...args),
+    },
   },
 }))
 
@@ -16,6 +20,7 @@ import { UNDO_MS, useBoardSignals } from '@/lib/use-board-signals'
 beforeEach(() => {
   vi.useFakeTimers()
   decide.mockReset().mockResolvedValue({ ok: true })
+  decideOnLeave.mockReset()
 })
 
 afterEach(() => {
@@ -57,5 +62,22 @@ describe('useBoardSignals: undoable decisions', () => {
     unmount()
 
     expect(decide).toHaveBeenCalledWith('ap-1', 'approved', 'person-1')
+  })
+})
+
+describe('useBoardSignals: closing the tab', () => {
+  it('sends each queued decision with a keepalive request on pagehide', () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true })
+    vi.stubGlobal('fetch', fetchMock)
+    const { result } = renderHook(() => useBoardSignals([]))
+
+    act(() => result.current.queueDecision('ap-1', 'approved', 'person-1'))
+    window.dispatchEvent(new Event('pagehide'))
+
+    expect(decideOnLeave).toHaveBeenCalledWith('ap-1', 'approved', 'person-1')
+    // The timer is cleared: nothing is sent twice when the window would end.
+    vi.advanceTimersByTime(UNDO_MS)
+    expect(decide).not.toHaveBeenCalled()
+    vi.unstubAllGlobals()
   })
 })
