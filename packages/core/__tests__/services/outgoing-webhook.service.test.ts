@@ -8,6 +8,7 @@ import {
 import { standardSigner } from 'omniwebhook/standard'
 import { Webhook } from 'standardwebhooks'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { testWebhookSecret } from '../helpers/webhook-secret'
 import type { OutboxMessage } from '@taia/core/db/repositories/webhook-outbox.repository'
 import type { DomainEvent } from '@taia/core/events/event-bus'
 import {
@@ -58,7 +59,7 @@ vi.mock('@taia/core/db/repositories/webhook-outbox.repository', () => ({
 }))
 
 // Synthetic secret, only for these tests.
-const SECRET = 'whsec_dGFpYS13ZWJob29rLXNhbGllbnRlLXNpbnRldGljby0wMQ=='
+const SECRET = testWebhookSecret()
 const NOW = 1_800_000_000
 const PUBLIC = '93.184.216.34'
 

@@ -2,6 +2,7 @@ import { createHmac } from 'node:crypto'
 import { MemoryIdempotencyStore } from 'omniwebhook'
 import { Webhook } from 'standardwebhooks'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { testWebhookSecret } from '../helpers/webhook-secret'
 import {
   handleIncomingWebhook,
   IncomingWebhookError,
@@ -30,7 +31,8 @@ vi.mock('@taia/core/db', () => ({
 }))
 
 // Synthetic secret, only for these tests.
-const SECRET = 'whsec_dGFpYS13ZWJob29rLXNlY3JldG8tc2ludGV0aWNvLTAx'
+const SECRET = testWebhookSecret()
+const OTHER_SECRET = testWebhookSecret()
 const NOW = 1_800_000_000
 const clock = { now: () => NOW }
 
@@ -169,7 +171,7 @@ describe('handleIncomingWebhook', () => {
   it.each([
     [
       'signed with another secret',
-      () => standardRequest({}, 'msg_1', { secret: 'whsec_b3Ryby1zZWNyZXRvLXNpbnRldGljbw==' }),
+      () => standardRequest({}, 'msg_1', { secret: OTHER_SECRET }),
       401,
       'INVALID_SIGNATURE',
     ],
@@ -218,7 +220,7 @@ describe('handleIncomingWebhook', () => {
 
   it('a dry run still checks the signature', async () => {
     const forged = standardRequest({}, 'msg_1', {
-      secret: 'whsec_b3Ryby1zZWNyZXRvLXNpbnRldGljbw==',
+      secret: OTHER_SECRET,
     })
 
     expect(await rejection(receive(forged, { dryRun: true }))).toMatchObject({

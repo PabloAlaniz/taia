@@ -11,6 +11,7 @@ import { createServer, type Server } from 'node:http'
 import type { AddressInfo } from 'node:net'
 import { Webhook } from 'standardwebhooks'
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
+import { testWebhookSecret } from '../../helpers/webhook-secret'
 
 import {
   cleanupTestPool,
@@ -31,7 +32,7 @@ const service = await import('../../../src/services/outgoing-webhook.service')
 const settings = await import('../../../src/db/repositories/setting.repository')
 
 // Synthetic secret, only for this test.
-const SECRET = 'whsec_dGFpYS13ZWJob29rLXNhbGllbnRlLXNpbnRldGljby0wMQ=='
+const SECRET = testWebhookSecret()
 
 describe.skipIf(!testDBAvailable)('outgoing webhooks (integration)', () => {
   let server: Server
