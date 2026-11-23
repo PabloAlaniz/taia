@@ -1,7 +1,7 @@
 'use client'
 
 import { useRuntimeStatus } from '@/lib/use-runtime-status'
-import { useId, useState } from 'react'
+import { useEffect, useId, useRef, useState } from 'react'
 import Link from 'next/link'
 import { useFormatter, useNow, useTranslations } from 'next-intl'
 import { ChevronDown, ChevronRight, Pause, Pencil, Play, Power, Trash2 } from 'lucide-react'
@@ -15,11 +15,14 @@ import type { SquadMember } from './types'
 
 export function SquadAgentCard({
   member,
+  focused = false,
   onUpdate,
   onEdit,
   onDelete,
 }: {
   member: SquadMember
+  /** Opened from a link to this member: start expanded, scrolled to and focused. */
+  focused?: boolean
   onUpdate: () => void
   onEdit: (id: string) => void
   onDelete: (id: string) => void
@@ -28,7 +31,13 @@ export function SquadAgentCard({
   const tc = useTranslations('agentsConfig')
   const format = useFormatter()
   const now = useNow({ updateInterval: 60_000 })
-  const [expanded, setExpanded] = useState(false)
+  const [expanded, setExpanded] = useState(focused)
+  const rowRef = useRef<HTMLButtonElement>(null)
+  useEffect(() => {
+    if (!focused) return
+    rowRef.current?.scrollIntoView?.({ block: 'center' })
+    rowRef.current?.focus({ preventScroll: true })
+  }, [focused])
   const [confirmCronDelete, setConfirmCronDelete] = useState(false)
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
   const [cronSchedule, setCronSchedule] = useState(
@@ -207,6 +216,7 @@ export function SquadAgentCard({
     <Strip kind={isPerson ? 'person' : 'agent'} quiet={!member.enabled} className="p-0">
       {/* eslint-disable-next-line no-restricted-syntax -- the strip itself is the disclosure control */}
       <button
+        ref={rowRef}
         type="button"
         onClick={() => setExpanded(!expanded)}
         aria-expanded={expanded}

@@ -1,7 +1,8 @@
 'use client'
 
 import { useTranslations } from 'next-intl'
-import { useState } from 'react'
+import { Suspense, useState } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { Bot, Plus, Users } from 'lucide-react'
 import { Alert, Button } from '@/components/atoms'
 import { ConfirmDialog, EmptyState, RackSection, SkeletonCard } from '@/components/molecules'
@@ -22,6 +23,17 @@ async function loadSquad(): Promise<SquadMember[]> {
 }
 
 export default function SquadPage() {
+  // useSearchParams needs a Suspense boundary to prerender.
+  return (
+    <Suspense>
+      <Squad />
+    </Suspense>
+  )
+}
+
+function Squad() {
+  // ?member=<id> (from the "/" palette) opens and focuses that row.
+  const focusMember = useSearchParams().get('member')
   const tp = useTranslations('pageTitles')
   const t = useTranslations('squad')
   const {
@@ -63,6 +75,7 @@ export default function SquadPage() {
       <SquadAgentCard
         key={member.id}
         member={member}
+        focused={member.id === focusMember}
         onUpdate={reload}
         onEdit={setEditingId}
         onDelete={(id) => {

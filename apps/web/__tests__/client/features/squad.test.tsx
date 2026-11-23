@@ -220,4 +220,19 @@ describe('SquadAgentCard', () => {
     expect(screen.queryByRole('button', { name: /scheduleSection/ })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /contextSection/ })).not.toBeInTheDocument()
   })
+
+  it('opens expanded and focused when the page links to this member', () => {
+    render(
+      <SquadAgentCard
+        member={agent()}
+        focused
+        onUpdate={() => {}}
+        onEdit={() => {}}
+        onDelete={() => {}}
+      />,
+    )
+    const row = screen.getByRole('button', { name: /^rowLabel / })
+    expect(row).toHaveAttribute('aria-expanded', 'true')
+    expect(row).toHaveFocus()
+  })
 })
