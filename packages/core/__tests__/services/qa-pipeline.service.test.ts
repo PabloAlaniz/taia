@@ -1,6 +1,6 @@
-import { mkdtemp, readFile, rm } from 'node:fs/promises'
+import { mkdtemp, readdir, readFile, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
-import { join } from 'node:path'
+import { basename, dirname, join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { listQaPipelineRuns, runQaPipeline } from '@taia/core/services/qa-pipeline.service'
 
@@ -81,6 +81,33 @@ describe('qa-pipeline.service', () => {
     expect(run.steps).toHaveLength(1)
     expect(run.steps[0]).toMatchObject({ id: 'echo', status: 'passed' })
     expect(run.steps[0].stdout_preview).toContain('from-env')
+  })
+
+  it.each(['../../escaped', '..', 'ws/../../escaped', '/tmp/escaped'])(
+    'refuses workspace id %j before creating anything',
+    async (workspaceId) => {
+      const promise = runQaPipeline({
+        workspace_id: workspaceId,
+        task_id: 'task-1',
+        steps: [{ id: 'echo', command: 'echo hi' }],
+      })
+
+      await expect(promise).rejects.toMatchObject({ statusCode: 400, code: 'INVALID_WORKSPACE_ID' })
+      await expect(readdir(tempDir)).resolves.not.toContain('escaped')
+      await expect(readdir(tempDir)).resolves.not.toContain('artifacts')
+    },
+  )
+
+  it('keeps a step id with path characters inside the run directory', async () => {
+    const run = await runQaPipeline({
+      workspace_id: 'ws-1',
+      task_id: 'task-1',
+      steps: [{ id: '../../lint:fix', command: 'echo hi' }],
+    })
+
+    expect(dirname(run.steps[0].log_path)).toBe(run.artifact_dir)
+    expect(basename(run.steps[0].log_path)).toBe('01-.._.._lint_fix.log')
+    await expect(readFile(run.steps[0].log_path, 'utf8')).resolves.toContain('hi')
   })
 
   it('executes QA steps in the active worktree and persists logs/artifacts', async () => {

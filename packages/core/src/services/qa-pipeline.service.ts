@@ -1,6 +1,7 @@
 import { exec } from 'node:child_process'
+import { randomBytes } from 'node:crypto'
 import { mkdir, writeFile } from 'node:fs/promises'
-import { join } from 'node:path'
+import { join, resolve, sep } from 'node:path'
 import { promisify } from 'node:util'
 import { getActiveWorktreeForTask, getSetting, getWorktreeById, setSetting } from '../db/index'
 import { getTaskById } from '../db/repositories/task.repository'
@@ -66,6 +67,31 @@ function qaPipelineRunsKey(workspaceId: string) {
 
 function getArtifactBasePath() {
   return process.env.TAIA_QA_ARTIFACTS_DIR || join(process.cwd(), '.taia', 'qa-runs')
+}
+
+/** One path segment of letters, digits, `-` and `_`: what workspace ids look like. */
+const SAFE_SEGMENT = /^[A-Za-z0-9_-]{1,128}$/
+
+/**
+ * The run's artifact directory. The workspace id comes from the request (a
+ * header or the query), so it must be a single plain segment: `../` would
+ * have the server create directories and write logs wherever it can.
+ */
+function artifactDirFor(workspaceId: string, runId: string): string {
+  if (!SAFE_SEGMENT.test(workspaceId)) {
+    throw new AppError('Invalid workspace id', 400, 'INVALID_WORKSPACE_ID')
+  }
+  const base = resolve(getArtifactBasePath())
+  const dir = resolve(base, workspaceId, runId)
+  if (!dir.startsWith(base + sep)) {
+    throw new AppError('Invalid workspace id', 400, 'INVALID_WORKSPACE_ID')
+  }
+  return dir
+}
+
+/** A step id as part of a file name: no path separators or other surprises. */
+function logFileStem(stepId: string): string {
+  return stepId.replace(/[^A-Za-z0-9_.-]/g, '_')
 }
 
 function normalizeStep(step: QaPipelineStepInput, index: number): Required<QaPipelineStepInput> {
@@ -200,8 +226,8 @@ export async function runQaPipeline(input: RunQaPipelineInput): Promise<QaPipeli
 
   const task = await getTaskById(taskId)
   const workspaceId = input.workspace_id || task?.workspace_id || 'ws-default'
-  const runId = `qa_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`
-  const artifactDir = join(getArtifactBasePath(), workspaceId, runId)
+  const runId = `qa_${Date.now().toString(36)}_${randomBytes(4).toString('hex')}`
+  const artifactDir = artifactDirFor(workspaceId, runId)
   await mkdir(artifactDir, { recursive: true })
 
   const steps = input.steps?.length
@@ -213,7 +239,10 @@ export async function runQaPipeline(input: RunQaPipelineInput): Promise<QaPipeli
   for (let index = 0; index < steps.length; index++) {
     const step = steps[index]
     const stepStarted = Date.now()
-    const logPath = join(artifactDir, `${String(index + 1).padStart(2, '0')}-${step.id}.log`)
+    const logPath = join(
+      artifactDir,
+      `${String(index + 1).padStart(2, '0')}-${logFileStem(step.id)}.log`,
+    )
 
     if (failed) {
       const skipped: QaPipelineStepResult = {
