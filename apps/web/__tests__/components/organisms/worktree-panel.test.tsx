@@ -104,7 +104,13 @@ describe('WorktreePanel', () => {
     expect(screen.getByText('retryDiff')).toBeInTheDocument()
     expect(screen.queryByText('confirmMerge.action {"base":"main"}')).not.toBeInTheDocument()
 
-    fireEvent.click(screen.getByText('confirmMerge.blind {"base":"main"}'))
+    // Merging blind takes opening it and typing the target branch.
+    fireEvent.click(screen.getByText('confirmMerge.blindLink'))
+    const blind = screen.getByText('confirmMerge.blind {"base":"main"}')
+    expect(blind.closest('button')).toBeDisabled()
+    fireEvent.change(screen.getByRole('textbox'), { target: { value: 'main' } })
+    expect(blind.closest('button')).not.toBeDisabled()
+    fireEvent.click(blind)
 
     expect(await screen.findByText('Merge conflict in src/a.ts')).toBeInTheDocument()
   })

@@ -72,20 +72,23 @@ export function Modal({
   useEffect(() => {
     if (!open) return
     document.addEventListener('keydown', handleKeyDown)
+    return () => document.removeEventListener('keydown', handleKeyDown)
+  }, [open, handleKeyDown])
 
-    // Focus first focusable element, or the dialog itself
+  // Focus moves into the dialog when it opens and back to whatever opened it
+  // when it closes, so keyboard users never land on <body>.
+  useEffect(() => {
+    if (!open) return
+    const opener = document.activeElement as HTMLElement | null
     const el = dialogRef.current
     if (el) {
       const firstFocusable = el.querySelector<HTMLElement>(FOCUSABLE_SELECTOR)
-      if (firstFocusable) {
-        firstFocusable.focus()
-      } else {
-        el.focus()
-      }
+      ;(firstFocusable ?? el).focus()
     }
-
-    return () => document.removeEventListener('keydown', handleKeyDown)
-  }, [open, handleKeyDown])
+    return () => {
+      if (opener && opener.isConnected && opener !== document.body) opener.focus()
+    }
+  }, [open])
 
   if (!open) return null
 

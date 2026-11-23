@@ -5,7 +5,7 @@ import { useTranslations } from 'next-intl'
 import { Task, Agent } from '@taia/types'
 import { cn } from '../../lib/utils'
 import { useStore } from '../../lib/store'
-import { Badge, Code, Input, Backdrop, PriorityMark } from '../atoms'
+import { Badge, Code, Input, Backdrop, PriorityMark, Kbd } from '../atoms'
 import { Card } from '../molecules'
 import { shortTaskId } from '@taia/domain/domain/task/task-id'
 
@@ -142,10 +142,20 @@ export function SearchBar({ tasks, agents, onSelectTask, onClose }: SearchBarPro
           </div>
         )}
 
-        <div className="p-2 border-t border-border text-2xs text-muted flex gap-4">
-          <span>{t('navigate')}</span>
-          <span>{t('select')}</span>
-          <span>{t('close')}</span>
+        <div className="px-3 py-2 border-t border-border text-xs text-muted flex gap-4">
+          <span className="flex items-center gap-1.5">
+            <Kbd>↑</Kbd>
+            <Kbd>↓</Kbd>
+            {t('navigate')}
+          </span>
+          <span className="flex items-center gap-1.5">
+            <Kbd>↵</Kbd>
+            {t('select')}
+          </span>
+          <span className="flex items-center gap-1.5">
+            <Kbd>Esc</Kbd>
+            {t('close')}
+          </span>
         </div>
       </Card>
     </Backdrop>

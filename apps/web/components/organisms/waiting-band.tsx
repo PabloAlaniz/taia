@@ -1,5 +1,6 @@
 'use client'
 
+import { useState } from 'react'
 import { useFormatter, useNow, useTranslations } from 'next-intl'
 import type { Task } from '@taia/types'
 import { cn } from '../../lib/utils'
@@ -20,6 +21,8 @@ export function WaitingBand({ task }: { task: Task }) {
   const agents = useStore((s) => s.agents)
   const currentUserId = useStore((s) => s.currentUserId)
   const signals = useBoardSignals([task])
+  // Focus follows the decision: to Deshacer once queued, back to Aprobar if undone.
+  const [justUndone, setJustUndone] = useState(false)
   const waiting = signals.waiting[task.id]
   if (!waiting) return null
 
@@ -102,6 +105,8 @@ export function WaitingBand({ task }: { task: Task }) {
               variant="primary"
               size="sm"
               disabled={!currentUserId}
+              // biome-ignore lint/a11y/noAutofocus: returns focus after Deshacer
+              autoFocus={justUndone}
               onClick={() =>
                 currentUserId && signals.queueDecision(approval.id, 'approved', currentUserId)
               }
@@ -134,7 +139,16 @@ export function WaitingBand({ task }: { task: Task }) {
               {pending.decision === 'approved' ? t('approvedPending') : t('rejectedPending')}
             </span>
             <span className="text-xs text-muted">{t('sendsIn', { seconds: UNDO_MS / 1000 })}</span>
-            <Button variant="secondary" size="sm" onClick={() => signals.undoDecision(approval.id)}>
+            <Button
+              variant="secondary"
+              size="sm"
+              // biome-ignore lint/a11y/noAutofocus: keyboard users get 5 s to undo
+              autoFocus
+              onClick={() => {
+                setJustUndone(true)
+                signals.undoDecision(approval.id)
+              }}
+            >
               {t('undo')}
             </Button>
           </div>

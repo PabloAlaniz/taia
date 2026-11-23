@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useTranslations } from 'next-intl'
 import type { DiffResult, Worktree } from '@taia/types'
-import { Button, WorktreeBadge } from '../atoms'
+import { Button, Input, WorktreeBadge } from '../atoms'
 import { Modal, ModalBody, ModalFooter, ModalHeader } from '../molecules/modal'
 import { DiffViewer } from './diff-viewer'
 import { api } from '../../lib/api'
@@ -31,6 +31,11 @@ export function WorktreePanel({ taskId }: { taskId: string }) {
   const [confirming, setConfirming] = useState<Confirming>(null)
   const [diff, setDiff] = useState<DiffResult | null>(null)
   const [diffError, setDiffError] = useState(false)
+  /** Why the diff didn't load, when the server said. */
+  const [diffReason, setDiffReason] = useState<string | null>(null)
+  /** Merging blind is behind typing the target branch, never one click. */
+  const [blindOpen, setBlindOpen] = useState(false)
+  const [blindTyped, setBlindTyped] = useState('')
   const [showDiff, setShowDiff] = useState(false)
 
   useEffect(() => {
@@ -46,13 +51,20 @@ export function WorktreePanel({ taskId }: { taskId: string }) {
   const loadDiff = (wt: Worktree, thenShow = false) => {
     setDiff(null)
     setDiffError(false)
+    setDiffReason(null)
+    setBlindOpen(false)
+    setBlindTyped('')
     api.worktrees
       .diff(wt.id)
       .then((data) => {
         if (data.ok && data.diff) {
           setDiff(data.diff)
           if (thenShow) setShowDiff(true)
-        } else setDiffError(true)
+        } else {
+          setDiffError(true)
+          const err = (data as { error?: unknown }).error
+          setDiffReason(typeof err === 'string' && err ? err : null)
+        }
       })
       .catch(() => setDiffError(true))
   }
@@ -205,11 +217,28 @@ export function WorktreePanel({ taskId }: { taskId: string }) {
           <ModalBody className="space-y-3">
             {!diff && !diffError && <p className="text-xs text-muted">{t('loadingDiff')}</p>}
             {diffError && (
-              <div role="alert" className="flex flex-wrap items-center gap-2">
-                <p className="text-sm text-alert">{t('errors.diff')}</p>
-                <Button variant="secondary" size="xs" onClick={() => loadDiff(worktree)}>
-                  {t('retryDiff')}
-                </Button>
+              <div role="alert" className="space-y-1">
+                <p className="text-sm text-alert font-medium">{t('errors.diff')}</p>
+                {diffReason && (
+                  <p className="text-xs text-muted font-mono break-all">{diffReason}</p>
+                )}
+              </div>
+            )}
+            {diffError && blindOpen && (
+              <div className="rounded-[2px] bg-strip p-3 space-y-2">
+                <label htmlFor="blind-merge-confirm" className="block text-sm">
+                  {t.rich('confirmMerge.typeToConfirm', {
+                    base: worktree.base_branch,
+                    code: (chunk) => <code className="font-mono font-semibold">{chunk}</code>,
+                  })}
+                </label>
+                <Input
+                  id="blind-merge-confirm"
+                  variant="mono"
+                  value={blindTyped}
+                  onChange={(e) => setBlindTyped(e.target.value)}
+                  autoComplete="off"
+                />
               </div>
             )}
             {stats && (
@@ -247,19 +276,48 @@ export function WorktreePanel({ taskId }: { taskId: string }) {
             <Button variant="ghost" size="sm" onClick={() => setConfirming(null)} disabled={busy}>
               {t('cancel')}
             </Button>
-            {/* Without the diff, merging is still possible but never the default. */}
-            <Button
-              variant={diffError ? 'secondary' : 'primary'}
-              size="sm"
-              onClick={() => run('merge')}
-              disabled={busy || (!diff && !diffError)}
-            >
-              {busy
-                ? t('merging')
-                : diffError
-                  ? t('confirmMerge.blind', { base: worktree.base_branch })
-                  : t('confirmMerge.action', { base: worktree.base_branch })}
-            </Button>
+            {diffError ? (
+              // Without the diff, retrying is the next step; merging blind
+              // stays possible but only after typing the target branch.
+              <>
+                {!blindOpen ? (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setBlindOpen(true)}
+                    disabled={busy}
+                  >
+                    {t('confirmMerge.blindLink')}
+                  </Button>
+                ) : (
+                  <Button
+                    variant="danger"
+                    size="sm"
+                    onClick={() => run('merge')}
+                    disabled={busy || blindTyped.trim() !== worktree.base_branch}
+                  >
+                    {busy ? t('merging') : t('confirmMerge.blind', { base: worktree.base_branch })}
+                  </Button>
+                )}
+                <Button
+                  variant="primary"
+                  size="sm"
+                  onClick={() => loadDiff(worktree)}
+                  disabled={busy}
+                >
+                  {t('retryDiff')}
+                </Button>
+              </>
+            ) : (
+              <Button
+                variant="primary"
+                size="sm"
+                onClick={() => run('merge')}
+                disabled={busy || !diff}
+              >
+                {busy ? t('merging') : t('confirmMerge.action', { base: worktree.base_branch })}
+              </Button>
+            )}
           </ModalFooter>
         </Modal>
       )}

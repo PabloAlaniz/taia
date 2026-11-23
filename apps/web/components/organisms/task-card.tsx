@@ -82,6 +82,8 @@ export const TaskCard = memo(function TaskCard({
 
   const approvalId = waiting?.kind === 'approval' ? waiting.approval.id : null
   const pendingDecision = approvalId ? approvals?.pending[approvalId] : undefined
+  // Focus follows the decision: to Deshacer once queued, back to Aprobar if undone.
+  const [justUndone, setJustUndone] = useState(false)
   const decisionError = approvalId ? approvals?.errors[approvalId] : undefined
 
   let stateLabel: string | null = null
@@ -252,6 +254,8 @@ export const TaskCard = memo(function TaskCard({
                 variant="primary"
                 size="xs"
                 disabled={!approvals?.canDecide}
+                // biome-ignore lint/a11y/noAutofocus: returns focus after Deshacer
+                autoFocus={justUndone}
                 onClick={() => approvals?.queue(approvalId, 'approved')}
               >
                 {t('approve')}
@@ -288,7 +292,12 @@ export const TaskCard = memo(function TaskCard({
                 variant="secondary"
                 size="xs"
                 className="ml-auto"
-                onClick={() => approvals?.undo(approvalId)}
+                // biome-ignore lint/a11y/noAutofocus: keyboard users get 5 s to undo
+                autoFocus
+                onClick={() => {
+                  setJustUndone(true)
+                  approvals?.undo(approvalId)
+                }}
               >
                 {t('undo')}
               </Button>
