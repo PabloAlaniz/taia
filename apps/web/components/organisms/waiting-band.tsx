@@ -1,12 +1,12 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useFormatter, useNow, useTranslations } from 'next-intl'
 import type { Task } from '@taia/types'
 import { cn } from '../../lib/utils'
 import { useStore } from '../../lib/store'
 import { UNDO_MS, useBoardSignals } from '../../lib/use-board-signals'
-import { Button } from '../atoms'
+import { Button, UndoCountdown } from '../atoms'
 import { REVIEW_MERGE } from './worktree-panel'
 
 /**
@@ -24,7 +24,52 @@ export function WaitingBand({ task }: { task: Task }) {
   // Focus follows the decision: to Deshacer once queued, back to Aprobar if undone.
   const [justUndone, setJustUndone] = useState(false)
   const waiting = signals.waiting[task.id]
-  if (!waiting) return null
+  // After a decision is sent the band would just vanish; leave a filed line
+  // saying what was decided, and keep the keyboard there.
+  const queued = useRef<{ decision: 'approved' | 'rejected'; what: string } | null>(null)
+  const [filed, setFiled] = useState<{ decision: 'approved' | 'rejected'; what: string } | null>(
+    null,
+  )
+  const filedRef = useRef<HTMLParagraphElement>(null)
+  const currentApproval = waiting?.kind === 'approval' ? waiting.approval : null
+  const currentPending = currentApproval ? signals.pending[currentApproval.id] : undefined
+  useEffect(() => {
+    if (currentApproval && currentPending) {
+      const input = currentApproval.tool_input ?? {}
+      const cmd = ['command', 'cmd', 'path', 'file_path', 'url']
+        .map((k) => input[k])
+        .find((v) => typeof v === 'string' && v) as string | undefined
+      queued.current = {
+        decision: currentPending.decision,
+        what: cmd ? `${currentApproval.tool_name}: ${cmd}` : currentApproval.tool_name,
+      }
+    } else if (queued.current && !currentApproval) {
+      setFiled(queued.current)
+      queued.current = null
+    }
+  }, [currentApproval, currentPending])
+  useEffect(() => {
+    if (filed) filedRef.current?.focus()
+  }, [filed])
+
+  if (!waiting) {
+    if (!filed) return null
+    return (
+      <p
+        ref={filedRef}
+        tabIndex={-1}
+        role="status"
+        className="mx-4 md:mx-8 mt-6 rounded-[2px] bg-strip-done px-4 py-2.5 text-sm focus-visible:outline-2 focus-visible:outline-accent"
+      >
+        <span
+          className={cn('font-semibold', filed.decision === 'approved' ? 'text-ok' : 'text-alert')}
+        >
+          {filed.decision === 'approved' ? tb('filedApproved') : tb('filedRejected')}
+        </span>{' '}
+        <code className="font-mono text-xs break-all">{filed.what}</code>
+      </p>
+    )
+  }
 
   const focus = (id: string) => {
     const el = document.getElementById(id)
@@ -138,14 +183,15 @@ export function WaitingBand({ task }: { task: Task }) {
             >
               {pending.decision === 'approved' ? t('approvedPending') : t('rejectedPending')}
             </span>
-            <span className="text-xs text-muted">{t('sendsIn', { seconds: UNDO_MS / 1000 })}</span>
+            <UndoCountdown sendAt={pending.sendAt} total={UNDO_MS} />
             <Button
               variant="secondary"
               size="sm"
-              // biome-ignore lint/a11y/noAutofocus: keyboard users get 5 s to undo
+              // biome-ignore lint/a11y/noAutofocus: keyboard users get the undo window
               autoFocus
               onClick={() => {
                 setJustUndone(true)
+                queued.current = null
                 signals.undoDecision(approval.id)
               }}
             >
@@ -165,7 +211,10 @@ export function WaitingBand({ task }: { task: Task }) {
             variant="primary"
             size="sm"
             onClick={() => {
-              focus('worktree')
+              // Scroll only: focus stays on this button so the dialog returns it here.
+              document
+                .getElementById('worktree')
+                ?.scrollIntoView({ behavior: 'smooth', block: 'center' })
               window.dispatchEvent(new Event(REVIEW_MERGE))
             }}
           >

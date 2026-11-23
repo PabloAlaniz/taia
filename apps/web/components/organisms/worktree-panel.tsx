@@ -220,13 +220,19 @@ export function WorktreePanel({ taskId }: { taskId: string }) {
               <div role="alert" className="space-y-1">
                 <p className="text-sm text-alert font-medium">{t('errors.diff')}</p>
                 {diffReason && (
-                  <p className="text-xs text-muted font-mono break-all">{diffReason}</p>
+                  <p className="text-xs text-muted">
+                    {/ENOENT/.test(diffReason) ? t('errors.gitMissing') : t('errors.diffReason')}{' '}
+                    <code className="font-mono break-all">{diffReason}</code>
+                  </p>
                 )}
               </div>
             )}
             {diffError && blindOpen && (
               <div className="rounded-[2px] bg-strip p-3 space-y-2">
-                <label htmlFor="blind-merge-confirm" className="block text-sm">
+                <label
+                  htmlFor="blind-merge-confirm"
+                  className="block text-sm !normal-case !tracking-normal !font-normal"
+                >
                   {t.rich('confirmMerge.typeToConfirm', {
                     base: worktree.base_branch,
                     code: (chunk) => <code className="font-mono font-semibold">{chunk}</code>,
@@ -234,6 +240,8 @@ export function WorktreePanel({ taskId }: { taskId: string }) {
                 </label>
                 <Input
                   id="blind-merge-confirm"
+                  // biome-ignore lint/a11y/noAutofocus: the field just revealed is the next step
+                  autoFocus
                   variant="mono"
                   value={blindTyped}
                   onChange={(e) => setBlindTyped(e.target.value)}
@@ -294,7 +302,9 @@ export function WorktreePanel({ taskId }: { taskId: string }) {
                     variant="danger"
                     size="sm"
                     onClick={() => run('merge')}
-                    disabled={busy || blindTyped.trim() !== worktree.base_branch}
+                    disabled={
+                      busy || blindTyped.trim().toLowerCase() !== worktree.base_branch.toLowerCase()
+                    }
                   >
                     {busy ? t('merging') : t('confirmMerge.blind', { base: worktree.base_branch })}
                   </Button>

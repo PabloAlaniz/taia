@@ -53,7 +53,7 @@ export interface ApprovalControls {
 }
 
 /** How long an approval or rejection can be undone before it reaches the agent. */
-export const UNDO_MS = 5_000
+export const UNDO_MS = 8_000
 
 export function useBoardSignals(tasks: Task[]): BoardSignals {
   const [costs, setCosts] = useState<Record<string, number>>({})

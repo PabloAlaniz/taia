@@ -24,6 +24,15 @@ const sizes = {
 const FOCUSABLE_SELECTOR =
   'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])'
 
+// Track focus outside dialogs, so a dialog can return focus to its opener.
+let lastFocusedOutsideDialog: HTMLElement | null = null
+if (typeof document !== 'undefined') {
+  document.addEventListener('focusin', (e) => {
+    const target = e.target as HTMLElement | null
+    if (target && !target.closest('[role="dialog"]')) lastFocusedOutsideDialog = target
+  })
+}
+
 export function Modal({
   open,
   onClose,
@@ -79,11 +88,16 @@ export function Modal({
   // when it closes, so keyboard users never land on <body>.
   useEffect(() => {
     if (!open) return
-    const opener = document.activeElement as HTMLElement | null
+    // The last thing focused outside any dialog is what opened this one, even
+    // when a field inside already took focus with autoFocus.
+    const opener = lastFocusedOutsideDialog
     const el = dialogRef.current
     if (el) {
-      const firstFocusable = el.querySelector<HTMLElement>(FOCUSABLE_SELECTOR)
-      ;(firstFocusable ?? el).focus()
+      // Respect a field that already took focus (autoFocus); else the first control.
+      if (!el.contains(document.activeElement)) {
+        const firstFocusable = el.querySelector<HTMLElement>(FOCUSABLE_SELECTOR)
+        ;(firstFocusable ?? el).focus()
+      }
     }
     return () => {
       if (opener && opener.isConnected && opener !== document.body) opener.focus()

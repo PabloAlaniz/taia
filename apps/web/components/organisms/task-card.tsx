@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, memo } from 'react'
+import { useEffect, useRef, useState, memo } from 'react'
 import { useFormatter, useNow, useLocale, useTranslations } from 'next-intl'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
@@ -9,7 +9,7 @@ import { cn } from '../../lib/utils'
 import { formatUsd, participantKind } from '../../lib/format'
 import { UNDO_MS, type ApprovalControls, type WaitingReason } from '../../lib/use-board-signals'
 import { useStore } from '../../lib/store'
-import { Button, Badge, GitHubIcon, BlockerIcon } from '../atoms'
+import { Button, Badge, GitHubIcon, BlockerIcon, UndoCountdown } from '../atoms'
 import { Card } from '../molecules'
 import { shortTaskId } from '@taia/domain/domain/task/task-id'
 
@@ -84,6 +84,16 @@ export const TaskCard = memo(function TaskCard({
   const pendingDecision = approvalId ? approvals?.pending[approvalId] : undefined
   // Focus follows the decision: to Deshacer once queued, back to Aprobar if undone.
   const [justUndone, setJustUndone] = useState(false)
+  const linkRef = useRef<HTMLAnchorElement>(null)
+  const hadPending = useRef(false)
+  useEffect(() => {
+    if (pendingDecision) hadPending.current = true
+    else if (hadPending.current && !waiting) {
+      // Sent: the strip settles back into the rack; keep the keyboard on it.
+      hadPending.current = false
+      linkRef.current?.focus()
+    }
+  }, [pendingDecision, waiting])
   const decisionError = approvalId ? approvals?.errors[approvalId] : undefined
 
   let stateLabel: string | null = null
@@ -157,6 +167,7 @@ export const TaskCard = memo(function TaskCard({
         >
           <Link
             href={`/task/${task.id}`}
+            ref={linkRef}
             data-strip-link
             onClick={stop}
             className="text-inherit no-underline focus-visible:outline-none"
@@ -285,14 +296,12 @@ export const TaskCard = memo(function TaskCard({
                   ? t('approvedPending')
                   : t('rejectedPending')}
               </span>
-              <span className="text-xs text-muted">
-                {t('sendsIn', { seconds: UNDO_MS / 1000 })}
-              </span>
+              <UndoCountdown sendAt={pendingDecision.sendAt} total={UNDO_MS} />
               <Button
                 variant="secondary"
                 size="xs"
                 className="ml-auto"
-                // biome-ignore lint/a11y/noAutofocus: keyboard users get 5 s to undo
+                // biome-ignore lint/a11y/noAutofocus: keyboard users get the undo window
                 autoFocus
                 onClick={() => {
                   setJustUndone(true)
@@ -301,10 +310,6 @@ export const TaskCard = memo(function TaskCard({
               >
                 {t('undo')}
               </Button>
-              <span
-                aria-hidden="true"
-                className="absolute left-0 bottom-0 h-0.5 bg-person motion-safe:animate-[undo-bar_5s_linear_forwards]"
-              />
             </div>
           )}
           {waiting.kind === 'merge' && (
