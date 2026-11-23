@@ -55,7 +55,8 @@ function clientAllowed(req) {
 /** Whether a broadcast may be relayed: always without a token, else with it as bearer. */
 function broadcastAllowed(req) {
   if (!TOKEN) return true
-  const bearer = /^Bearer\s+(.+)$/i.exec(req.headers.authorization || '')
+  // `\S` after `\s+`: one place to split, so no backtracking on long runs of spaces.
+  const bearer = /^Bearer\s+(\S.*)$/i.exec(req.headers.authorization || '')
   return !!bearer && sameString(bearer[1].trim(), TOKEN)
 }
 

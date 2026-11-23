@@ -48,6 +48,12 @@ describe('presentedToken', () => {
     expect(presentedToken({ authorization: 'Basic abc' })).toBeNull()
     expect(presentedToken({})).toBeNull()
   })
+
+  it('takes any whitespace after Bearer, and an empty bearer falls back to the API key', () => {
+    expect(presentedToken({ authorization: `Bearer\t${TOKEN}` })).toBe(TOKEN)
+    expect(presentedToken({ authorization: 'Bearer    ', apiKey: TOKEN })).toBe(TOKEN)
+    expect(presentedToken({ authorization: 'Bearer' })).toBeNull()
+  })
 })
 
 describe('isAuthorized', () => {
