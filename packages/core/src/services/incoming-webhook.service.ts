@@ -402,9 +402,13 @@ export async function handleIncomingWebhook(args: {
   const verifier = verifierFor(request, secret, args.clock)
   const githubEvent = header(request, 'x-github-event')
 
+  // Always verify first, whatever the request asks for: nothing below runs
+  // for an unsigned or forged delivery. The receiver verifies again; it is
+  // one HMAC, and it keeps the reservation tied to a verified event.
+  const verification = await verifier.verify(request)
+  if (verification.outcome !== 'ok') throw rejected(verification.outcome)
+
   if (args.dryRun) {
-    const verification = await verifier.verify(request)
-    if (verification.outcome !== 'ok') throw rejected(verification.outcome)
     return processEvent({
       workspaceId,
       deliveryId: deliveryIdOf(request, verification.eventKey),
