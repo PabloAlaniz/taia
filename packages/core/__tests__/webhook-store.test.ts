@@ -1,6 +1,6 @@
 import { readdirSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { postgresStoreSchema } from 'omniwebhook'
+import { postgresLedgerSchema, postgresStoreSchema } from 'omniwebhook'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { startWebhookEventPurge, WEBHOOK_EVENTS_PURGE_INTERVAL_MS } from '../src/webhook-store'
 
@@ -19,6 +19,17 @@ describe('omniwebhook events migration', () => {
   })
 })
 
+describe('omniwebhook attempts migration', () => {
+  it('the latest omniwebhook_attempts migration holds the schema of the installed omniwebhook', () => {
+    const files = readdirSync(MIGRATIONS_DIR)
+      .filter((name) => /^\d{4}_omniwebhook_attempts.*\.sql$/.test(name))
+      .sort()
+    expect(files.length).toBeGreaterThan(0)
+    const latest = readFileSync(join(MIGRATIONS_DIR, files.at(-1)!), 'utf8')
+    expect(latest).toContain(postgresLedgerSchema())
+  })
+})
+
 describe('startWebhookEventPurge', () => {
   afterEach(() => {
     vi.useRealTimers()
@@ -29,7 +40,11 @@ describe('startWebhookEventPurge', () => {
     vi.useFakeTimers()
     const purgeExpired = vi.fn(async (_now: number) => 0)
 
-    const stop = startWebhookEventPurge({ purgeExpired }, () => 1_800_000_000)
+    const stop = startWebhookEventPurge(
+      { purgeExpired },
+      () => 1_800_000_000,
+      async () => {},
+    )
     expect(purgeExpired).toHaveBeenCalledWith(1_800_000_000)
 
     await vi.advanceTimersByTimeAsync(WEBHOOK_EVENTS_PURGE_INTERVAL_MS)
@@ -47,7 +62,7 @@ describe('startWebhookEventPurge', () => {
       throw new Error('db down')
     })
 
-    const stop = startWebhookEventPurge({ purgeExpired })
+    const stop = startWebhookEventPurge({ purgeExpired }, undefined, async () => {})
     await vi.advanceTimersByTimeAsync(WEBHOOK_EVENTS_PURGE_INTERVAL_MS)
 
     expect(purgeExpired).toHaveBeenCalledTimes(2)

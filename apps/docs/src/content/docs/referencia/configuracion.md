@@ -68,7 +68,8 @@ Dentro de los contenedores, los puertos son siempre los mismos. Fuera de Docker,
 | `TAIA_WS_MAX_CLIENTS` | `200` | Conexiones de WebSocket abiertas a la vez; las siguientes reciben `503` |
 | `TAIA_WS_MAX_BROADCAST_BYTES` | `1048576` (1 MiB) | Tamaño máximo de un evento que la app manda al servidor de WebSocket para reenviar |
 | `TAIA_WEBHOOK_RATE_LIMIT` | `120/minute` | Cuántas entregas acepta `POST /api/webhooks/incoming` por cliente (por IP con `TAIA_TRUSTED_PROXIES`, si no todas juntas) antes de responder `429`. Formato `<cantidad>/<unidad>`, como `30/minute` o `1000/hour` |
-| `TAIA_WEBHOOK_ALLOW_PRIVATE` | desactivado | Con `1`, los webhooks salientes pueden ir a `localhost` y a redes privadas |
+| `TAIA_WEBHOOK_ALLOW_PRIVATE` | desactivado | Con `1`, los webhooks salientes pueden ir a loopback y a las redes privadas (`10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`, `fc00::/7`) |
+| `TAIA_WEBHOOK_ALLOWED_NETWORKS` | — | Redes adicionales a las que pueden ir los webhooks salientes, separadas por comas (`192.168.1.0/24,100.64.0.0/10`). Las de metadatos de las nubes nunca se permiten |
 
 ### Comandos que ejecuta el servidor
 
@@ -121,7 +122,7 @@ Las variables de los tests (`TEST_DATABASE_URL`, `OPENCLAW_GATEWAY_*`) están en
 | `app.default_tz` | Zona horaria por defecto | Ajustes › General |
 | `worktree.*` | Rutas y comportamiento de los worktrees | Ajustes › Worktrees |
 | `webhooks.incoming.<ws>.secret` | Secreto de los webhooks entrantes, con la forma `whsec_<base64>` | API |
-| `webhooks.outgoing.<ws>.endpoints` | Endpoints de los webhooks salientes (JSON) | API |
+| `webhooks.outgoing.<ws>.endpoints` | Endpoints de los webhooks salientes (JSON; cada uno con un secreto `whsec_<base64>`) | API |
 | `telegram_target`, `alerts.channel` | Destinatario y canal de las alertas, enviadas por el runtime (capacidad `messaging`) | API |
 
 Las claves sensibles (tokens, API keys, identidades) vuelven enmascaradas al leerlas. En la base se guardan cifradas solo si definís `TAIA_SECRET_KEY`; sin ella quedan en texto plano.

@@ -25,6 +25,7 @@ services:
       - TAIA_API_TOKEN=${TAIA_API_TOKEN:-} # token de acceso para web, API, MCP y WebSocket
       - TAIA_SECRET_KEY=${TAIA_SECRET_KEY:-} # cifra los secretos guardados en la base
       - TAIA_WEBHOOK_ALLOW_PRIVATE=${TAIA_WEBHOOK_ALLOW_PRIVATE:-}
+      - TAIA_WEBHOOK_ALLOWED_NETWORKS=${TAIA_WEBHOOK_ALLOWED_NETWORKS:-}
       - WORKTREE_BASE_PATH=${WORKTREE_BASE_PATH:-}
       - WORKTREE_REPO_PATH=${WORKTREE_REPO_PATH:-}
     depends_on:

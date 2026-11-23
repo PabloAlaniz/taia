@@ -50,20 +50,56 @@ Esos slugs son los del preset Software Dev. Si el workspace no tiene esa columna
 
 ## Webhooks salientes
 
-TAIA puede avisar a otros sistemas cuando pasan cosas en un workspace (tareas creadas, movidas, etc.). Los endpoints se configuran en el setting `webhooks.outgoing.<workspace>.endpoints`, un array JSON:
+TAIA puede avisar a otros sistemas cuando pasan cosas en un workspace: tareas creadas, actualizadas, movidas, asignadas o borradas, y dependencias agregadas o quitadas. Los endpoints se configuran en el setting `webhooks.outgoing.<workspace>.endpoints`, un array JSON:
 
 ```json
-[{ "id": "ci", "url": "https://example.com/hook", "secret": "…", "events": ["task:moved"], "active": true }]
+[{ "id": "ci", "url": "https://example.com/hook", "secret": "whsec_…", "events": ["task:moved"], "active": true }]
 ```
 
+- `secret` es obligatorio y tiene la forma `whsec_<base64>`. Para generar uno: `echo "whsec_$(openssl rand -base64 32)"`.
 - Sin `events` (o con `"*"`), se mandan todos.
-- Cada entrega lleva los headers `x-taia-event` y `x-taia-workspace-id` y, si hay secreto, `x-taia-signature: sha256=<HMAC del body>`.
-- Los fallos que pueden cambiar se reintentan hasta 3 veces: errores de red, timeouts, `408`, `425`, `429` y `5xx`. Otro `4xx` no se reintenta. Si el receptor manda `Retry-After`, se espera eso; si pide más de 10 segundos, la entrega pasa directo a *dead letter* con `nextRetryAt` indicando cuándo reenviarla. Las entregas que agotan los reintentos quedan como *dead letter*: `GET /api/webhooks/outgoing` las lista y `POST /api/webhooks/outgoing` con `delivery_id` las reenvía.
+- Al guardar, TAIA rechaza con `400` un endpoint con una URL mal formada, con usuario y contraseña, o con un secreto inválido.
 
-- `GET /api/webhooks/outgoing` y `GET /api/settings` no devuelven los secretos: los endpoints se listan con `hasSecret`.
+**Formato.** Cada entrega se firma con [Standard Webhooks](https://www.standardwebhooks.com/), con las cabeceras `webhook-id`, `webhook-timestamp` y `webhook-signature`. El cuerpo es:
+
+```json
+{ "type": "task:moved", "timestamp": "2026-11-23T15:04:05.000Z", "workspace_id": "ws-default", "actor": "web-ui", "data": { "task": { "…": "…" } } }
+```
+
+Para verificarla del lado receptor sirve cualquier librería de Standard Webhooks, o [omniwebhook](https://github.com/PabloAlaniz/omniwebhook), que además evita procesar dos veces la misma entrega:
+
+```ts
+import { createReceiver, PostgresIdempotencyStore, toIncomingRequest, toResponse } from 'omniwebhook'
+import { standardScheme } from 'omniwebhook/standard'
+
+const receive = createReceiver({
+  verifier: standardScheme({ secrets: [process.env.TAIA_WEBHOOK_SECRET ?? ''] }),
+  store: new PostgresIdempotencyStore(pool),
+})
+
+export async function POST(request: Request) {
+  return toResponse(await receive.execute(await toIncomingRequest(request), procesar))
+}
+```
+
+**Entrega y reintentos.**
+
+- Emitir un evento solo lo encola en la tabla `webhook_outbox`: la acción que lo causó no espera al receptor.
+- El servidor web entrega lo pendiente cada un par de segundos. Si hay varias réplicas, cada entrega la toma una sola.
+- Se reintenta ante errores de red, timeouts (20 segundos por intento), `408`, `409`, `425`, `429` y `5xx`, hasta 10 intentos repartidos en unas 27 horas. Si el receptor manda `Retry-After`, se espera al menos eso.
+- Otro `4xx` no se reintenta.
+- `410 Gone` desactiva el endpoint (`active: false`).
+- Cada intento queda registrado en `omniwebhook_attempts`. Las entregas y sus intentos se borran a los 30 días.
+- Todos los intentos de una entrega llevan el mismo `webhook-id`, así que el receptor puede reconocer una repetida.
+
+**Diagnóstico y reenvío.** `GET /api/webhooks/outgoing?workspace_id=<ws>` lista las últimas entregas con sus intentos. Las fallidas aparecen también en `deadLetters`. `POST /api/webhooks/outgoing` con `delivery_id` reenvía una fallida desde el primer intento, con el mismo `webhook-id`, hasta 2 veces.
+
+`GET /api/webhooks/outgoing` y `GET /api/settings` no devuelven los secretos: los endpoints se listan con `hasSecret`.
 
 :::note
-Los webhooks solo se entregan a direcciones públicas y no siguen redirects. Para un receptor en el mismo host o en tu red local (por ejemplo n8n en `localhost`), definí `TAIA_WEBHOOK_ALLOW_PRIVATE=1` en el servidor. Ver [SECURITY](https://github.com/PabloAlaniz/taia/blob/main/.github/SECURITY.md).
+Los webhooks solo se entregan a direcciones públicas y no siguen redirects. TAIA se conecta a la dirección que validó, así que un DNS que cambia de respuesta entre el chequeo y el envío no puede desviarlo.
+
+Para un receptor en el mismo host o en tu red local (por ejemplo n8n), definí `TAIA_WEBHOOK_ALLOW_PRIVATE=1`: habilita loopback, `10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16` y `fc00::/7`. Para algo más acotado, usá `TAIA_WEBHOOK_ALLOWED_NETWORKS` con una lista de redes, por ejemplo `192.168.1.0/24,100.64.0.0/10`. Las direcciones de metadatos de las nubes nunca se permiten. Ver [SECURITY](https://github.com/PabloAlaniz/taia/blob/main/.github/SECURITY.md).
 :::
 
 ## Importar issues de GitHub

@@ -34,5 +34,15 @@ export async function register() {
 
     const { startWebhookEventPurge } = await import('@taia/core/webhook-store')
     startWebhookEventPurge()
+
+    // Only this process sends outgoing webhooks; the MCP server just queues them.
+    try {
+      const { startWebhookDispatcher } = await import(
+        '@taia/core/services/outgoing-webhook.service'
+      )
+      startWebhookDispatcher()
+    } catch (error) {
+      console.error('[TAIA] Outgoing webhooks are off:', error)
+    }
   }
 }

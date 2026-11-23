@@ -19,7 +19,11 @@ El formato se basa en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/
 - Los webhooks de GitHub se verifican con la firma que manda GitHub (`x-hub-signature-256` sobre el cuerpo). Antes se esperaba además un timestamp que GitHub no manda, así que una entrega real de GitHub se rechazaba.
 - La verificación y la deduplicación de los webhooks entrantes las hace [omniwebhook](https://github.com/PabloAlaniz/omniwebhook). Cada evento se reserva en la tabla `omniwebhook_events` (migración `0005`) antes de procesarlo. Así dos entregas simultáneas del mismo evento no se aplican dos veces, y un fallo libera el evento para el reintento del emisor.
 - `?dry_run=1` verifica y calcula sin consumir el evento.
-- Los webhooks salientes no reintentan los errores que no van a cambiar (`4xx` salvo `408`, `425` y `429`) y respetan el `Retry-After` del receptor. Si pide esperar más de 10 segundos, la entrega pasa a *dead letter* con la hora en que se puede reenviar.
+- **Cambio incompatible:** los webhooks salientes se firman con [Standard Webhooks](https://www.standardwebhooks.com/) (`webhook-id`, `webhook-timestamp` y `webhook-signature`) en vez de `x-taia-signature`. El cuerpo es `{ type, timestamp, workspace_id, actor, data }`. Cada endpoint necesita un secreto `whsec_<base64>`, y `PUT /api/settings` rechaza endpoints mal formados.
+- Los webhooks salientes ya no se entregan dentro de la request que causó el evento. Se encolan en `webhook_outbox` (migración `0007`) y el servidor web los entrega con [omniwebhook](https://github.com/PabloAlaniz/omniwebhook). Los reintentos llegan hasta 10 intentos en unas 27 horas y sobreviven a un reinicio. Cada intento queda en `omniwebhook_attempts` (migración `0006`).
+- `410 Gone` desactiva el endpoint. Un reenvío manual usa el mismo `webhook-id`.
+- La entrega se conecta a la dirección que validó la política de URLs, así que un DNS que cambia de respuesta ya no puede desviarla. `TAIA_WEBHOOK_ALLOWED_NETWORKS` permite redes puntuales; las de metadatos de las nubes nunca se permiten.
+- Se borran los registros JSON de entregas que los webhooks guardaban en `settings`.
 
 ### Agentes
 

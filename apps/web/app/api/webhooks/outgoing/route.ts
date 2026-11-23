@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { apiError } from '@taia/core/errors'
 import {
   listOutgoingWebhookDiagnostics,
+  OutgoingWebhookReplayError,
   replayOutgoingWebhookDelivery,
 } from '@taia/core/services/outgoing-webhook.service'
 
@@ -45,6 +46,9 @@ export async function POST(request: NextRequest) {
     const result = await replayOutgoingWebhookDelivery({ workspaceId, deliveryId })
     return NextResponse.json({ ok: true, workspace_id: workspaceId, ...result })
   } catch (error) {
+    if (error instanceof OutgoingWebhookReplayError) {
+      return NextResponse.json({ ok: false, error: error.message }, { status: error.status })
+    }
     return apiError(error)
   }
 }

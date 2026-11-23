@@ -15,25 +15,29 @@ export function incomingWebhookStore(): PostgresIdempotencyStore {
   return store
 }
 
-/** How often expired reservations are deleted. */
+/** How often expired reservations and old outgoing deliveries are deleted. */
 export const WEBHOOK_EVENTS_PURGE_INTERVAL_MS = 60 * 60 * 1000
 
 /**
- * Delete expired reservations now and then every hour. Expired rows no longer
- * block anything, so this only keeps the table small. The timer does not keep
- * the process alive, and a failed round is logged and retried next time.
+ * Delete expired reservations and old outgoing deliveries now and then every
+ * hour. Expired rows no longer block anything, so this only keeps the tables
+ * small. The timer does not keep the process alive, and a failed round is
+ * logged and retried next time.
  */
 export function startWebhookEventPurge(
   target: Pick<PostgresIdempotencyStore, 'purgeExpired'> = incomingWebhookStore(),
   now: () => number = () => Math.floor(Date.now() / 1000),
+  purgeOutgoing: () => Promise<void> = async () => {
+    const { purgeOldOutgoingWebhooks } = await import('./services/outgoing-webhook.service')
+    await purgeOldOutgoingWebhooks()
+  },
 ): () => void {
+  const warn = (what: string) => (error: unknown) => {
+    console.warn(`[webhooks] ${what} failed:`, error instanceof Error ? error.message : error)
+  }
   const run = () => {
-    target.purgeExpired(now()).catch((error: unknown) => {
-      console.warn(
-        '[webhooks] purging expired reservations failed:',
-        error instanceof Error ? error.message : error,
-      )
-    })
+    target.purgeExpired(now()).catch(warn('purging expired reservations'))
+    purgeOutgoing().catch(warn('purging old outgoing deliveries'))
   }
   run()
   const timer = setInterval(run, WEBHOOK_EVENTS_PURGE_INTERVAL_MS)
