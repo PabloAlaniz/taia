@@ -318,5 +318,6 @@ export {
   deleteColumn,
   reorderColumns,
   getDoneStateSlugs,
+  getColumnStates,
   getInitialSlug,
 } from './repositories/board-column.repository'

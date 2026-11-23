@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { apiError } from '@taia/core/errors'
 import { getAllTasks } from '@taia/core/db'
 import { requestWorkspaceId } from '@taia/core/api-handler'
+import { isCompleted, isFinished, loadColumnStates } from '@taia/core/services/task-outcome'
 
 export const dynamic = 'force-dynamic'
 
@@ -20,14 +21,19 @@ export async function GET(request: NextRequest) {
     const filterUser = searchParams.get('assigned_to')
 
     const workspaceId = requestWorkspaceId(request, searchParams.get('workspace_id'))
-    const allTasks = await getAllTasks(workspaceId ? { workspaceId } : undefined)
+    const [allTasks, states] = await Promise.all([
+      getAllTasks(workspaceId ? { workspaceId } : undefined),
+      loadColumnStates(workspaceId ?? undefined),
+    ])
+    // Finished = any done column of the task's workspace (not only DONE).
+    const finished = (t: (typeof allTasks)[number]) => isFinished(t, states)
     const now = Date.now()
     const threeDaysAgo = now - 3 * 24 * 60 * 60 * 1000
     const oneDayAgo = now - 24 * 60 * 60 * 1000
 
     // Waiting for approval (REVIEW or assigned to specific user, not done)
     const waitingApproval = allTasks.filter((t) => {
-      if (t.status === 'DONE' || t.status === 'REJECTED') return false
+      if (finished(t)) return false
 
       if (filterUser) {
         return t.assigned_to === filterUser || t.status === 'REVIEW'
@@ -39,7 +45,7 @@ export async function GET(request: NextRequest) {
     // Blocked (tag + active status + >3 days old)
     const blocked = allTasks.filter((t) => {
       if (!t.tags?.includes('blocked')) return false
-      if (t.status === 'DONE' || t.status === 'REJECTED') return false
+      if (finished(t)) return false
       if (t.status !== 'IN_PROGRESS' && t.status !== 'ASSIGNED') return false
 
       const createdAt = new Date(t.created_at).getTime()
@@ -56,7 +62,7 @@ export async function GET(request: NextRequest) {
 
     // Completed today
     const completedToday = allTasks.filter((t) => {
-      if (t.status !== 'DONE') return false
+      if (!isCompleted(t, states)) return false
       const completedAt = t.completed_at ? new Date(t.completed_at).getTime() : 0
       return completedAt > oneDayAgo
     })
@@ -65,9 +71,7 @@ export async function GET(request: NextRequest) {
     const backlog = allTasks.filter((t) => t.status === 'INBOX' || t.status === 'IDEA')
 
     // Urgent priority tasks (not done)
-    const urgent = allTasks.filter(
-      (t) => t.priority === 'URGENT' && t.status !== 'DONE' && t.status !== 'REJECTED',
-    )
+    const urgent = allTasks.filter((t) => t.priority === 'URGENT' && !finished(t))
 
     const stats = {
       timestamp: new Date().toISOString(),
@@ -129,6 +133,8 @@ export async function GET(request: NextRequest) {
         REVIEW: allTasks.filter((t) => t.status === 'REVIEW').length,
         DONE: allTasks.filter((t) => t.status === 'DONE').length,
         REJECTED: allTasks.filter((t) => t.status === 'REJECTED').length,
+        /** Every task in a done column, whatever the preset calls it. */
+        completed: allTasks.filter((t) => isCompleted(t, states)).length,
         IDEA: allTasks.filter((t) => t.status === 'IDEA').length,
       },
     }

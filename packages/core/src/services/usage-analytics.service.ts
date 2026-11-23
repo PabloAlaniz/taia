@@ -1,6 +1,7 @@
 import type { Task } from '@taia/types'
 import { getActivities, getSetting, logActivity } from '../db'
 import { listTasks } from './task.service'
+import { type ColumnStates, isCompleted, isFinished, loadColumnStates } from './task-outcome'
 
 export interface UsageAnalyticsFilters {
   workspace_id?: string
@@ -113,12 +114,13 @@ function parseBoundary(value: string | undefined, boundary: 'start' | 'end' | 'n
   return date
 }
 
-function isTerminal(status: string): boolean {
-  return status === 'DONE' || status === 'REJECTED'
-}
-
-function completedInRange(task: Task, start: Date | null, end: Date | null): boolean {
-  if (task.status !== 'DONE' || !task.completed_at) return false
+function completedInRange(
+  task: Task,
+  start: Date | null,
+  end: Date | null,
+  states: ColumnStates,
+): boolean {
+  if (!isCompleted(task, states) || !task.completed_at) return false
   const completedAt = new Date(task.completed_at)
   return (!start || completedAt >= start) && (!end || completedAt <= end)
 }
@@ -258,10 +260,13 @@ export async function getUsageAnalytics(
     throw new Error('Invalid date range: start must be before end')
   }
 
-  const { tasks: allTasks } = await listTasks({ workspace_id: filters.workspace_id })
+  const [{ tasks: allTasks }, states] = await Promise.all([
+    listTasks({ workspace_id: filters.workspace_id }),
+    loadColumnStates(filters.workspace_id),
+  ])
   const tasks = allTasks.filter((task) => overlapsRange(task, start, end))
-  const completed = tasks.filter((task) => completedInRange(task, start, end))
-  const active = tasks.filter((task) => !isTerminal(task.status))
+  const completed = tasks.filter((task) => completedInRange(task, start, end, states))
+  const active = tasks.filter((task) => !isFinished(task, states))
   const nowOrEnd = end ?? now
 
   const byDay = new Map<string, number>()
