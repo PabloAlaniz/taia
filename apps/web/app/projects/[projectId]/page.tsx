@@ -9,6 +9,7 @@ import type { ProjectOverview, Task } from '@taia/types'
 import { Strip } from '@/components/atoms'
 import { EmptyState, SkeletonCard } from '@/components/molecules'
 import { PageHeader } from '@/components/molecules/page-header'
+import { ProjectViewNav } from '@/components/molecules/project-view-nav'
 import { api } from '@/lib/api'
 import { formatUsd, participantKind } from '@/lib/format'
 import { useStore } from '@/lib/store'
@@ -81,12 +82,7 @@ export default function ProjectPage() {
   return (
     <div className="min-h-full">
       <PageHeader width="data" title={project.name} backHref="/projects" backLabel={tp('projects')}>
-        <Link
-          href="/settings/projects"
-          className="rounded border border-border bg-card px-3 py-1.5 text-sm font-semibold no-underline text-foreground hover:bg-strip"
-        >
-          {t('manage')}
-        </Link>
+        <ProjectViewNav projectId={project.id} current="overview" />
       </PageHeader>
 
       <div className="mx-auto px-4 md:px-6 max-w-6xl pt-4 pb-10 space-y-6">

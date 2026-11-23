@@ -54,7 +54,6 @@ const PAGE_ICONS: Record<string, LucideIcon> = {
   '/settings/models': Brain,
   '/settings/worktrees': GitBranch,
   '/settings/profile': UserRound,
-  '/settings/projects': FolderGit2,
   '/settings/general': SlidersHorizontal,
   '/settings/audit': ScrollText,
 }

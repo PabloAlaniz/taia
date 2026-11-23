@@ -4,7 +4,7 @@ import '@testing-library/jest-dom/vitest'
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 
-import { ProjectContextEditor } from '@/app/settings/projects/_components/project-context-editor'
+import { ProjectContextEditor } from '@/client/features/project-settings/ProjectContextEditor'
 
 vi.mock('next-intl', () => ({
   useTranslations: () => (key: string, values?: Record<string, unknown>) =>

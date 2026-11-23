@@ -5,13 +5,11 @@ import { useTranslations } from 'next-intl'
 import {
   Brain,
   ChevronRight,
-  FolderGit2,
   GitBranch,
   Plug,
   ScrollText,
   Settings,
   UserRound,
-  Users,
   type LucideIcon,
 } from 'lucide-react'
 import { Strip } from '@/components/atoms/strip'
@@ -63,26 +61,16 @@ export default function SettingsPage() {
       ],
     },
     {
-      id: 'settings-people',
-      title: th('groupPeople'),
+      // Team lives in the top nav and projects carry their own settings, so
+      // this group keeps only what agents know about you.
+      id: 'settings-context',
+      title: th('groupContext'),
       sections: [
-        {
-          href: '/squad',
-          icon: Users,
-          title: tp('team'),
-          description: ti('teamDesc'),
-        },
         {
           href: '/settings/profile',
           icon: UserRound,
           title: tp('profile'),
           description: ti('profileDesc'),
-        },
-        {
-          href: '/settings/projects',
-          icon: FolderGit2,
-          title: tp('projects'),
-          description: ti('projectsDesc'),
         },
       ],
     },

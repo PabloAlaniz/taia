@@ -5,6 +5,7 @@ import {
   normalize,
   paletteHref,
   PALETTE_LIMITS,
+  PALETTE_PAGES,
   type PageEntry,
 } from '@/lib/command-palette'
 
@@ -104,5 +105,19 @@ describe('paletteHref', () => {
 describe('normalize', () => {
   it('strips accents and case', () => {
     expect(normalize('Configuración')).toBe('configuracion')
+  })
+})
+
+describe('PALETTE_PAGES', () => {
+  it('lists each page once', () => {
+    const hrefs = PALETTE_PAGES.map((p) => p.href)
+    expect(new Set(hrefs).size).toBe(hrefs.length)
+  })
+
+  it('has no settings page for projects or the team: both live in the top nav', () => {
+    const settings = PALETTE_PAGES.filter((p) => p.inSettings).map((p) => p.href)
+    expect(settings).not.toContain('/settings/projects')
+    expect(settings).not.toContain('/squad')
+    expect(PALETTE_PAGES.map((p) => p.href)).toContain('/projects')
   })
 })

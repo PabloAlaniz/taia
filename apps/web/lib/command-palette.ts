@@ -22,7 +22,6 @@ export const PALETTE_PAGES: PalettePage[] = [
   { href: '/settings/models', ns: 'settingsPage', key: 'modelsTitle', inSettings: true },
   { href: '/settings/worktrees', ns: 'pageTitles', key: 'worktrees', inSettings: true },
   { href: '/settings/profile', ns: 'pageTitles', key: 'profile', inSettings: true },
-  { href: '/settings/projects', ns: 'pageTitles', key: 'projects', inSettings: true },
   { href: '/settings/general', ns: 'pageTitles', key: 'general', inSettings: true },
   { href: '/settings/audit', ns: 'pageTitles', key: 'audit', inSettings: true },
 ]
