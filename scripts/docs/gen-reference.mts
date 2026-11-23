@@ -20,11 +20,7 @@ function write(path: string, content: string) {
 
 /** Text for a Markdown table cell: backslashes first, so `\|` cannot be undone. */
 function escapeCell(text: string): string {
-  return text
-    .replace(/\\/g, '\\\\')
-    .replace(/\|/g, '\\|')
-    .replace(/\n+/g, ' ')
-    .trim()
+  return text.replace(/\\/g, '\\\\').replace(/\|/g, '\\|').replace(/\n+/g, ' ').trim()
 }
 
 // --- MCP tools -------------------------------------------------------------
