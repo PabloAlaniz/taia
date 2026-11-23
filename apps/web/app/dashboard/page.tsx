@@ -11,7 +11,7 @@ import { PageHeader } from '@/components/molecules/page-header'
 import { StatCard } from '@/components/molecules/stat-card'
 import { computeDailyCompletions, getAgentColor } from '../../lib/dashboard-utils'
 import { useResource } from '@/lib/use-resource'
-import { formatTokens, participantKind } from '@/lib/format'
+import { actorName, formatTokens, formatUsd, participantKind } from '@/lib/format'
 import { useStore } from '../../lib/store'
 import { useWaiting } from '@/lib/use-shell-signals'
 import { useActivityText } from '@/lib/use-activity-text'
@@ -85,12 +85,6 @@ async function optionalMetrics<T>(res: Response | null): Promise<T | null> {
   } catch {
     return null
   }
-}
-
-/** Cost with three decimals under a dollar, where cents alone would read as zero. */
-function formatCost(locale: string, usd: number): string {
-  const digits = usd < 1 ? 3 : 2
-  return `$${usd.toLocaleString(locale, { minimumFractionDigits: digits, maximumFractionDigits: digits })}`
 }
 
 interface DashboardData {
@@ -220,6 +214,7 @@ async function loadDashboard(
 export default function DashboardPage() {
   const t = useTranslations('dashboard')
   const tu = useTranslations('dashboardUi')
+  const tActors = useTranslations('actors')
   const format = useFormatter()
   const locale = useLocale()
   const now = useNow({ updateInterval: 60_000 })
@@ -237,8 +232,9 @@ export default function DashboardPage() {
   const rawTasks = useMemo(() => data?.tasks ?? [], [data])
   const rawAgents = data?.agents ?? []
   const agentsList = rawAgents
-  // Names the way the board shows them, never raw ids.
-  const agentName = (id?: string | null) => rawAgents.find((a) => a.id === id)?.name ?? id ?? '—'
+  // Names the way the board shows them, never raw ids: TAIA's own actors
+  // (web-ui, system…) get a readable name too.
+  const agentName = (id?: string | null) => actorName(id, rawAgents, tActors) || '—'
   const waitingCount = Object.keys(useWaiting()).length
   const describe = useActivityText()
 
@@ -354,7 +350,10 @@ export default function DashboardPage() {
             <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
               <StatCard label={t('completedToday')} value={stats.completedToday} />
               <StatCard label={t('thisWeek')} value={stats.completedThisWeek} />
-              <StatCard label={t('avgTime')} value={formatTime(stats.avgTimeMinutes)} />
+              <StatCard
+                label={t('avgTime')}
+                value={stats.avgTimeMinutes > 0 ? formatTime(stats.avgTimeMinutes) : '—'}
+              />
               {usageMetrics && (
                 <StatCard
                   label={tu('p95Aging')}
@@ -371,13 +370,14 @@ export default function DashboardPage() {
             )}
           </RackSection>
 
-          {/* Spend, when there is any. */}
+          {/* Spend TAIA recorded from past sessions: it outlives the runtime that
+              ran them, so it reads as a record, not as live state. */}
           {costMetrics && costMetrics.totals.total_tokens > 0 && (
             <RackSection title={t('costSection')}>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
                 <StatCard
                   label={t('totalCost')}
-                  value={formatCost(locale, costMetrics.totals.total_cost_usd)}
+                  value={formatUsd(locale, costMetrics.totals.total_cost_usd)}
                 />
                 <StatCard
                   label={t('totalTokens')}
@@ -386,6 +386,7 @@ export default function DashboardPage() {
                 <StatCard label={t('sessionCount')} value={costMetrics.totals.session_count} />
                 <StatCard label={t('models')} value={costMetrics.by_model.length} />
               </div>
+              <p className="text-xs text-on-rack-muted max-w-prose mt-1">{t('costNote')}</p>
             </RackSection>
           )}
         </div>
@@ -471,9 +472,11 @@ export default function DashboardPage() {
                     <ParticipantMark agent={agent} className="h-6" />
                     <div className="flex-1 min-w-0">
                       <div className="text-sm font-medium truncate">{agent.name}</div>
-                      <div className="text-xs text-muted">
-                        {t('tracked', { time: formatTime(timeMinutes) })}
-                      </div>
+                      {timeMinutes > 0 && (
+                        <div className="text-xs text-muted">
+                          {t('tracked', { time: formatTime(timeMinutes) })}
+                        </div>
+                      )}
                       <ProgressBar
                         className="mt-1"
                         segments={
@@ -565,9 +568,11 @@ export default function DashboardPage() {
                     <div className="flex items-baseline gap-2 text-muted">
                       {activity.agent_id && (
                         <span className="flex items-center gap-1.5 font-semibold text-foreground">
-                          <ParticipantMark
-                            agent={agentsList.find((a) => a.id === activity.agent_id)}
-                          />
+                          {agentsList.some((a) => a.id === activity.agent_id) && (
+                            <ParticipantMark
+                              agent={agentsList.find((a) => a.id === activity.agent_id)}
+                            />
+                          )}
                           {agentName(activity.agent_id)}
                         </span>
                       )}
@@ -615,7 +620,7 @@ export default function DashboardPage() {
                       </div>
                       <div className="text-right shrink-0">
                         <div className="text-sm font-bold tabular-nums">
-                          {formatCost(locale, agent.total_cost_usd)}
+                          {formatUsd(locale, agent.total_cost_usd)}
                         </div>
                         <div className="text-xxs text-muted">
                           {tu('tokens', {
@@ -651,7 +656,7 @@ export default function DashboardPage() {
                         />
                       </div>
                       <span className="text-xs font-mono w-16 text-right shrink-0">
-                        {formatCost(locale, day.cost_usd)}
+                        {formatUsd(locale, day.cost_usd)}
                       </span>
                     </div>
                   )

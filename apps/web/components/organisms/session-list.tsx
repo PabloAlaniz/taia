@@ -7,6 +7,7 @@ import { ArrowDown } from 'lucide-react'
 import type { SessionListItem, Agent } from '@taia/types'
 import { api } from '@/lib/api'
 import { useResource } from '@/lib/use-resource'
+import { useRuntimeStatus } from '@/lib/use-runtime-status'
 import { cn, sessionHref } from '../../lib/utils'
 import { formatTokens, formatUsd, participantKind } from '../../lib/format'
 import { Select, Strip } from '../atoms'
@@ -23,6 +24,10 @@ export function SessionList() {
   const [agentFilter, setAgentFilter] = useState<string>('')
   const [statusFilter, setStatusFilter] = useState<string>('all')
   const [sortBy, setSortBy] = useState<SortField>('date')
+  // The list comes from the runtime; without one there is nothing to list,
+  // though the spend TAIA recorded from past sessions stays on the dashboard.
+  const runtime = useRuntimeStatus()
+  const standalone = !runtime.configured && runtime.state !== 'unknown'
 
   const { data, loading, error } = useResource(
     `${agentFilter}|${statusFilter}`,
@@ -92,6 +97,19 @@ export function SessionList() {
       ) : sorted.length === 0 ? (
         agentFilter || statusFilter !== 'all' ? (
           <EmptyState onRack title={t('noneFound')} description={t('noneFoundHint')} />
+        ) : standalone ? (
+          <EmptyState
+            onRack
+            title={t('standaloneHistory')}
+            description={
+              <>
+                {t('standaloneHistoryHint')}{' '}
+                <Link href="/dashboard" className="underline text-on-rack">
+                  {t('standaloneHistoryLink')}
+                </Link>
+              </>
+            }
+          />
         ) : (
           <EmptyState onRack title={t('noneYet')} description={t('noneRunningHint')} />
         )

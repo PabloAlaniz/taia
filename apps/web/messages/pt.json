@@ -24,7 +24,7 @@
     "mainNav": "Navegação principal",
     "mobileNav": "Navegação móvel",
     "projects": "Projetos",
-    "agents": "Agentes"
+    "team": "Equipe"
   },
   "header": {
     "planWizard": "Assistente de planejamento IA",
@@ -113,7 +113,7 @@
     "noResults": "Nenhuma tarefa encontrada",
     "navigate": "navegar",
     "select": "selecionar",
-    "close": "esc fechar"
+    "close": "fechar"
   },
   "agents": {
     "heading": "Agentes",
@@ -195,10 +195,10 @@
     "blocked": "Bloqueadas",
     "inReview": "Em revisão",
     "stale": "Paradas (>24h)",
-    "totalCost": "Custo total",
-    "totalTokens": "Tokens totais",
-    "sessionCount": "Sessões",
-    "models": "Modelos",
+    "totalCost": "Gasto total",
+    "totalTokens": "Tokens",
+    "sessionCount": "Sessões registradas",
+    "models": "Modelos usados",
     "chartTitle": "Tarefas concluídas por dia (últimos 30 dias)",
     "noCompletions": "Não há tarefas concluídas nos últimos 30 dias",
     "byAgent": "Por agente",
@@ -210,23 +210,20 @@
     "noProjects": "Sem projetos",
     "staleTasks": "Tarefas paradas (>24h atribuídas)",
     "recentActivity": "Atividade recente",
-    "costByAgent": "Custo por agente",
+    "costByAgent": "Gasto registrado por agente",
     "sessions": "{count} sessões · {models}",
-    "dailyCostTrend": "Tendência diária de custo",
+    "dailyCostTrend": "Gasto registrado por dia",
     "last24h": "Últimas 24h",
     "lastWeek": "Última semana",
     "lastMonth": "Último mês",
     "allTime": "Tudo",
     "statusSection": "Status",
-    "costSection": "Custo"
+    "costSection": "Gasto registrado",
+    "costNote": "O que o TAIA guardou de sessões que já rodaram. É histórico: fica mesmo que o runtime que as rodou não esteja mais conectado."
   },
   "settingsPage": {
     "title": "Configurações",
     "generalDesc": "WebSocket, fuso horário e configuração geral.",
-    "agentsTitle": "Agentes",
-    "agentsDesc": "Configurar agentes, funções, avatares e estados.",
-    "teamTitle": "Equipe",
-    "teamDesc": "Gerenciar membros humanos da equipe.",
     "projectsTitle": "Projetos",
     "projectsDesc": "Gerenciar projetos e repositórios do GitHub.",
     "worktreesDesc": "Paths, cleanup automático e configuração de worktrees.",
@@ -380,7 +377,9 @@
     "usedBy": "Usado por:",
     "empty": "Nenhum modelo configurado encontrado.",
     "provider": "Provedor:",
-    "info": "O modelo padrão é usado pelos agentes que não têm um próprio. Cada runtime define como alterá-lo: no OpenClaw, na configuração de agentes; com Claude (API da Anthropic), em Configurações › Runtime."
+    "info": "O modelo padrão é usado pelos agentes que não têm um próprio. Cada runtime define como alterá-lo: no OpenClaw, na configuração de agentes; com Claude (API da Anthropic), em Configurações › Runtime.",
+    "standalone": "Sem runtime não há modelos configurados: quem os define é o runtime que roda os agentes. Os modelos usados por sessões anteriores aparecem no gasto registrado.",
+    "standaloneDashboardLink": "Ver o gasto registrado"
   },
   "login": {
     "title": "Entre no TAIA",
@@ -440,7 +439,9 @@
       "title": "Fazer merge em {base}?",
       "body": "Os commits de <code>{branch}</code> serão integrados em <code>{base}</code>. Isso não pode ser desfeito pelo TAIA.",
       "action": "Fazer merge em {base}",
-      "blind": "Fazer merge em {base} sem ver as alterações"
+      "blind": "Fazer merge em {base} sem ver as alterações",
+      "blindLink": "Fazer merge sem ver as alterações…",
+      "typeToConfirm": "Digite <code>{base}</code> para fazer merge sem ver o que entra."
     },
     "confirmDiscard": {
       "title": "Descartar o worktree?",
@@ -526,14 +527,13 @@
     "profile": "Perfil",
     "calendar": "Calendário",
     "board": "Quadro",
-    "sessions": "Sessões",
-    "agents": "Agentes"
+    "sessions": "Sessões"
   },
   "runtimeNotice": {
     "choose": "Escolher runtime",
     "sessions": {
       "title": "Standalone não tem sessões",
-      "body": "Sem runtime, o TAIA funciona como quadro, servidor MCP e CLI. Sessões, transcrições e custos aparecem quando você conecta um (Claude Code, OpenClaw, a API da Anthropic…)."
+      "body": "Sem runtime, o TAIA funciona como quadro, servidor MCP e CLI. Sessões em andamento e transcrições aparecem quando você conecta um (Claude Code, OpenClaw, a API da Anthropic…). O gasto que o TAIA registrou de sessões anteriores continua no dashboard."
     },
     "cron": {
       "title": "Os horários precisam de um runtime",
@@ -571,7 +571,10 @@
       "idle": "em pausa",
       "offline": "encerrada"
     },
-    "noneYet": "Ainda não há sessões"
+    "noneYet": "Ainda não há sessões",
+    "standaloneHistory": "Sem runtime não há sessões para listar",
+    "standaloneHistoryHint": "Este histórico vem do runtime que rodou as sessões. O que o TAIA registrou delas (gasto, tokens e modelos) continua no dashboard.",
+    "standaloneHistoryLink": "Ver o gasto registrado"
   },
   "squad": {
     "add": "Adicionar agente",
@@ -593,7 +596,6 @@
     "schedule": "horário",
     "lastRun": "última",
     "nextRun": "próxima",
-    "person": "pessoa",
     "assigned": "atribuídas",
     "inProgress": "em andamento",
     "inReview": "revisão",
@@ -605,8 +607,6 @@
     "edit": "Editar",
     "viewTasks": "Ver tarefas ({count})",
     "deleteCron": "Remover horário",
-    "deleteAgent": "Excluir agente",
-    "removePerson": "Remover da equipe",
     "scheduleLabel": "Horário (cron)",
     "createSchedule": "Criar um horário (cron)",
     "cronHelp": "Formato cron de 5 campos. «0 */6 * * *» roda a cada 6 horas.",
@@ -627,9 +627,8 @@
     },
     "confirmDelete": {
       "title": "Excluir {name}?",
-      "bodyAgent": "O agente, o horário e o contexto são apagados. As tarefas ficam sem responsável. Não pode ser desfeito.",
-      "bodyPerson": "A pessoa sai da equipe. As tarefas ficam sem responsável. Não pode ser desfeito.",
-      "action": "Excluir"
+      "action": "Excluir",
+      "body": "As tarefas atribuídas ficam sem responsável. Não dá para desfazer."
     },
     "msg": {
       "cronEnabled": "Horário retomado.",
@@ -654,12 +653,18 @@
     "pausedShort": "pausado",
     "cronPlaceholder": "ex.: 0 */6 * * *",
     "ctx": {
-      "persona": "persona",
+      "persona": "personalidade",
       "instructions": "instruções",
       "notes": "notas",
       "memory": "{count, plural, one {# arquivo de memória} other {# arquivos de memória}}",
       "none": "sem contexto carregado"
-    }
+    },
+    "deleteMember": "Excluir da equipe",
+    "kind": {
+      "agent": "agente",
+      "person": "pessoa"
+    },
+    "rowLabel": "{name}, {kind}: {assigned, plural, one {# atribuída} other {# atribuídas}}, {inProgress} em andamento, {review} em revisão"
   },
   "taskPage": {
     "backToBoard": "Voltar ao quadro",
@@ -861,10 +866,9 @@
   "settingsIndex": {
     "intro": "Configurações desta instalação do TAIA: o que executa os agentes, quem participa e o que eles sabem do seu trabalho.",
     "generalDesc": "Conexão ao vivo do quadro e fuso horário dos crons dos agentes.",
-    "agentsDesc": "Cadastro, papéis e status dos agentes e das pessoas do quadro.",
     "runtimeDesc": "O que executa os agentes: OpenClaw, Claude, uma CLI ou nenhum (standalone).",
     "modelsDesc": "Qual modelo cada agente usa no runtime ativo.",
-    "teamDesc": "As pessoas que podem receber tarefas.",
+    "teamDesc": "Os agentes e as pessoas que recebem tarefas do quadro.",
     "projectsDesc": "Projetos, seus repositórios e o contexto que os agentes recebem.",
     "profileDesc": "O que todos os agentes sabem sobre você: nome, fatos, preferências e limites.",
     "worktreesDesc": "Onde os worktrees de cada tarefa são criados, quando são limpos e o que roda ao criá-los.",
@@ -888,39 +892,6 @@
     "defaultFor": "padrão em {instances}",
     "loadFailed": "Não foi possível carregar os modelos. Verifique se o runtime está conectado e recarregue a página.",
     "infoTitle": "Como o modelo é escolhido"
-  },
-  "settingsTeam": {
-    "listTitle": "Pessoas da equipe",
-    "listDesc": "Pessoas que podem receber tarefas, assim como os agentes.",
-    "add": "Adicionar pessoa",
-    "empty": "Ainda não há pessoas na equipe. Adicione uma para poder atribuir tarefas a ela.",
-    "noRole": "Sem papel",
-    "deleting": "Excluindo…",
-    "newTitle": "Nova pessoa",
-    "editTitle": "Editar {name}",
-    "idLabel": "ID",
-    "idHelp": "Identificador único, em minúsculas e sem espaços. Não pode ser alterado depois.",
-    "idPlaceholder": "pessoa-1",
-    "nameLabel": "Nome",
-    "namePlaceholder": "Pessoa 1",
-    "roleLabel": "Papel (opcional)",
-    "rolePlaceholder": "Revisão de código",
-    "avatarLabel": "Avatar (um emoji)",
-    "create": "Adicionar pessoa",
-    "update": "Salvar alterações",
-    "confirmDelete": {
-      "title": "Excluir {name} da equipe?",
-      "body": "{name} deixa de estar disponível para receber tarefas.",
-      "action": "Excluir pessoa"
-    },
-    "errors": {
-      "load": "Não foi possível carregar a equipe. Recarregue a página para tentar de novo.",
-      "required": "Preencha o ID e o nome.",
-      "save": "Não foi possível salvar a pessoa: {error}",
-      "delete": "Não foi possível excluir {name}: {error}"
-    },
-    "emptyTitle": "Ainda não há pessoas na equipe",
-    "emptyHint": "Adicione uma para poder atribuir tarefas a ela, assim como a um agente."
   },
   "settingsWorktrees": {
     "pathsTitle": "Pastas",
@@ -1093,7 +1064,7 @@
     "addTitle": "Adicionar agente",
     "editTitle": "Editar {name}",
     "id": "ID",
-    "idHint": "Vem do nome e você pode mudar. Minúsculas, números e hifens; é o nome usado pelo MCP e pela API, e não muda depois.",
+    "idHint": "Vem do nome; você pode mudá-lo agora. Depois fica fixo, porque é assim que o MCP e a API o usam.",
     "idPlaceholder": "ex.: revisor-prs",
     "name": "Nome",
     "namePlaceholder": "ex.: Revisor de PRs",
@@ -1106,20 +1077,20 @@
       "human": "Pessoa",
       "orchestrator": "Orquestrador: distribui tarefas para outros agentes"
     },
-    "create": "Criar agente",
-    "creating": "Criando…",
+    "create": "Adicionar agente",
+    "creating": "Adicionando…",
     "save": "Salvar alterações",
     "saving": "Salvando…",
-    "createFailed": "Não foi possível criar o agente. Revise os dados e tente de novo.",
-    "createFailedWith": "Não foi possível criar o agente: {error}",
+    "createFailed": "Não foi possível adicionar o agente. Revise os dados e tente de novo.",
+    "createFailedWith": "Não foi possível adicionar o agente: {error}",
     "saveFailed": "Não foi possível salvar as alterações. Tente de novo.",
     "saveFailedWith": "Não foi possível salvar as alterações: {error}",
     "addPersonTitle": "Adicionar pessoa",
     "createPerson": "Adicionar pessoa",
-    "personNamePlaceholder": "ex.: Lucía",
+    "personNamePlaceholder": "ex.: Ana Souza",
     "personRolePlaceholder": "ex.: revisa o design",
-    "personIdPlaceholder": "ex.: lucia",
-    "personIdHint": "Vem do nome e você pode mudar. Minúsculas, números e hifens; é o nome usado pelo MCP e pela API, e não muda depois.",
+    "personIdPlaceholder": "ex.: ana-souza",
+    "personIdHint": "Vem do nome; você pode mudá-lo agora. Depois fica fixo, porque é assim que o MCP e a API o usam.",
     "createPersonFailed": "Não foi possível adicionar a pessoa. Revise os dados e tente de novo.",
     "createPersonFailedWith": "Não foi possível adicionar a pessoa: {error}",
     "errors": {
@@ -1132,7 +1103,7 @@
   "agentContext": {
     "tabs": "Contexto do agente",
     "sections": {
-      "persona": "Persona",
+      "persona": "Personalidade",
       "instructions": "Instruções",
       "working": "Notas de trabalho",
       "memory": "Memória"
@@ -1318,5 +1289,12 @@
     "MEDIUM": "média",
     "HIGH": "alta",
     "URGENT": "urgente"
+  },
+  "actors": {
+    "webUi": "Interface web",
+    "system": "TAIA",
+    "mcp": "Cliente MCP",
+    "cli": "CLI",
+    "planningWizard": "Assistente de planejamento"
   }
 }

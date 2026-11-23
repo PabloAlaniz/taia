@@ -4,6 +4,7 @@ import { useCallback, useEffect } from 'react'
 import { useTranslations } from 'next-intl'
 import type { Activity } from '@taia/types'
 import { useStore } from './store'
+import { actorName } from './format'
 
 /** The title the backend appended after the last ": " (its messages end with it). */
 function titleFromMessage(message: string): string {
@@ -19,6 +20,7 @@ function titleFromMessage(message: string): string {
  */
 export function useActivityText() {
   const t = useTranslations('activityText')
+  const tActors = useTranslations('actors')
   const tasks = useStore((s) => s.tasks)
   const agents = useStore((s) => s.agents)
   const columns = useStore((s) => s.boardColumns)
@@ -35,8 +37,7 @@ export function useActivityText() {
       const title = tasks.find((x) => x.id === a.task_id)?.title ?? titleFromMessage(a.message)
       const column = (slug: unknown) =>
         typeof slug === 'string' ? (columns.find((c) => c.slug === slug)?.label ?? slug) : ''
-      const who = (id: unknown) =>
-        typeof id === 'string' ? (agents.find((x) => x.id === id)?.name ?? id) : ''
+      const who = (id: unknown) => (typeof id === 'string' ? actorName(id, agents, tActors) : '')
       const tag = typeof meta.tag === 'string' ? meta.tag : ''
 
       switch (a.type) {
@@ -70,6 +71,6 @@ export function useActivityText() {
           return a.message
       }
     },
-    [t, tasks, agents, columns],
+    [t, tActors, tasks, agents, columns],
   )
 }

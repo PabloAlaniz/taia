@@ -27,6 +27,7 @@ import { Dropdown } from '../molecules/dropdown'
 import { formatMinutes, isOverdue, parseTimeInput } from '../../lib/task-utils'
 import { useStore } from '../../lib/store'
 import { api } from '../../lib/api'
+import { actorName } from '../../lib/format'
 import { WorktreePanel } from './worktree-panel'
 import { shortTaskId } from '@taia/domain/domain/task/task-id'
 
@@ -91,6 +92,7 @@ export const TaskSidebar = forwardRef<TaskSidebarHandle, TaskSidebarProps>(funct
   const [depError, setDepError] = useState<string | null>(null)
   const t = useTranslations('taskSidebarUi')
   const tp = useTranslations('taskPage')
+  const tActors = useTranslations('actors')
   const format = useFormatter()
   const now = useNow({ updateInterval: 60_000 })
   const ago = (iso: string) => format.relativeTime(parseTimestamp(iso), now)
@@ -270,7 +272,9 @@ export const TaskSidebar = forwardRef<TaskSidebarHandle, TaskSidebarProps>(funct
                 <span className="text-sm">{creatorAgent.name}</span>
               </div>
             ) : (
-              <span className="text-sm text-muted">{task.created_by}</span>
+              <span className="text-sm text-muted">
+                {actorName(task.created_by, agents, tActors)}
+              </span>
             )
           })()}
         </div>

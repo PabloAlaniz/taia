@@ -4,7 +4,7 @@ import Link from 'next/link'
 import { useFormatter, useNow, useTranslations } from 'next-intl'
 import { Activity, Agent, Task } from '@taia/types'
 import { cn } from '../../lib/utils'
-import { participantKind } from '../../lib/format'
+import { actorName, participantKind } from '../../lib/format'
 import { useActivityText } from '../../lib/use-activity-text'
 
 interface ActivityFeedProps {
@@ -15,6 +15,7 @@ interface ActivityFeedProps {
 
 export function ActivityFeed({ activities, agents }: ActivityFeedProps) {
   const t = useTranslations('activity')
+  const tActors = useTranslations('actors')
   const format = useFormatter()
   const describe = useActivityText()
   // One clock per minute, so relative times stay current without re-rendering per second.
@@ -40,17 +41,23 @@ export function ActivityFeed({ activities, agents }: ActivityFeedProps) {
           activities.map((activity) => {
             const agent = getAgent(activity.agent_id)
             const kind = participantKind(agent)
+            // Agents and people in their colour; TAIA's own actors (web UI, MCP…) in plain text.
+            const who = actorName(activity.agent_id, agents, tActors)
             const body = (
               <>
                 <div className="flex items-baseline gap-2 text-xs">
-                  {agent && (
+                  {who && (
                     <span
                       className={cn(
                         'font-semibold truncate',
-                        kind === 'person' ? 'text-person-ink' : 'text-agent-ink',
+                        kind === 'person'
+                          ? 'text-person-ink'
+                          : kind === 'agent'
+                            ? 'text-agent-ink'
+                            : 'text-foreground',
                       )}
                     >
-                      {agent.name}
+                      {who}
                     </span>
                   )}
                   <time dateTime={activity.created_at} className="ml-auto shrink-0 text-muted">
