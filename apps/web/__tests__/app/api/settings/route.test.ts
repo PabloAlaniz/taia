@@ -1,3 +1,4 @@
+import { randomBytes } from 'node:crypto'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { NextRequest } from 'next/server'
 
@@ -104,11 +105,11 @@ describe('PUT /api/settings', () => {
         headers: { 'Content-Type': 'application/json' },
       }),
     )
-  // Synthetic secret, only for these tests.
+  // Built at run time: a committed whsec_ literal trips secret scanners.
   const webhookEndpoint = {
     id: 'n8n',
     url: 'http://192.168.1.20:5678/webhook/taia',
-    secret: 'whsec_dGFpYS13ZWJob29rLXNhbGllbnRlLXNpbnRldGljby0wMQ==',
+    secret: `whsec_${randomBytes(24).toString('base64')}`,
   }
 
   it('saves well-formed outgoing webhook endpoints', async () => {

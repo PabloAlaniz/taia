@@ -12,6 +12,7 @@ import { createReceiver, PostgresIdempotencyStore } from 'omniwebhook'
 import { standardScheme } from 'omniwebhook/standard'
 import { Webhook } from 'standardwebhooks'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
+import { testWebhookSecret } from '../../helpers/webhook-secret'
 
 import {
   cleanupTestPool,
@@ -22,7 +23,7 @@ import {
 } from './test-db-helper'
 
 // Synthetic secret, only for this test.
-const SECRET = 'whsec_dGFpYS13ZWJob29rLXNlY3JldG8tc2ludGV0aWNvLTAx'
+const SECRET = testWebhookSecret()
 
 function signed(id: string) {
   const body = '{"type":"task.updated"}'
