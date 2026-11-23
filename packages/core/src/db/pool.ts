@@ -1,7 +1,7 @@
 // PostgreSQL connection pool singleton + shared helpers
 
 import pg, { Pool } from 'pg'
-import { createHash } from 'crypto'
+import { createHash, randomBytes } from 'crypto'
 import { config } from '../config'
 
 import type { AgentRecord, Subtask } from '@taia/types'
@@ -32,8 +32,9 @@ pool.on('error', (err) => {
   console.error('Unexpected PostgreSQL pool error:', err)
 })
 
+/** A row id: creation time in ms, then 64 random bits from the OS generator. */
 export function generateId(): string {
-  return `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+  return `${Date.now()}-${randomBytes(8).toString('hex')}`
 }
 
 export function createIdempotencyKey(
