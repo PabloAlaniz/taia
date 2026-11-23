@@ -3,8 +3,9 @@
 import { useState, useRef, useEffect } from 'react'
 import { useTranslations } from 'next-intl'
 import { Task, Agent } from '@taia/types'
-import { cn, PRIORITY_COLORS } from '../../lib/utils'
-import { Badge, Code, Input, Backdrop } from '../atoms'
+import { cn } from '../../lib/utils'
+import { useStore } from '../../lib/store'
+import { Badge, Code, Input, Backdrop, PriorityMark } from '../atoms'
 import { Card } from '../molecules'
 import { shortTaskId } from '@taia/domain/domain/task/task-id'
 
@@ -17,6 +18,8 @@ interface SearchBarProps {
 
 export function SearchBar({ tasks, agents, onSelectTask, onClose }: SearchBarProps) {
   const t = useTranslations('search')
+  const columns = useStore((s) => s.boardColumns)
+  const columnLabel = (slug: string) => columns.find((c) => c.slug === slug)?.label ?? slug
   const [query, setQuery] = useState('')
   const [selectedIndex, setSelectedIndex] = useState(0)
   const inputRef = useRef<HTMLInputElement>(null)
@@ -115,20 +118,20 @@ export function SearchBar({ tasks, agents, onSelectTask, onClose }: SearchBarPro
                     onClose()
                   }}
                   className={cn(
-                    'px-3 py-2 cursor-pointer border-l-[3px] transition-colors',
-                    index === selectedIndex ? 'bg-accent/20' : 'hover:bg-card',
+                    'px-3 py-2 cursor-pointer transition-colors',
+                    index === selectedIndex ? 'bg-strip' : 'hover:bg-strip',
                   )}
-                  style={{ borderLeftColor: PRIORITY_COLORS[task.priority] }}
                 >
                   <div className="flex items-center gap-2">
                     <Code size="sm">{shortTaskId(task.id)}</Code>
                     <Badge variant="default" size="xs">
-                      {task.status}
+                      {columnLabel(task.status)}
                     </Badge>
+                    <PriorityMark priority={task.priority} className="ml-auto" />
                   </div>
                   <div className="text-sm mt-1">{task.title}</div>
                   <div className="text-xs text-muted mt-1 flex gap-2">
-                    {task.project && <span>📁 {task.project}</span>}
+                    {task.project && <span>{task.project}</span>}
                     {getAgentName(task.assigned_to) && (
                       <span>{getAgentName(task.assigned_to)}</span>
                     )}

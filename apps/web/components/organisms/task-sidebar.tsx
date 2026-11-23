@@ -12,9 +12,18 @@ import {
   TaskCostBreakdown,
   TaskDependencyDetail,
 } from '@taia/types'
-import { Select, Badge, Input, CostBadge, Button, GitHubIcon, ParticipantMark, Kbd } from '../atoms'
+import {
+  Select,
+  Badge,
+  Input,
+  CostBadge,
+  Button,
+  GitHubIcon,
+  ParticipantMark,
+  Kbd,
+  PriorityMark,
+} from '../atoms'
 import { Dropdown } from '../molecules/dropdown'
-import { PRIORITY_COLORS } from '../../lib/utils'
 import { formatMinutes, isOverdue, parseTimeInput } from '../../lib/task-utils'
 import { useStore } from '../../lib/store'
 import { api } from '../../lib/api'
@@ -206,11 +215,7 @@ export const TaskSidebar = forwardRef<TaskSidebarHandle, TaskSidebarProps>(funct
           {t('priority')}
         </label>
         <div className="flex items-center gap-2">
-          <span
-            className="w-3 h-3 rounded-full shrink-0"
-            style={{ background: PRIORITY_COLORS[task.priority] }}
-            aria-hidden
-          />
+          <PriorityMark priority={task.priority} withLabel={false} className="shrink-0" />
           <Select
             id="task-priority"
             value={task.priority}

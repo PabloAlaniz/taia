@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback } from 'react'
+import { useCallback, useEffect } from 'react'
 import { useTranslations } from 'next-intl'
 import type { Activity } from '@taia/types'
 import { useStore } from './store'
@@ -22,6 +22,12 @@ export function useActivityText() {
   const tasks = useStore((s) => s.tasks)
   const agents = useStore((s) => s.agents)
   const columns = useStore((s) => s.boardColumns)
+  const fetchBoardColumns = useStore((s) => s.fetchBoardColumns)
+  // Pages other than the board don't load columns; without them a move
+  // would read as raw slugs (TODO → IN_PROGRESS).
+  useEffect(() => {
+    if (columns.length === 0) fetchBoardColumns()
+  }, [columns.length, fetchBoardColumns])
 
   return useCallback(
     (a: Activity): string => {

@@ -3,8 +3,7 @@
 import { useTranslations } from 'next-intl'
 import { ArrowLeft } from 'lucide-react'
 import { Task } from '@taia/types'
-import { Button, Badge, Divider } from '../atoms'
-import { PRIORITY_COLORS } from '../../lib/utils'
+import { Button, Badge, Divider, PriorityMark } from '../atoms'
 import { useStore } from '../../lib/store'
 import { shortTaskId } from '@taia/domain/domain/task/task-id'
 
@@ -15,7 +14,6 @@ interface TaskHeaderProps {
 
 export function TaskHeader({ task, onBack }: TaskHeaderProps) {
   const t = useTranslations('taskPage')
-  const priorityColor = PRIORITY_COLORS[task.priority]
   const tagColors = useStore((s) => s.tagColors)
 
   return (
@@ -31,13 +29,7 @@ export function TaskHeader({ task, onBack }: TaskHeaderProps) {
         <div className="flex items-center gap-3">
           <code className="text-xs text-muted">#{shortTaskId(task.id)}</code>
 
-          <span
-            className="w-2 h-2 rounded-full"
-            style={{ background: priorityColor }}
-            role="img"
-            aria-label={t('priorityAria', { priority: task.priority })}
-            title={t('priorityAria', { priority: task.priority })}
-          />
+          <PriorityMark priority={task.priority} />
 
           {task.project && (
             <Badge variant="accent" size="sm">

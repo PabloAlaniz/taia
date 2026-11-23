@@ -4,9 +4,8 @@ import { useState } from 'react'
 import { useFormatter, useTranslations } from 'next-intl'
 import { X } from 'lucide-react'
 import { Task, Message, Agent } from '@taia/types'
-import { PRIORITY_COLORS } from '../../lib/utils'
 import { useStore } from '../../lib/store'
-import { Button, Badge, Input, ParticipantMark } from '../atoms'
+import { Button, Badge, Input, ParticipantMark, PriorityMark } from '../atoms'
 import { Card } from '../molecules'
 
 interface TaskDetailProps {
@@ -46,8 +45,6 @@ export function TaskDetail({
     setNewMessage('')
   }
 
-  const priorityColor = PRIORITY_COLORS[task.priority]
-
   return (
     <div className="flex flex-col h-full">
       {/* Header */}
@@ -55,12 +52,7 @@ export function TaskDetail({
         <div className="flex-1 min-w-0">
           <code className="text-2xs text-muted block mb-1">{tp('taskId', { id: task.id })}</code>
           <div className="flex items-center gap-2">
-            <span
-              className="w-2 h-2 rounded-full"
-              style={{ background: priorityColor }}
-              role="img"
-              aria-label={tp('priorityAria', { priority: task.priority })}
-            />
+            <PriorityMark priority={task.priority} withLabel={false} />
             <h3 className="text-base font-medium truncate">{task.title}</h3>
           </div>
           {task.project && (

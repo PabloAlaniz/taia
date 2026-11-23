@@ -24,3 +24,4 @@ export { ProgressBar, type ProgressBarProps, type ProgressBarSegment } from './p
 export { MateMark } from './mate-mark'
 export { Strip, type StripProps, type StripKind } from './strip'
 export { ParticipantMark } from './participant-mark'
+export { PriorityMark } from './priority-mark'
