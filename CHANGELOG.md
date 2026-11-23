@@ -15,6 +15,10 @@ El formato se basa en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/
 
 ### Webhooks
 
+- **Cambio incompatible:** los webhooks entrantes que no vienen de GitHub se firman con [Standard Webhooks](https://www.standardwebhooks.com/) (`webhook-id`, `webhook-timestamp` y `webhook-signature`). Las cabeceras `x-taia-webhook-*` ya no se aceptan. El secreto de cada workspace tiene que tener la forma `whsec_<base64>`.
+- Los webhooks de GitHub se verifican con la firma que manda GitHub (`x-hub-signature-256` sobre el cuerpo). Antes se esperaba además un timestamp que GitHub no manda, así que una entrega real de GitHub se rechazaba.
+- La verificación y la deduplicación de los webhooks entrantes las hace [omniwebhook](https://github.com/PabloAlaniz/omniwebhook). Cada evento se reserva en la tabla `omniwebhook_events` (migración `0005`) antes de procesarlo. Así dos entregas simultáneas del mismo evento no se aplican dos veces, y un fallo libera el evento para el reintento del emisor.
+- `?dry_run=1` verifica y calcula sin consumir el evento.
 - Los webhooks salientes no reintentan los errores que no van a cambiar (`4xx` salvo `408`, `425` y `429`) y respetan el `Retry-After` del receptor. Si pide esperar más de 10 segundos, la entrega pasa a *dead letter* con la hora en que se puede reenviar.
 
 ### Agentes

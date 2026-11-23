@@ -120,7 +120,7 @@ Las variables de los tests (`TEST_DATABASE_URL`, `OPENCLAW_GATEWAY_*`) están en
 | `app.ws_url` | URL del WebSocket para el navegador | Ajustes › General |
 | `app.default_tz` | Zona horaria por defecto | Ajustes › General |
 | `worktree.*` | Rutas y comportamiento de los worktrees | Ajustes › Worktrees |
-| `webhooks.incoming.<ws>.secret` | Secreto de los webhooks entrantes | API |
+| `webhooks.incoming.<ws>.secret` | Secreto de los webhooks entrantes, con la forma `whsec_<base64>` | API |
 | `webhooks.outgoing.<ws>.endpoints` | Endpoints de los webhooks salientes (JSON) | API |
 | `telegram_target`, `alerts.channel` | Destinatario y canal de las alertas, enviadas por el runtime (capacidad `messaging`) | API |
 

@@ -1,19 +1,20 @@
 import { createHmac } from 'node:crypto'
+import { MemoryIdempotencyStore } from 'omniwebhook'
+import { Webhook } from 'standardwebhooks'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   handleIncomingWebhook,
-  verifyIncomingWebhookSignature,
+  IncomingWebhookError,
+  type IncomingWebhookRequest,
 } from '@taia/core/services/incoming-webhook.service'
 
 const mockGetSetting = vi.fn()
-const mockSetSetting = vi.fn()
 const mockLogActivity = vi.fn()
 const mockGetTaskById = vi.fn()
 const mockUpdateTask = vi.fn()
 
 vi.mock('@taia/core/db/repositories/setting.repository', () => ({
   getSetting: (...args: unknown[]) => mockGetSetting(...args),
-  setSetting: (...args: unknown[]) => mockSetSetting(...args),
 }))
 
 const mockGetWorkspaceColumns = vi.fn(async (_workspaceId: string) => [] as Array<{ slug: string }>)
@@ -28,118 +29,223 @@ vi.mock('@taia/core/db', () => ({
   updateTask: (...args: unknown[]) => mockUpdateTask(...args),
 }))
 
-function signature(secret: string, timestamp: string, rawBody: string) {
-  return `sha256=${createHmac('sha256', secret).update(`${timestamp}.${rawBody}`).digest('hex')}`
+// Synthetic secret, only for these tests.
+const SECRET = 'whsec_dGFpYS13ZWJob29rLXNlY3JldG8tc2ludGV0aWNvLTAx'
+const NOW = 1_800_000_000
+const clock = { now: () => NOW }
+
+/** A delivery signed the Standard Webhooks way, as TAIA's docs ask senders to. */
+function standardRequest(
+  payload: unknown,
+  id = 'msg_1',
+  options: { timestamp?: number; secret?: string } = {},
+): IncomingWebhookRequest {
+  const body = JSON.stringify(payload)
+  const timestamp = options.timestamp ?? NOW
+  const signature = new Webhook(options.secret ?? SECRET).sign(id, new Date(timestamp * 1000), body)
+  return {
+    headers: [
+      ['webhook-id', id],
+      ['webhook-timestamp', String(timestamp)],
+      ['webhook-signature', signature],
+      ['content-type', 'application/json'],
+    ],
+    query: [],
+    body: new TextEncoder().encode(body),
+  }
 }
 
-describe('verifyIncomingWebhookSignature', () => {
-  it('accepts a fresh HMAC SHA-256 signature over timestamp.rawBody', () => {
-    const rawBody = JSON.stringify({ event: 'push' })
-    const timestamp = '1800000000'
-    expect(
-      verifyIncomingWebhookSignature({
-        secret: 'top-secret',
-        rawBody,
-        timestamp,
-        signature: signature('top-secret', timestamp, rawBody),
-        now: new Date(Number(timestamp) * 1000),
-      }),
-    ).toEqual({ ok: true })
-  })
+/** A delivery signed exactly like GitHub does: HMAC-SHA256 of the body, no timestamp. */
+function githubRequest(event: string, payload: unknown, delivery = 'gh-1'): IncomingWebhookRequest {
+  const body = JSON.stringify(payload)
+  const signature = `sha256=${createHmac('sha256', SECRET).update(body).digest('hex')}`
+  return {
+    headers: [
+      ['x-github-event', event],
+      ['x-github-delivery', delivery],
+      ['x-hub-signature-256', signature],
+    ],
+    query: [],
+    body: new TextEncoder().encode(body),
+  }
+}
 
-  it('rejects stale deliveries as replay attempts', () => {
-    const result = verifyIncomingWebhookSignature({
-      secret: 'top-secret',
-      rawBody: '{}',
-      timestamp: '1800000000',
-      signature: signature('top-secret', '1800000000', '{}'),
-      now: new Date((1800000000 + 301) * 1000),
-    })
+let store: MemoryIdempotencyStore
 
-    expect(result).toMatchObject({ ok: false, code: 'STALE_WEBHOOK', status: 401 })
+function receive(
+  request: IncomingWebhookRequest,
+  extra: { dryRun?: boolean; workspaceId?: string } = {},
+) {
+  return handleIncomingWebhook({
+    workspaceId: extra.workspaceId ?? 'ws-1',
+    request,
+    dryRun: extra.dryRun,
+    store,
+    clock,
   })
-})
+}
+
+async function rejection(promise: Promise<unknown>): Promise<IncomingWebhookError> {
+  const error = await promise.then(
+    () => null,
+    (caught: unknown) => caught,
+  )
+  if (!(error instanceof IncomingWebhookError))
+    throw new Error(`expected a rejection, got ${error}`)
+  return error
+}
 
 describe('handleIncomingWebhook', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    store = new MemoryIdempotencyStore()
     mockGetTaskById.mockResolvedValue(undefined)
     mockUpdateTask.mockResolvedValue(null)
-    mockGetSetting.mockImplementation(async (key: string) => {
-      if (key.endsWith('.secret')) return 'top-secret'
-      if (key.endsWith('.deliveries')) return null
-      return null
-    })
+    mockGetSetting.mockImplementation(async (key: string) =>
+      key === 'webhooks.incoming.ws-1.secret' || key === 'webhooks.incoming.ws-2.secret'
+        ? SECRET
+        : null,
+    )
   })
 
-  it('persists the delivery id and logs accepted activity for valid payloads', async () => {
-    const rawBody = JSON.stringify({ event: 'task.updated', title: 'Webhook test' })
-    const timestamp = '1800000000'
+  it('accepts a Standard Webhooks delivery and logs it', async () => {
+    const result = await receive(standardRequest({ type: 'task.updated', title: 'Webhook test' }))
 
-    const result = await handleIncomingWebhook({
-      workspaceId: 'ws-1',
-      rawBody,
-      payload: { event: 'task.updated', title: 'Webhook test' },
-      headers: {
-        id: 'delivery-1',
-        timestamp,
-        signature: signature('top-secret', timestamp, rawBody),
-      },
-      now: new Date(Number(timestamp) * 1000),
+    expect(result).toMatchObject({
+      accepted: true,
+      duplicate: false,
+      deliveryId: 'msg_1',
+      event: 'task.updated',
+      provider: 'taia',
     })
-
-    expect(result).toMatchObject({ accepted: true, duplicate: false, deliveryId: 'delivery-1' })
-    expect(mockSetSetting).toHaveBeenCalledWith(
-      'webhooks.incoming.ws-1.deliveries',
-      expect.stringContaining('delivery-1'),
-    )
     expect(mockLogActivity).toHaveBeenCalledWith(
       expect.objectContaining({
         type: 'webhook.incoming',
         agent_id: 'system',
         workspace_id: 'ws-1',
-        message: 'Incoming webhook accepted: task.updated (delivery-1)',
+        message: 'Incoming webhook accepted: task.updated (msg_1)',
       }),
     )
   })
 
-  it('does not process the same delivery id twice', async () => {
-    const rawBody = JSON.stringify({ event: 'task.updated' })
-    const timestamp = '1800000000'
-    mockGetSetting.mockImplementation(async (key: string) => {
-      if (key.endsWith('.secret')) return 'top-secret'
-      if (key.endsWith('.deliveries')) {
-        return JSON.stringify({
-          'delivery-1': {
-            firstSeenAt: new Date(Number(timestamp) * 1000).toISOString(),
-            event: 'task.updated',
-            signature: 'abc',
-          },
-        })
-      }
-      return null
-    })
+  it('does not process the same delivery twice', async () => {
+    await receive(standardRequest({ type: 'task.updated' }))
+    vi.clearAllMocks()
 
-    const result = await handleIncomingWebhook({
-      workspaceId: 'ws-1',
-      rawBody,
-      payload: { event: 'task.updated' },
-      headers: {
-        id: 'delivery-1',
-        timestamp,
-        signature: signature('top-secret', timestamp, rawBody),
-      },
-      now: new Date(Number(timestamp) * 1000),
-    })
+    const result = await receive(standardRequest({ type: 'task.updated' }))
 
-    expect(result).toMatchObject({ accepted: false, duplicate: true })
-    expect(mockSetSetting).not.toHaveBeenCalled()
+    expect(result).toMatchObject({ accepted: false, duplicate: true, deliveryId: 'msg_1' })
+    expect(mockLogActivity).toHaveBeenCalledTimes(1)
     expect(mockLogActivity).toHaveBeenCalledWith(
       expect.objectContaining({
         type: 'webhook.duplicate',
         message: expect.stringContaining('ignored'),
       }),
     )
+  })
+
+  it('keeps event ids apart per workspace', async () => {
+    await receive(standardRequest({ type: 'task.updated' }), { workspaceId: 'ws-1' })
+
+    const result = await receive(standardRequest({ type: 'task.updated' }), { workspaceId: 'ws-2' })
+
+    expect(result).toMatchObject({ accepted: true, duplicate: false, workspaceId: 'ws-2' })
+  })
+
+  it('without a configured secret answers 428', async () => {
+    const error = await rejection(receive(standardRequest({}), { workspaceId: 'ws-sin-secreto' }))
+
+    expect(error).toMatchObject({ status: 428, code: 'WEBHOOK_SECRET_NOT_CONFIGURED' })
+  })
+
+  it('a secret Standard Webhooks cannot use is a configuration problem, not a bad signature', async () => {
+    mockGetSetting.mockResolvedValue('not base64 at all!')
+
+    const error = await rejection(receive(standardRequest({})))
+
+    expect(error).toMatchObject({ status: 428, code: 'WEBHOOK_SECRET_NOT_CONFIGURED' })
+  })
+
+  it.each([
+    [
+      'signed with another secret',
+      () => standardRequest({}, 'msg_1', { secret: 'whsec_b3Ryby1zZWNyZXRvLXNpbnRldGljbw==' }),
+      401,
+      'INVALID_SIGNATURE',
+    ],
+    ['too old', () => standardRequest({}, 'msg_1', { timestamp: NOW - 301 }), 401, 'STALE_WEBHOOK'],
+    [
+      'unsigned',
+      () => ({ headers: [], query: [], body: new TextEncoder().encode('{}') }),
+      401,
+      'MISSING_SIGNATURE',
+    ],
+  ] as const)(
+    'rejects a delivery %s without touching anything',
+    async (_name, build, status, code) => {
+      const error = await rejection(receive(build() as IncomingWebhookRequest))
+
+      expect(error).toMatchObject({ status, code })
+      expect(mockLogActivity).not.toHaveBeenCalled()
+    },
+  )
+
+  it('rejects a body that is not a JSON object and frees the event for a fixed retry', async () => {
+    const request = standardRequest({})
+    const broken = { ...request, body: new TextEncoder().encode('[not json') }
+    // The signature covers the body, so sign the broken one.
+    const signature = new Webhook(SECRET).sign('msg_1', new Date(NOW * 1000), '[not json')
+    const signed = {
+      ...broken,
+      headers: broken.headers.map(
+        ([k, v]) => [k, k === 'webhook-signature' ? signature : v] as [string, string],
+      ),
+    }
+
+    const error = await rejection(receive(signed))
+
+    expect(error).toMatchObject({ status: 400, code: 'INVALID_JSON' })
+    expect((await receive(standardRequest({ type: 'ok' }))).accepted).toBe(true)
+  })
+
+  it('a dry run verifies and reports, but does not reserve the event', async () => {
+    const dry = await receive(standardRequest({ type: 'task.updated' }), { dryRun: true })
+    const real = await receive(standardRequest({ type: 'task.updated' }))
+
+    expect(dry).toMatchObject({ accepted: true, dryRun: true })
+    expect(real).toMatchObject({ accepted: true, duplicate: false })
+  })
+
+  it('a dry run still checks the signature', async () => {
+    const forged = standardRequest({}, 'msg_1', {
+      secret: 'whsec_b3Ryby1zZWNyZXRvLXNpbnRldGljbw==',
+    })
+
+    expect(await rejection(receive(forged, { dryRun: true }))).toMatchObject({
+      code: 'INVALID_SIGNATURE',
+    })
+  })
+
+  it('accepts a delivery signed exactly like GitHub signs it', async () => {
+    const result = await receive(githubRequest('push', { commits: [] }))
+
+    expect(result).toMatchObject({ accepted: true, provider: 'github', deliveryId: 'gh-1' })
+  })
+
+  it('rejects a GitHub delivery with a forged signature', async () => {
+    const request = githubRequest('push', { commits: [] })
+    const forged = {
+      ...request,
+      headers: request.headers.map(
+        ([k, v]) =>
+          [k, k === 'x-hub-signature-256' ? `sha256=${'0'.repeat(64)}` : v] as [string, string],
+      ),
+    }
+
+    expect(await rejection(receive(forged))).toMatchObject({
+      status: 401,
+      code: 'INVALID_SIGNATURE',
+    })
   })
 
   it('normalizes a signed GitHub issue close into an auditable task transition', async () => {
@@ -151,7 +257,6 @@ describe('handleIncomingWebhook', () => {
         html_url: 'https://github.test/acme/repo/issues/7',
       },
     })
-    const timestamp = '1800000000'
     mockGetTaskById.mockResolvedValue({
       id: '1790210227248-vjik8p',
       status: 'IN_PROGRESS',
@@ -163,18 +268,7 @@ describe('handleIncomingWebhook', () => {
       workspace_id: 'ws-1',
     })
 
-    const result = await handleIncomingWebhook({
-      workspaceId: 'ws-1',
-      rawBody,
-      payload: JSON.parse(rawBody),
-      headers: {
-        id: 'github-delivery-1',
-        githubEvent: 'issues',
-        timestamp,
-        signature: signature('top-secret', timestamp, rawBody),
-      },
-      now: new Date(Number(timestamp) * 1000),
-    })
+    const result = await receive(githubRequest('issues', JSON.parse(rawBody), 'github-delivery-1'))
 
     expect(result).toMatchObject({
       accepted: true,
@@ -198,7 +292,6 @@ describe('handleIncomingWebhook', () => {
       action: 'closed',
       issue: { title: 'Fix task:1790210227248-vjik8p' },
     })
-    const timestamp = '1800000000'
     mockGetWorkspaceColumns.mockResolvedValueOnce([{ slug: 'LEAD' }, { slug: 'CERRADO_GANADO' }])
     mockGetTaskById.mockResolvedValue({
       id: '1790210227248-vjik8p',
@@ -206,18 +299,7 @@ describe('handleIncomingWebhook', () => {
       workspace_id: 'ws-1',
     })
 
-    const result = await handleIncomingWebhook({
-      workspaceId: 'ws-1',
-      rawBody,
-      payload: JSON.parse(rawBody),
-      headers: {
-        id: 'github-delivery-9',
-        githubEvent: 'issues',
-        timestamp,
-        signature: signature('top-secret', timestamp, rawBody),
-      },
-      now: new Date(Number(timestamp) * 1000),
-    })
+    const result = await receive(githubRequest('issues', JSON.parse(rawBody), 'github-delivery-9'))
 
     expect(result).toMatchObject({ transition: { from: 'LEAD', to: 'DONE', applied: false } })
     expect(mockUpdateTask).not.toHaveBeenCalled()
@@ -229,25 +311,15 @@ describe('handleIncomingWebhook', () => {
       dry_run: true,
       pull_request: { title: 'Implements task:1790210227248-vjik8p' },
     })
-    const timestamp = '1800000000'
     mockGetTaskById.mockResolvedValue({
       id: '1790210227248-vjik8p',
       status: 'IN_PROGRESS',
       workspace_id: 'ws-1',
     })
 
-    const result = await handleIncomingWebhook({
-      workspaceId: 'ws-1',
-      rawBody,
-      payload: JSON.parse(rawBody),
-      headers: {
-        id: 'github-delivery-2',
-        githubEvent: 'pull_request',
-        timestamp,
-        signature: signature('top-secret', timestamp, rawBody),
-      },
-      now: new Date(Number(timestamp) * 1000),
-    })
+    const result = await receive(
+      githubRequest('pull_request', JSON.parse(rawBody), 'github-delivery-2'),
+    )
 
     expect(result).toMatchObject({
       provider: 'github',
@@ -262,20 +334,8 @@ describe('handleIncomingWebhook', () => {
 
   it('records unlinked GitHub payloads as audit-only diagnostics', async () => {
     const rawBody = JSON.stringify({ action: 'push', commits: [{ message: 'No task link' }] })
-    const timestamp = '1800000000'
 
-    const result = await handleIncomingWebhook({
-      workspaceId: 'ws-1',
-      rawBody,
-      payload: JSON.parse(rawBody),
-      headers: {
-        id: 'github-delivery-3',
-        githubEvent: 'push',
-        timestamp,
-        signature: signature('top-secret', timestamp, rawBody),
-      },
-      now: new Date(Number(timestamp) * 1000),
-    })
+    const result = await receive(githubRequest('push', JSON.parse(rawBody), 'github-delivery-3'))
 
     expect(result).toMatchObject({
       provider: 'github',

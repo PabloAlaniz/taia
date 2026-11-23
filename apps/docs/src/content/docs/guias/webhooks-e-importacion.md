@@ -11,21 +11,31 @@ Las tres funciones se usan **por API**; no tienen pantalla propia.
 
 `POST /api/webhooks/incoming?workspace_id=<ws>` recibe eventos firmados, de GitHub o propios.
 
-**Configuración:** el secreto de cada workspace se guarda en el setting `webhooks.incoming.<workspace>.secret`:
+**Configuración:** el secreto de cada workspace se guarda en el setting `webhooks.incoming.<workspace>.secret`. Tiene que tener la forma `whsec_<base64>`, la de [Standard Webhooks](https://www.standardwebhooks.com/). Para generar uno:
 
 ```bash
+echo "whsec_$(openssl rand -base64 32)"
 curl -X PUT http://localhost:13333/api/settings -H 'content-type: application/json' \
-  -d '{"settings": {"webhooks.incoming.ws-default.secret": "<secreto>"}}'
+  -d '{"settings": {"webhooks.incoming.ws-default.secret": "whsec_…"}}'
 ```
 
 **Firma:**
 
-| Origen | Headers |
+| Origen | Cómo se firma |
 |---|---|
-| GitHub | `x-hub-signature-256`, `x-github-event` y `x-github-delivery` (GitHub los manda solos si configurás el mismo secreto) |
-| Propio | `x-taia-webhook-signature` = `sha256=` + HMAC-SHA256 de `"<timestamp>.<body>"`, `x-taia-webhook-timestamp` (segundos Unix) y `x-taia-webhook-id` |
+| GitHub | Como firma GitHub: `x-hub-signature-256` sobre el cuerpo, con `x-github-event` y `x-github-delivery`. En GitHub, configurá como secreto el mismo texto completo, `whsec_…` incluido |
+| Cualquier otro | [Standard Webhooks](https://www.standardwebhooks.com/): `webhook-id`, `webhook-timestamp` y `webhook-signature`. Las librerías oficiales de Standard Webhooks y [omniwebhook](https://github.com/PabloAlaniz/omniwebhook) firman así |
 
-Se rechazan las firmas inválidas, los timestamps de más de 5 minutos y las entregas repetidas (mismo id). Más de 120 entregas por minuto de un mismo cliente reciben `429` con `Retry-After`; se ajusta con `TAIA_WEBHOOK_RATE_LIMIT`. Sin `TAIA_TRUSTED_PROXIES`, todos los clientes comparten ese cupo.
+La verificación y la deduplicación las hace [omniwebhook](https://github.com/PabloAlaniz/omniwebhook):
+
+- Se rechazan con `401` las firmas inválidas, ausentes o repetidas, y los timestamps de más de 5 minutos.
+- Cada evento se procesa una sola vez por workspace. Una entrega repetida (mismo `webhook-id` o `x-github-delivery`) responde `200` con `duplicate: true`. Si llega mientras la primera todavía se está procesando, responde `409` y el emisor la reintenta.
+- Si el procesamiento falla, el evento queda libre para que el reintento del emisor funcione.
+- Sin secreto, o con uno que no tiene la forma `whsec_<base64>`, responde `428`.
+
+Más de 120 entregas por minuto de un mismo cliente reciben `429` con `Retry-After`; se ajusta con `TAIA_WEBHOOK_RATE_LIMIT`. Sin `TAIA_TRUSTED_PROXIES`, todos los clientes comparten ese cupo.
+
+Con `?dry_run=1` se verifica la firma y se calcula qué haría, pero no se mueve ninguna tarea ni se consume el evento.
 
 **Qué hace con GitHub:** busca en el issue o PR una referencia a una tarea (`task:<id>`) y, según el evento, la mueve:
 
@@ -36,7 +46,7 @@ Se rechazan las firmas inválidas, los timestamps de más de 5 minutos y las ent
 | PR `opened`, `ready_for_review`, `synchronize`… | `REVIEW` |
 | PR `closed` mergeado / no mergeado | `DONE` / `REJECTED` |
 
-Esos slugs son los del preset Software Dev. Si el workspace no tiene esa columna, la transición queda registrada en la actividad pero no se aplica. Con `?dry_run=1` solo se registra.
+Esos slugs son los del preset Software Dev. Si el workspace no tiene esa columna, la transición queda registrada en la actividad pero no se aplica.
 
 ## Webhooks salientes
 
