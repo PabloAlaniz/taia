@@ -86,7 +86,8 @@ export interface Credentials {
 
 /** The token a request presents in its headers, if any. */
 export function presentedToken(credentials: Credentials): string | null {
-  const bearer = /^Bearer\s+(.+)$/i.exec(credentials.authorization?.trim() ?? '')?.[1]
+  // `\S` after `\s+`: one place to split, so no backtracking on long runs of spaces.
+  const bearer = /^Bearer\s+(\S.*)$/i.exec(credentials.authorization?.trim() ?? '')?.[1]
   return bearer?.trim() || credentials.apiKey?.trim() || null
 }
 
