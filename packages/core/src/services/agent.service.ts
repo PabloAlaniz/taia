@@ -10,6 +10,8 @@ import {
   setAgentRuntimeInstanceId,
 } from '../db/index'
 import { getAgentContextSummary, type AgentContextSummary } from './context.service'
+import { loadTaskStages } from './task-outcome'
+import { countStages, taskStage, type WorkspaceStages } from './task-stage'
 import { buildInitialIdentity, saveAgentIdentity } from './agent-context.service'
 import {
   deprovisionAgentFromRuntime,
@@ -102,7 +104,11 @@ async function fetchCrons(adapter: AgentRuntimeAdapter): Promise<RuntimeCronJob[
 
 // --- Shared helpers ---
 
-function computeAgentStatuses(tasks: Task[]): {
+/** Working = holds a task in an in-progress column of its board. */
+function computeAgentStatuses(
+  tasks: Task[],
+  stages: WorkspaceStages,
+): {
   working: Set<string>
   blocked: Set<string>
 } {
@@ -110,7 +116,7 @@ function computeAgentStatuses(tasks: Task[]): {
   const blocked = new Set<string>()
   for (const task of tasks) {
     if (task.assigned_to) {
-      if (task.status === 'ASSIGNED' || task.status === 'IN_PROGRESS') {
+      if (taskStage(task, stages) === 'in_progress') {
         working.add(task.assigned_to)
       } else if (task.tags?.includes('blocked')) {
         blocked.add(task.assigned_to)
@@ -131,6 +137,7 @@ function sortAgents(agents: EnrichedAgent[]): void {
 async function addFullDetail(
   agent: EnrichedAgent,
   tasks: Task[],
+  stages: WorkspaceStages,
   cron?: RuntimeCronJob,
 ): Promise<void> {
   if (cron) {
@@ -149,12 +156,20 @@ async function addFullDetail(
 
   agent.context = await getAgentContextSummary(agent.id)
 
+  // Counted by the column each task sits in (task-stage.ts), the same columns
+  // the board and the dashboard read: "assigned" is the participant's open
+  // work not started yet, whatever the column is called.
   const agentTasks = tasks.filter((t) => t.assigned_to === agent.id)
+  const counts = countStages(agentTasks, stages)
   agent.tasks = {
-    assigned: agentTasks.filter((t) => t.status === 'ASSIGNED').length,
-    inProgress: agentTasks.filter((t) => t.status === 'IN_PROGRESS').length,
-    review: agentTasks.filter((t) => t.status === 'REVIEW').length,
-    done: agentTasks.filter((t) => t.status === 'DONE').length,
+    assigned: counts.todo,
+    inProgress: counts.in_progress,
+    review: counts.review,
+    // Completed: finished, except rejected (see task-outcome.ts).
+    done: countStages(
+      agentTasks.filter((t) => t.status !== 'REJECTED'),
+      stages,
+    ).done,
   }
 }
 
@@ -162,14 +177,15 @@ async function addFullDetail(
 
 interface EnrichContext {
   tasks: Task[]
+  stages: WorkspaceStages
   working: Set<string>
   blocked: Set<string>
   fullDetail: boolean
 }
 
 async function loadContext(fullDetail: boolean): Promise<EnrichContext> {
-  const tasks = await getAllTasks()
-  return { tasks, ...computeAgentStatuses(tasks), fullDetail }
+  const [tasks, stages] = await Promise.all([getAllTasks(), loadTaskStages()])
+  return { tasks, stages, ...computeAgentStatuses(tasks, stages), fullDetail }
 }
 
 async function toEnrichedAgent(
@@ -201,7 +217,7 @@ async function toEnrichedAgent(
     nextRunAtMs: nextHeartbeat?.nextRunAtMs,
   }
 
-  if (ctx.fullDetail) await addFullDetail(agent, ctx.tasks, cron)
+  if (ctx.fullDetail) await addFullDetail(agent, ctx.tasks, ctx.stages, cron)
   return agent
 }
 

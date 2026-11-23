@@ -10,10 +10,14 @@ import { RackSection } from '@/components/molecules/rack-section'
 import { PageHeader } from '@/components/molecules/page-header'
 import { ReadoutStrip, type Readout } from '@/components/molecules/readout-strip'
 import {
+  boardStages,
   completedSlugs,
   completionDate,
   computeDailyCompletions,
   isCompleted,
+  isOpen,
+  isStale,
+  stageCounts,
 } from '../../lib/dashboard-utils'
 import { cn } from '../../lib/utils'
 import { useResource } from '@/lib/use-resource'
@@ -35,7 +39,7 @@ interface Stats {
     agent: Agent
     total: number
     done: number
-    pending: number
+    open: number
     timeMinutes: number
   }[]
   byProject: { project: string; count: number; done: number }[]
@@ -140,9 +144,12 @@ async function loadDashboard(
     activities: Activity[]
   }
   // Completed = in one of the workspace's finished columns (Hecho, Publicado…),
-  // the same columns the board files as done.
-  const doneSlugs = completedSlugs(await optionalColumns(columnsRes))
+  // the same columns the board files as done. In progress, in review and
+  // open read the columns too, the way the team page counts them.
+  const columns = await optionalColumns(columnsRes)
+  const doneSlugs = completedSlugs(columns)
   const done = (t: Task) => isCompleted(t, doneSlugs)
+  const stages = boardStages(columns)
 
   // The period filter applies to the breakdowns (by participant, by project,
   // average time). "Now" and "today / this week" are their own windows, so
@@ -176,19 +183,19 @@ async function loadDashboard(
         )
       : 0
 
-  // By participant: what each one holds and what they finished.
+  // By participant: what each one holds now (every open task, whatever the
+  // period, as the team page counts it) and what they finished in the period.
   const byAgent = agents
     .filter((a) => a.type !== 'orchestrator')
     .map((agent) => {
-      const agentTasks = tasks.filter((t) => t.assigned_to === agent.id)
-      const doneTasks = agentTasks.filter(done)
-      const pendingTasks = agentTasks.filter((t) => !done(t) && t.status !== 'REJECTED')
+      const doneTasks = tasks.filter((t) => t.assigned_to === agent.id && done(t))
+      const open = allTasks.filter((t) => t.assigned_to === agent.id && isOpen(t, stages)).length
       const timeMinutes = doneTasks.reduce((sum, t) => sum + (t.time_spent_minutes || 0), 0)
       return {
         agent,
-        total: agentTasks.length,
+        total: doneTasks.length + open,
         done: doneTasks.length,
-        pending: pendingTasks.length,
+        open,
         timeMinutes,
       }
     })
@@ -204,17 +211,15 @@ async function loadDashboard(
     }))
     .sort((a, b) => b.count - a.count)
 
-  // Stale tasks (assigned >24h ago, not moving)
-  const oneDayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000)
-  const staleTasks = allTasks.filter(
-    (t) => t.status === 'ASSIGNED' && new Date(t.updated_at) < oneDayAgo,
-  )
+  // Stale: someone holds it, it has not started, and nothing moved in a day.
+  const staleTasks = allTasks.filter((t) => isStale(t, stages, now))
+  const nowCounts = stageCounts(allTasks, stages)
 
   const stats: Stats = {
     completedToday: completedSince(todayStart),
     completedThisWeek: completedSince(weekStart),
-    inProgress: allTasks.filter((t) => t.status === 'IN_PROGRESS').length,
-    inReview: allTasks.filter((t) => t.status === 'REVIEW').length,
+    inProgress: nowCounts.in_progress,
+    inReview: nowCounts.review,
     blocked: allTasks.filter(
       (t) => t.tags?.includes('blocked') || t.tags?.includes('needs-clarification'),
     ).length,
@@ -496,12 +501,12 @@ export default function DashboardPage() {
                     className="hidden sm:grid grid-cols-[minmax(0,1fr)_4.5rem_4.5rem_5.5rem] gap-x-3 pl-4 pr-3 text-xs font-semibold tracking-[0.08em] uppercase text-on-rack-muted"
                   >
                     <span />
-                    <span className="text-right">{tu('colPending')}</span>
+                    <span className="text-right">{tu('colOpen')}</span>
                     <span className="text-right">{tu('colDone')}</span>
                     <span className="text-right">{tu('colTime')}</span>
                   </div>
                   <ul className="flex flex-col gap-1.5" aria-label={t('byAgent')}>
-                    {stats.byAgent.map(({ agent, done, pending, timeMinutes }) => (
+                    {stats.byAgent.map(({ agent, done, open, timeMinutes }) => (
                       <li key={agent.id}>
                         <Strip kind={participantKind(agent) ?? 'none'} className="py-2">
                           <div className="sm:grid sm:grid-cols-[minmax(0,1fr)_4.5rem_4.5rem_5.5rem] sm:items-center sm:gap-x-3">
@@ -512,12 +517,12 @@ export default function DashboardPage() {
                                 max={maxParticipantTotal}
                                 segments={[
                                   { value: done, className: 'bg-ok' },
-                                  { value: pending, className: 'bg-field' },
+                                  { value: open, className: 'bg-field' },
                                 ]}
                               />
                             </div>
                             <div className="mt-1.5 flex flex-wrap gap-x-4 sm:contents">
-                              <Figure value={pending} label={tu('colPending')} />
+                              <Figure value={open} label={tu('colOpen')} />
                               <Figure value={done} label={tu('colDone')} />
                               <Figure
                                 value={timeMinutes > 0 ? formatTime(timeMinutes) : '—'}

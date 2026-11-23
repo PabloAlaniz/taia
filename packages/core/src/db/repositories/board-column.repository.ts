@@ -107,15 +107,21 @@ export async function reorderColumns(workspaceId: string, orderedIds: string[]):
 }
 
 /** Every column's slug and done flag, for one workspace or all of them. */
-export async function getColumnStates(
-  workspaceId?: string,
-): Promise<{ workspace_id: string; slug: string; is_done_state: boolean }[]> {
+export async function getColumnStates(workspaceId?: string): Promise<
+  {
+    workspace_id: string
+    slug: string
+    position: number
+    is_done_state: boolean
+    is_initial_state: boolean
+  }[]
+> {
+  const columns = 'workspace_id, slug, position, is_done_state, is_initial_state'
   const res = workspaceId
-    ? await pool.query(
-        'SELECT workspace_id, slug, is_done_state FROM board_columns WHERE workspace_id = $1',
-        [workspaceId],
-      )
-    : await pool.query('SELECT workspace_id, slug, is_done_state FROM board_columns')
+    ? await pool.query(`SELECT ${columns} FROM board_columns WHERE workspace_id = $1`, [
+        workspaceId,
+      ])
+    : await pool.query(`SELECT ${columns} FROM board_columns`)
   return res.rows
 }
 

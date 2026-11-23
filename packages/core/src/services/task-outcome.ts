@@ -1,5 +1,6 @@
 import type { Task } from '@taia/types'
 import { getColumnStates } from '../db'
+import { stagesByWorkspace, type WorkspaceStages } from './task-stage'
 
 /** Per workspace: the column slugs it has, and which of them are done states. */
 export type ColumnStates = Map<string, { known: Set<string>; done: Set<string> }>
@@ -30,4 +31,13 @@ export function isFinished(task: Pick<Task, 'status' | 'workspace_id'>, states: 
 /** Completed is finished, except rejected: that closed without being done. */
 export function isCompleted(task: Pick<Task, 'status' | 'workspace_id'>, states: ColumnStates) {
   return task.status !== 'REJECTED' && isFinished(task, states)
+}
+
+/**
+ * Each workspace's columns and their stage (todo, in progress, review, done):
+ * the one reading of "assigned / in progress / in review" every count shares.
+ * See task-stage.ts for the rule.
+ */
+export async function loadTaskStages(workspaceId?: string): Promise<WorkspaceStages> {
+  return stagesByWorkspace(await getColumnStates(workspaceId))
 }

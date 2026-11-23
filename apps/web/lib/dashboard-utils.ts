@@ -1,4 +1,11 @@
 import type { Task } from '@taia/types'
+import {
+  countStages,
+  stagesByWorkspace,
+  taskStage,
+  type TaskStage,
+  type WorkspaceStages,
+} from '@taia/core/services/task-stage'
 
 export interface AgentDayCount {
   agentId: string
@@ -34,6 +41,55 @@ export function isCompleted(
   doneSlugs: ReadonlySet<string> = DEFAULT_DONE_SLUGS,
 ): boolean {
   return doneSlugs.has(task.status)
+}
+
+/**
+ * Each column's stage (todo, in progress, review, done), the reading the team
+ * page and the board share (see @taia/core task-stage). With no columns, a
+ * task is read by its status name.
+ */
+export function boardStages(
+  columns:
+    | readonly {
+        workspace_id: string
+        slug: string
+        position?: number | null
+        is_done_state?: boolean | null
+        is_initial_state?: boolean | null
+      }[]
+    | null
+    | undefined,
+): WorkspaceStages {
+  return stagesByWorkspace(columns ?? [])
+}
+
+/** How many tasks sit in each stage right now. */
+export function stageCounts(
+  tasks: readonly Task[],
+  stages: WorkspaceStages,
+): Record<TaskStage, number> {
+  return countStages(tasks, stages)
+}
+
+/** Open = not in a done column: what a participant still holds. */
+export function isOpen(
+  task: Pick<Task, 'status' | 'workspace_id'>,
+  stages: WorkspaceStages,
+): boolean {
+  return taskStage(task, stages) !== 'done'
+}
+
+/**
+ * Stale = held by someone, in a not-started column (Asignadas, Backlog…),
+ * and untouched for a day.
+ */
+export function isStale(
+  task: Pick<Task, 'status' | 'workspace_id' | 'assigned_to' | 'updated_at'>,
+  stages: WorkspaceStages,
+  now: Date = new Date(),
+): boolean {
+  if (!task.assigned_to || taskStage(task, stages) !== 'todo') return false
+  return new Date(task.updated_at).getTime() < now.getTime() - 24 * 60 * 60 * 1000
 }
 
 /**
