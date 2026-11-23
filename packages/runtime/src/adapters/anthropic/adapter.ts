@@ -3,6 +3,8 @@
 // (DB-backed in production, in-memory in tests) and emits live events that
 // match the SSE route's expectations.
 
+import { randomBytes } from 'node:crypto'
+
 import type { AgentContextBundle } from '@taia/types'
 
 import type { AgentRuntimeAdapter } from '../../adapter'
@@ -428,8 +430,9 @@ export class AnthropicAdapter implements AgentRuntimeAdapter {
   }
 }
 
+/** 64 random bits from the OS generator: run ids end up in session keys. */
 function randomSuffix(): string {
-  return Math.random().toString(36).slice(2, 8)
+  return randomBytes(8).toString('hex')
 }
 
 function sleep(ms: number): Promise<void> {

@@ -140,7 +140,7 @@ describe('AnthropicAdapter', () => {
     const result = await adapter.spawnSession!('Do the thing', { agentId: 'alex' })
 
     expect(result.status).toBe('accepted')
-    expect(result.sessionKey).toMatch(/^anthropic:alex:run-/)
+    expect(result.sessionKey).toMatch(/^anthropic:alex:run-[0-9a-z]+-[0-9a-f]{16}$/)
 
     await adapter.awaitSessionComplete!({ sessionKey: result.sessionKey }, { timeoutMs: 2000 })
 
