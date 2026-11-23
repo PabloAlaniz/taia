@@ -1,7 +1,7 @@
-import { mkdirSync, writeFileSync } from 'fs'
+import { mkdtempSync, rmSync, writeFileSync } from 'fs'
 import { join } from 'path'
 import { tmpdir } from 'os'
-import { describe, expect, it } from 'vitest'
+import { afterAll, describe, expect, it } from 'vitest'
 import {
   applyPendingMigrations,
   compareMigrationHistory,
@@ -12,9 +12,15 @@ import {
   type Queryable,
 } from '../../src/db/migrations'
 
+const scriptsDirs: string[] = []
+afterAll(() => {
+  for (const dir of scriptsDirs) rmSync(dir, { recursive: true, force: true })
+})
+
+/** A fresh private directory (mkdtemp: unique name, mode 0700) holding these migrations. */
 function makeScriptsDir(files: string[] | Record<string, string>): string {
-  const dir = join(tmpdir(), `taia-migrations-${Date.now()}-${Math.random().toString(36).slice(2)}`)
-  mkdirSync(dir, { recursive: true })
+  const dir = mkdtempSync(join(tmpdir(), 'taia-migrations-'))
+  scriptsDirs.push(dir)
   const entries = Array.isArray(files)
     ? files.map((file) => [file, '-- test migration\n'])
     : Object.entries(files)
