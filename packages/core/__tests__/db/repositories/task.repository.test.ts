@@ -159,6 +159,25 @@ describe('task.repository', () => {
       expect(mockClientQuery.mock.calls[3][1]).toEqual(['test-id-123', 'frontend'])
     })
 
+    it('stamps completed_at when the task is created straight into a finished column', async () => {
+      mockClientQuery.mockResolvedValue({ rows: [] })
+      mockQuery
+        .mockResolvedValueOnce({ rows: [{ id: 'test-id-123', title: 'Task', status: 'DONE' }] })
+        .mockResolvedValueOnce({ rows: [] })
+
+      await createTask({ title: 'Task', status: 'DONE', workspace_id: 'ws-1' })
+
+      const insertSql: string = mockClientQuery.mock.calls[1][0]
+      expect(insertSql).toContain('completed_at)')
+      // Checked against the workspace's own columns ($9) for the new status ($4).
+      expect(insertSql).toContain('bc.workspace_id = $9::text AND bc.slug = $4::text')
+      expect(insertSql).toContain('THEN NOW() END')
+      const params = mockClientQuery.mock.calls[1][1]
+      expect(params[3]).toBe('DONE')
+      expect(params[8]).toBe('ws-1')
+      expect(params).toHaveLength(12)
+    })
+
     it('rolls back on error', async () => {
       mockClientQuery
         .mockResolvedValueOnce({ rows: [] }) // BEGIN
@@ -217,6 +236,56 @@ describe('task.repository', () => {
       const updateSql: string = mockQuery.mock.calls[2][0]
       expect(updateSql).toContain('status')
       expect(updateSql).toContain('assigned_to')
+    })
+
+    it('stamps completed_at from the columns when the status changes', async () => {
+      const taskRow = { id: 'task-1', title: 'Task', status: 'REVIEW' }
+      mockQuery
+        .mockResolvedValueOnce({ rows: [taskRow] })
+        .mockResolvedValueOnce({ rows: [] })
+        .mockResolvedValueOnce({ rows: [] }) // UPDATE
+        .mockResolvedValueOnce({ rows: [{ ...taskRow, status: 'PUBLICADO' }] })
+        .mockResolvedValueOnce({ rows: [] })
+
+      await updateTask('task-1', { title: 'Shipped', status: 'PUBLICADO' as never })
+
+      const [sql, params] = mockQuery.mock.calls[2]
+      expect(sql).toContain('title = $1')
+      expect(sql).toContain('status = $2')
+      // The stamp reads the same status parameter and the workspace's columns.
+      expect(sql).toContain('completed_at = CASE WHEN')
+      expect(sql).toContain('bc.slug = $2::text')
+      expect(params).toEqual(['Shipped', 'PUBLICADO', 'task-1'])
+    })
+
+    it('keeps an explicit completed_at instead of stamping one', async () => {
+      const taskRow = { id: 'task-1', title: 'Task', status: 'REVIEW' }
+      mockQuery
+        .mockResolvedValueOnce({ rows: [taskRow] })
+        .mockResolvedValueOnce({ rows: [] })
+        .mockResolvedValueOnce({ rows: [] })
+        .mockResolvedValueOnce({ rows: [taskRow] })
+        .mockResolvedValueOnce({ rows: [] })
+
+      await updateTask('task-1', { status: 'DONE', completed_at: '2026-01-02T03:04:05.000Z' })
+
+      const [sql, params] = mockQuery.mock.calls[2]
+      expect(sql).not.toContain('CASE WHEN')
+      expect(params).toEqual(['DONE', '2026-01-02T03:04:05.000Z', 'task-1'])
+    })
+
+    it('leaves completed_at alone when the status does not change', async () => {
+      const taskRow = { id: 'task-1', title: 'Task', status: 'DONE' }
+      mockQuery
+        .mockResolvedValueOnce({ rows: [taskRow] })
+        .mockResolvedValueOnce({ rows: [] })
+        .mockResolvedValueOnce({ rows: [] })
+        .mockResolvedValueOnce({ rows: [taskRow] })
+        .mockResolvedValueOnce({ rows: [] })
+
+      await updateTask('task-1', { title: 'Renamed' })
+
+      expect(mockQuery.mock.calls[2][0]).not.toContain('completed_at')
     })
 
     it('replaces tags when tags are provided', async () => {
@@ -334,9 +403,31 @@ describe('task.repository', () => {
 
       await moveTask('task-1', 'DONE')
 
-      // The UPDATE should set completed_at = NOW()
+      // One UPDATE stamps completed_at from the workspace's finished columns.
       const updateSql: string = mockClientQuery.mock.calls[1][0]
-      expect(updateSql).toContain('completed_at = NOW()')
+      expect(updateSql).toContain('completed_at = CASE WHEN')
+      expect(updateSql).toContain('ELSE NOW() END')
+      expect(mockClientQuery.mock.calls[1][1]).toEqual(['DONE', 'task-1'])
+    })
+
+    it('decides "finished" by the column, not by the literal DONE slug', async () => {
+      // A Marketing board finishes in PUBLICADO: is_done_state, not 'DONE'.
+      const taskRow = { id: 'task-1', title: 'Task', status: 'EN_REVISION' }
+      mockQuery.mockResolvedValueOnce({ rows: [taskRow] }).mockResolvedValueOnce({ rows: [] })
+      mockClientQuery.mockResolvedValue({ rows: [] })
+      mockQuery
+        .mockResolvedValueOnce({ rows: [{ ...taskRow, status: 'PUBLICADO' }] })
+        .mockResolvedValueOnce({ rows: [] })
+
+      await moveTask('task-1', 'PUBLICADO')
+
+      const updateSql: string = mockClientQuery.mock.calls[1][0]
+      expect(updateSql).toContain('bc.is_done_state FROM board_columns bc')
+      expect(updateSql).toContain('bc.workspace_id = tasks.workspace_id AND bc.slug = $1::text')
+      // Legacy boards without column rows still treat DONE / REJECTED as finished.
+      expect(updateSql).toContain("$1::text IN ('DONE', 'REJECTED')")
+      // Leaving a finished column clears the stamp.
+      expect(updateSql).toContain('ELSE NULL END')
     })
 
     it('clears completed_at when moving away from DONE', async () => {
@@ -350,7 +441,8 @@ describe('task.repository', () => {
       await moveTask('task-1', 'IN_PROGRESS')
 
       const updateSql: string = mockClientQuery.mock.calls[1][0]
-      expect(updateSql).toContain('completed_at = NULL')
+      expect(updateSql).toMatch(/completed_at = CASE WHEN .* ELSE NULL END/)
+      expect(mockClientQuery.mock.calls[1][1]).toEqual(['IN_PROGRESS', 'task-1'])
     })
 
     it('returns null when task not found', async () => {

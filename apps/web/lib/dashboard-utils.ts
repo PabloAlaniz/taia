@@ -11,31 +11,52 @@ export interface DailyCompletion {
   byAgent: AgentDayCount[]
 }
 
-export const AGENT_COLORS = [
-  'bg-emerald-500/70',
-  'bg-blue-500/70',
-  'bg-purple-500/70',
-  'bg-amber-500/70',
-  'bg-pink-500/70',
-  'bg-cyan-500/70',
-  'bg-lime-500/70',
-  'bg-rose-500/70',
-]
+/** Used when the workspace's columns are unknown: the legacy finished status. */
+export const DEFAULT_DONE_SLUGS: ReadonlySet<string> = new Set(['DONE'])
 
 /**
- * Returns a stable color class for an agent based on its sorted position.
+ * The statuses that count as "completed": the workspace's finished columns
+ * (is_done_state), so a board that finishes in PUBLICADO counts too. TAIA's
+ * own REJECTED is finished but not completed, so it never counts.
  */
-export function getAgentColor(agentId: string, agentIds: string[]): string {
-  const sorted = [...agentIds].sort()
-  const idx = sorted.indexOf(agentId)
-  return AGENT_COLORS[idx % AGENT_COLORS.length]
+export function completedSlugs(
+  columns: readonly { slug: string; is_done_state?: boolean | null }[] | null | undefined,
+): ReadonlySet<string> {
+  const slugs = (columns ?? [])
+    .filter((c) => c.is_done_state && c.slug !== 'REJECTED')
+    .map((c) => c.slug)
+  return slugs.length > 0 ? new Set(slugs) : DEFAULT_DONE_SLUGS
+}
+
+/** True when the task sits in a column that counts as completed. */
+export function isCompleted(
+  task: Pick<Task, 'status'>,
+  doneSlugs: ReadonlySet<string> = DEFAULT_DONE_SLUGS,
+): boolean {
+  return doneSlugs.has(task.status)
 }
 
 /**
- * Computes daily completion counts for the last N days, broken down by agent.
- * Only counts tasks with status === 'DONE' and a valid completed_at date.
+ * When a completed task finished. completed_at is the record; rows finished
+ * before it was stamped for every finished column fall back to their last
+ * update, the closest thing on record to the move into the column.
  */
-export function computeDailyCompletions(tasks: Task[], days = 30): DailyCompletion[] {
+export function completionDate(task: Pick<Task, 'completed_at' | 'updated_at'>): Date | null {
+  const raw = task.completed_at || task.updated_at
+  if (!raw) return null
+  const date = new Date(raw)
+  return Number.isNaN(date.getTime()) ? null : date
+}
+
+/**
+ * Computes daily completion counts for the last N days, broken down by
+ * assignee. Counts tasks in a completed column (see `completedSlugs`).
+ */
+export function computeDailyCompletions(
+  tasks: Task[],
+  days = 30,
+  doneSlugs: ReadonlySet<string> = DEFAULT_DONE_SLUGS,
+): DailyCompletion[] {
   const now = new Date()
 
   // Build map of date strings for the last N days
@@ -52,10 +73,9 @@ export function computeDailyCompletions(tasks: Task[], days = 30): DailyCompleti
 
   // Filter and bucket
   for (const task of tasks) {
-    if (task.status !== 'DONE' || !task.completed_at) continue
-
-    const completedDate = new Date(task.completed_at)
-    if (completedDate < cutoff) continue
+    if (!isCompleted(task, doneSlugs)) continue
+    const completedDate = completionDate(task)
+    if (!completedDate || completedDate < cutoff) continue
 
     const dateKey = formatDate(completedDate)
     // Only count if this date falls within our range
