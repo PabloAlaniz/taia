@@ -28,9 +28,9 @@
     "test:coverage": "vitest run --coverage"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^1.8.0",
-    "@openclaw/gateway-client": "2026.11.5",
-    "@openclaw/gateway-protocol": "2026.11.5",
+    "@anthropic-ai/sdk": "^1.11.0",
+    "@openclaw/gateway-client": "2026.11.6",
+    "@openclaw/gateway-protocol": "2026.11.6",
     "@taia/types": "workspace:*",
     "ws": "^8.23.0"
   },
