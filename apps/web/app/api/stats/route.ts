@@ -2,7 +2,13 @@ import { NextRequest, NextResponse } from 'next/server'
 import { apiError } from '@taia/core/errors'
 import { getAllTasks } from '@taia/core/db'
 import { requestWorkspaceId } from '@taia/core/api-handler'
-import { isCompleted, isFinished, loadColumnStates } from '@taia/core/services/task-outcome'
+import {
+  isCompleted,
+  isFinished,
+  loadColumnStates,
+  loadTaskStages,
+} from '@taia/core/services/task-outcome'
+import { countStages, taskStage } from '@taia/core/services/task-stage'
 
 export const dynamic = 'force-dynamic'
 
@@ -21,10 +27,13 @@ export async function GET(request: NextRequest) {
     const filterUser = searchParams.get('assigned_to')
 
     const workspaceId = requestWorkspaceId(request, searchParams.get('workspace_id'))
-    const [allTasks, states] = await Promise.all([
+    const [allTasks, states, stages] = await Promise.all([
       getAllTasks(workspaceId ? { workspaceId } : undefined),
       loadColumnStates(workspaceId ?? undefined),
+      loadTaskStages(workspaceId ?? undefined),
     ])
+    // Each task's stage on its own board: review, todo, in progress, done.
+    const stageOf = (t: (typeof allTasks)[number]) => taskStage(t, stages)
     // Finished = any done column of the task's workspace (not only DONE).
     const finished = (t: (typeof allTasks)[number]) => isFinished(t, states)
     const now = Date.now()
@@ -36,9 +45,9 @@ export async function GET(request: NextRequest) {
       if (finished(t)) return false
 
       if (filterUser) {
-        return t.assigned_to === filterUser || t.status === 'REVIEW'
+        return t.assigned_to === filterUser || stageOf(t) === 'review'
       } else {
-        return t.status === 'REVIEW'
+        return stageOf(t) === 'review'
       }
     })
 
@@ -46,14 +55,14 @@ export async function GET(request: NextRequest) {
     const blocked = allTasks.filter((t) => {
       if (!t.tags?.includes('blocked')) return false
       if (finished(t)) return false
-      if (t.status !== 'IN_PROGRESS' && t.status !== 'ASSIGNED') return false
+      if (stageOf(t) !== 'in_progress' && stageOf(t) !== 'todo') return false
 
       const createdAt = new Date(t.created_at).getTime()
       return createdAt < threeDaysAgo
     })
 
     // In progress by agent
-    const inProgress = allTasks.filter((t) => t.status === 'IN_PROGRESS')
+    const inProgress = allTasks.filter((t) => stageOf(t) === 'in_progress')
     const inProgressByAgent: Record<string, number> = {}
     inProgress.forEach((t) => {
       const agent = t.assigned_to || 'unassigned'
@@ -68,7 +77,7 @@ export async function GET(request: NextRequest) {
     })
 
     // Backlog
-    const backlog = allTasks.filter((t) => t.status === 'INBOX' || t.status === 'IDEA')
+    const backlog = allTasks.filter((t) => stageOf(t) === 'todo' && !t.assigned_to)
 
     // Urgent priority tasks (not done)
     const urgent = allTasks.filter((t) => t.priority === 'URGENT' && !finished(t))
@@ -125,7 +134,10 @@ export async function GET(request: NextRequest) {
         count: backlog.length,
       },
 
-      // Total counts by status
+      /** Every task by stage on its own board (todo, in_progress, review, done). */
+      byStage: countStages(allTasks, stages),
+
+      // Total counts by literal status (kept for existing consumers)
       byStatus: {
         INBOX: allTasks.filter((t) => t.status === 'INBOX').length,
         ASSIGNED: allTasks.filter((t) => t.status === 'ASSIGNED').length,

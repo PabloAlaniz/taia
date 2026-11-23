@@ -33,6 +33,8 @@ export function WorktreePanel({ taskId }: { taskId: string }) {
   const [diffError, setDiffError] = useState(false)
   /** Why the diff didn't load, when the server said. */
   const [diffReason, setDiffReason] = useState<string | null>(null)
+  // The server has no git binary: no retry will load the diff.
+  const gitMissing = !!diffReason && /ENOENT/.test(diffReason)
   /** Merging blind is behind typing the target branch, never one click. */
   const [blindOpen, setBlindOpen] = useState(false)
   const [blindTyped, setBlindTyped] = useState('')
@@ -221,7 +223,7 @@ export function WorktreePanel({ taskId }: { taskId: string }) {
                 <p className="text-sm text-alert font-medium">{t('errors.diff')}</p>
                 {diffReason && (
                   <p className="text-xs text-muted">
-                    {/ENOENT/.test(diffReason) ? t('errors.gitMissing') : t('errors.diffReason')}{' '}
+                    {gitMissing ? t('errors.gitMissing') : t('errors.diffReason')}{' '}
                     <code className="font-mono break-all">{diffReason}</code>
                   </p>
                 )}
@@ -281,7 +283,13 @@ export function WorktreePanel({ taskId }: { taskId: string }) {
             )}
           </ModalBody>
           <ModalFooter>
-            <Button variant="ghost" size="sm" onClick={() => setConfirming(null)} disabled={busy}>
+            <Button
+              // When git itself is missing a retry can't succeed: leaving is the next step.
+              variant={diffError && gitMissing ? 'primary' : 'ghost'}
+              size="sm"
+              onClick={() => setConfirming(null)}
+              disabled={busy}
+            >
               {t('cancel')}
             </Button>
             {diffError ? (
@@ -310,7 +318,7 @@ export function WorktreePanel({ taskId }: { taskId: string }) {
                   </Button>
                 )}
                 <Button
-                  variant="primary"
+                  variant={gitMissing ? 'secondary' : 'primary'}
                   size="sm"
                   onClick={() => loadDiff(worktree)}
                   disabled={busy}

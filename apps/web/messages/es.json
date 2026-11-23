@@ -207,7 +207,7 @@
     "last24h": "Últimas 24h",
     "lastWeek": "Última semana",
     "lastMonth": "Último mes",
-    "allTime": "Todo",
+    "allTime": "Desde siempre",
     "costSection": "Gasto registrado",
     "costNote": "Lo que TAIA guardó de sesiones que ya corrieron. Es historial: queda aunque el runtime que las corrió ya no esté conectado."
   },
@@ -790,7 +790,9 @@
     "legendAgent": "agente",
     "legendPerson": "persona",
     "todayTag": "hoy",
-    "moreTasks": "+{count} más"
+    "moreTasks": "+{count} más",
+    "monthEmpty": "Ninguna tarea vence este mes",
+    "monthEmptyHint": "Para que una tarea aparezca acá, ponele fecha de vencimiento desde la tarea. Con las flechas pasás a otro mes."
   },
   "workspaceForm": {
     "title": "Nuevo workspace",
@@ -1219,7 +1221,9 @@
     "spendByParticipant": "Por participante",
     "spendByDay": "Por día",
     "doneOfTotal": "{done}/{total} hechas",
-    "colOpen": "abiertas"
+    "colOpen": "abiertas",
+    "periodScope": "Desgloses de",
+    "periodNote": "El período cambia los desgloses por participante, proyecto y día. «Ahora» siempre muestra el momento actual."
   },
   "sessionCard": {
     "tokens": "{count} tokens"

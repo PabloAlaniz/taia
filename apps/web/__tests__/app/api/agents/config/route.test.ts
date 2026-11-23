@@ -22,6 +22,8 @@ vi.mock('@taia/core/runtime', () => ({
 }))
 
 vi.mock('@taia/core/db', () => ({
+  // No columns known: statuses are read by their names.
+  getColumnStates: async () => [],
   getAllTasks: (...args: any[]) => mockGetAllTasks(...args),
 }))
 

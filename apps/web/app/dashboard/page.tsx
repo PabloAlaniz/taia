@@ -398,10 +398,15 @@ export default function DashboardPage() {
   return (
     <div className="min-h-full">
       <PageHeader width="data" title={t('title')}>
+        <label htmlFor="dash-period" className="hidden sm:block text-sm text-muted">
+          {tu('periodScope')}
+        </label>
         <Select
+          id="dash-period"
           value={period}
           onChange={(e) => setPeriod(e.target.value as PeriodFilter)}
           aria-label={tu('period')}
+          aria-describedby="dash-period-note"
           className="w-auto py-1 text-sm"
         >
           <option value="24h">{t('last24h')}</option>
@@ -412,6 +417,9 @@ export default function DashboardPage() {
         <Button variant="secondary" size="sm" onClick={reload}>
           {t('refresh')}
         </Button>
+        <span id="dash-period-note" className="sr-only">
+          {tu('periodNote')}
+        </span>
       </PageHeader>
 
       <div className="mx-auto px-4 md:px-6 max-w-6xl pt-5 pb-10 space-y-5">

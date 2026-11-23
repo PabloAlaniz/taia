@@ -118,7 +118,15 @@ export function useBoardSignals(tasks: Task[]): BoardSignals {
   const [pending, setPending] = useState<Record<string, PendingDecision>>({})
   const [decisionErrors, setDecisionErrors] = useState<Record<string, string>>({})
   const timers = useRef(
-    new Map<string, { timer: ReturnType<typeof setTimeout>; send: () => void }>(),
+    new Map<
+      string,
+      {
+        timer: ReturnType<typeof setTimeout>
+        send: () => void
+        decision: 'approved' | 'rejected'
+        decidedBy: string
+      }
+    >(),
   )
 
   const queueDecision = useCallback(
@@ -133,7 +141,12 @@ export function useBoardSignals(tasks: Task[]): BoardSignals {
           }),
         )
       }
-      timers.current.set(approvalId, { timer: setTimeout(send, UNDO_MS), send })
+      timers.current.set(approvalId, {
+        timer: setTimeout(send, UNDO_MS),
+        send,
+        decision,
+        decidedBy,
+      })
       setPending((prev) => ({ ...prev, [approvalId]: { decision, sendAt: Date.now() + UNDO_MS } }))
     },
     [decide],
@@ -147,9 +160,19 @@ export function useBoardSignals(tasks: Task[]): BoardSignals {
   }, [])
 
   // Leaving the board sends what was queued: the user already decided.
+  // Closing the tab too: pagehide sends each with a keepalive request.
   useEffect(() => {
     const queued = timers.current
+    const onLeave = () => {
+      for (const [approvalId, { timer, decision, decidedBy }] of queued) {
+        clearTimeout(timer)
+        api.approvals.decideOnLeave(approvalId, decision, decidedBy)
+      }
+      queued.clear()
+    }
+    window.addEventListener('pagehide', onLeave)
     return () => {
+      window.removeEventListener('pagehide', onLeave)
       for (const { timer, send } of queued.values()) {
         clearTimeout(timer)
         send()

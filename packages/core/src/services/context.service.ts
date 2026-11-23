@@ -30,6 +30,8 @@ import type {
   UserProfile,
 } from '@taia/types'
 
+import { taskStage } from './task-stage'
+import { loadTaskStages } from './task-outcome'
 import {
   getAgentById,
   getActiveWorktreeForTask,
@@ -77,14 +79,16 @@ export async function loadAgentContextBundle(agentId: string): Promise<AgentCont
   // 3. Task — the in-progress task (else the most recent one), the agent's
   //    progress notes and the task's active worktree. Not versioned. Read
   //    before the project: the task's project decides the project layer.
-  const [workingRow, allTasks, memories] = await Promise.all([
+  const [workingRow, allTasks, memories, stages] = await Promise.all([
     getAgentWorkingState(agentId),
     getAllTasks(),
     listAgentMemories(agentId),
+    loadTaskStages(),
   ])
   const working = workingRow?.content
   const myTasks = allTasks.filter((t) => t.assigned_to === agentId)
-  const inProgress = myTasks.find((t) => t.status === 'IN_PROGRESS')
+  // In progress on its own board (see task-stage.ts), not a literal status.
+  const inProgress = myTasks.find((t) => taskStage(t, stages) === 'in_progress')
   const candidate = inProgress ?? myTasks[0]
   const worktree = candidate ? await getActiveWorktreeForTask(candidate.id) : undefined
   const task: TaskBriefing = candidate

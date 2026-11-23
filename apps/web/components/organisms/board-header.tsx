@@ -52,7 +52,7 @@ export function BoardHeader({
         variant={showAgents ? 'primary' : 'ghost'}
         aria-label={showAgents ? t('hideAgents') : t('showAgents')}
         aria-pressed={showAgents}
-        className="lg:hidden"
+        className="min-[1400px]:hidden"
       >
         <Users size={16} aria-hidden="true" />
       </IconButton>

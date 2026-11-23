@@ -115,6 +115,20 @@ describe('WorktreePanel', () => {
     expect(await screen.findByText('Merge conflict in src/a.ts')).toBeInTheDocument()
   })
 
+  it('makes Cancelar the primary action when git is missing on the server', async () => {
+    fetchMock
+      .mockResolvedValueOnce(json({ ok: true, worktrees: [{ ...base, status: 'reviewing' }] }))
+      .mockResolvedValueOnce(json({ ok: false, error: 'git diff failed: spawn git ENOENT' }))
+
+    render(<WorktreePanel taskId="t-1" />)
+    fireEvent.click(await screen.findByText('merge'))
+    expect(await screen.findByText('errors.gitMissing')).toBeInTheDocument()
+
+    // A retry can't fix a missing binary: leaving is the highlighted step.
+    expect(screen.getByText('cancel').closest('button')).toHaveClass('bg-foreground')
+    expect(screen.getByText('retryDiff').closest('button')).not.toHaveClass('bg-foreground')
+  })
+
   it('cancelling the discard dialog does not call the API', async () => {
     fetchMock.mockResolvedValueOnce(json({ ok: true, worktrees: [{ ...base, status: 'active' }] }))
     render(<WorktreePanel taskId="t-1" />)

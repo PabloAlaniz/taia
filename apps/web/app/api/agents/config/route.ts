@@ -1,4 +1,6 @@
 import { NextResponse } from 'next/server'
+import { loadTaskStages } from '@taia/core/services/task-outcome'
+import { taskStage } from '@taia/core/services/task-stage'
 import { forEachRuntime, mergeAgentListings } from '@taia/core/runtime'
 import { RuntimeCapability, type RuntimeCronJob, type RuntimeSettingsSnapshot } from '@taia/runtime'
 import { getAllTasks } from '@taia/core/db'
@@ -55,8 +57,10 @@ export async function GET() {
   try {
     const agentList = await listInstanceAgents()
     const agents: AgentConfig[] = []
+    // Working = holds a task in an in-progress column of its own board.
+    const [allTasks, stages] = await Promise.all([getAllTasks(), loadTaskStages()])
     const inProgressAgents = new Set(
-      (await getAllTasks()).filter((t) => t.status === 'IN_PROGRESS').map((t) => t.assigned_to),
+      allTasks.filter((t) => taskStage(t, stages) === 'in_progress').map((t) => t.assigned_to),
     )
 
     for (const agent of agentList) {

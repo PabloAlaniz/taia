@@ -249,6 +249,19 @@ export const api = {
         decision,
         decided_by: decidedBy,
       }),
+    /**
+     * The same decision, sent while the page is going away: a keepalive
+     * request survives the unload, so a tab closed during the undo window
+     * still delivers what the person chose. Fire and forget.
+     */
+    decideOnLeave: (id: string, decision: 'approved' | 'rejected', decidedBy?: string) => {
+      void fetch(`/api/approvals/${id}/decide`, {
+        method: 'POST',
+        keepalive: true,
+        headers: { 'Content-Type': 'application/json', 'X-Workspace-Id': getActiveWorkspaceId() },
+        body: JSON.stringify({ decision, decided_by: decidedBy }),
+      }).catch(() => {})
+    },
   },
 
   worktrees: {

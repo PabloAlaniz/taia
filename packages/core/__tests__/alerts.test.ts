@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { RuntimeCapability } from '@taia/runtime'
 import { checkAndAlert, generateDailySummary, sendAlert } from '@taia/core/alerts'
 import { Task } from '@taia/types'
+import { stagesByWorkspace } from '@taia/core/services/task-stage'
 
 const mockGetSetting = vi.fn()
 const mockSendChannelMessage = vi.fn()
@@ -164,5 +165,51 @@ describe('generateDailySummary', () => {
     const summary = generateDailySummary(tasks, [])
     expect(summary).toContain('Needs review')
     expect(summary).toContain('PR for Review')
+  })
+})
+
+describe('alerts on a board with its own columns', () => {
+  // A sales-style board: nothing here is literally IN_PROGRESS, REVIEW or DONE.
+  const stages = stagesByWorkspace([
+    { workspace_id: 'ws-sales', slug: 'LEAD', position: 0, is_initial_state: true },
+    { workspace_id: 'ws-sales', slug: 'PROPUESTA', position: 1 },
+    { workspace_id: 'ws-sales', slug: 'EN_REVISION', position: 2 },
+    { workspace_id: 'ws-sales', slug: 'CERRADO_GANADO', position: 3, is_done_state: true },
+  ])
+  const now = new Date()
+  const longAgo = new Date(now.getTime() - 3 * 24 * 60 * 60 * 1000).toISOString()
+  const task = (id: string, status: string, extra: Partial<Task> = {}) =>
+    ({
+      id,
+      title: `T ${status}`,
+      status,
+      workspace_id: 'ws-sales',
+      updated_at: longAgo,
+      ...extra,
+    }) as Task
+
+  it('counts by the column, not the status name', () => {
+    const summary = generateDailySummary(
+      [
+        task('1', 'PROPUESTA'),
+        task('2', 'EN_REVISION'),
+        task('3', 'CERRADO_GANADO', { completed_at: now.toISOString() }),
+        task('4', 'LEAD'),
+      ],
+      [],
+      stages,
+    )
+    expect(summary).toContain('In progress: 1')
+    expect(summary).toContain('Waiting review: 1')
+    expect(summary).toContain('Completed today: 1')
+  })
+
+  it('flags review and stale work by stage', async () => {
+    const alerts = await checkAndAlert(
+      [task('1', 'EN_REVISION'), task('2', 'LEAD', { assigned_to: 'agent-1' })],
+      stages,
+    )
+    expect(alerts.some((a) => a.includes('waiting for review'))).toBe(true)
+    expect(alerts.some((a) => a.includes('stale'))).toBe(true)
   })
 })

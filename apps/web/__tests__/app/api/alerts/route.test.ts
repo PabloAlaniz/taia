@@ -2,6 +2,8 @@ import { describe, it, expect, vi } from 'vitest'
 import { GET, POST } from '@/app/api/alerts/route'
 
 vi.mock('@taia/core/db', () => ({
+  // No columns known: statuses are read by their names.
+  getColumnStates: async () => [],
   getAllTasks: vi.fn(() => [
     {
       id: '1',
