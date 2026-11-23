@@ -21,6 +21,8 @@ const mockGetAgentWorkingState = vi.fn()
 const mockGetActiveWorktreeForTask = vi.fn()
 
 vi.mock('../../src/db/index', () => ({
+  // No columns known: statuses are read by their names.
+  getColumnStates: async () => [],
   getAgentById: (...args: unknown[]) => mockGetAgentById(...args),
   getDefaultWorkspace: (...args: unknown[]) => mockGetDefaultWorkspace(...args),
   getAllTasks: (...args: unknown[]) => mockGetAllTasks(...args),

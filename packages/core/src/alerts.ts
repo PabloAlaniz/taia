@@ -6,6 +6,10 @@ import { Task } from '@taia/types'
 import { RuntimeCapability } from '@taia/runtime'
 import { Activity, getSetting } from './db/index'
 import { getDefaultRuntimeAdapter } from './runtime'
+import { type WorkspaceStages, taskStage } from './services/task-stage'
+
+/** No columns given: each status is read by its name (see task-stage.ts). */
+const NO_COLUMNS: WorkspaceStages = new Map()
 
 interface AlertConfig {
   enabled: boolean
@@ -61,7 +65,10 @@ export async function sendAlert(message: string): Promise<boolean> {
 /** @deprecated use {@link sendAlert} */
 export const sendTelegramAlert = sendAlert
 
-export async function checkAndAlert(tasks: Task[]): Promise<string[]> {
+export async function checkAndAlert(
+  tasks: Task[],
+  stages: WorkspaceStages = NO_COLUMNS,
+): Promise<string[]> {
   if (!DEFAULT_CONFIG.enabled) return []
 
   const alerts: string[] = []
@@ -69,7 +76,7 @@ export async function checkAndAlert(tasks: Task[]): Promise<string[]> {
 
   // Tasks in REVIEW for too long
   const reviewTasks = tasks.filter((t) => {
-    if (t.status !== 'REVIEW') return false
+    if (taskStage(t, stages) !== 'review') return false
     const updated = new Date(t.updated_at)
     const minutesInReview = (now.getTime() - updated.getTime()) / 60000
     return minutesInReview >= DEFAULT_CONFIG.reviewAlertMinutes
@@ -95,10 +102,10 @@ export async function checkAndAlert(tasks: Task[]): Promise<string[]> {
     )
   }
 
-  // Stale tasks (ASSIGNED but no movement)
+  // Stale tasks: someone has it, it hasn't started, and nothing moved
   const staleHours = DEFAULT_CONFIG.staleAlertHours
   const staleTasks = tasks.filter((t) => {
-    if (t.status !== 'ASSIGNED') return false
+    if (!t.assigned_to || taskStage(t, stages) !== 'todo') return false
     const updated = new Date(t.updated_at)
     const hoursStale = (now.getTime() - updated.getTime()) / 3600000
     return hoursStale >= staleHours
@@ -113,20 +120,28 @@ export async function checkAndAlert(tasks: Task[]): Promise<string[]> {
   return alerts
 }
 
-export function generateDailySummary(tasks: Task[], _activities: Activity[]): string {
+export function generateDailySummary(
+  tasks: Task[],
+  _activities: Activity[],
+  stages: WorkspaceStages = NO_COLUMNS,
+): string {
   const now = new Date()
   const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate())
 
   const completedToday = tasks.filter(
-    (t) => t.status === 'DONE' && t.completed_at && new Date(t.completed_at) >= todayStart,
+    (t) =>
+      taskStage(t, stages) === 'done' &&
+      t.status !== 'REJECTED' &&
+      t.completed_at &&
+      new Date(t.completed_at) >= todayStart,
   )
 
-  const inProgress = tasks.filter((t) => t.status === 'IN_PROGRESS')
+  const inProgress = tasks.filter((t) => taskStage(t, stages) === 'in_progress')
   const blocked = tasks.filter(
     (t) => t.tags?.includes('blocked') || t.tags?.includes('needs-clarification'),
   )
-  const review = tasks.filter((t) => t.status === 'REVIEW')
-  const inbox = tasks.filter((t) => t.status === 'INBOX')
+  const review = tasks.filter((t) => taskStage(t, stages) === 'review')
+  const inbox = tasks.filter((t) => taskStage(t, stages) === 'todo')
 
   const totalTimeToday = completedToday.reduce((sum, t) => sum + (t.time_spent_minutes || 0), 0)
   const timeStr =

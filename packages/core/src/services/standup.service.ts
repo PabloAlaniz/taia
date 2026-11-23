@@ -3,6 +3,20 @@
 import { getAllTasks, getActivities } from '../db/index'
 import { getAgentDisplay } from '../agents/metadata'
 import type { Task, Activity } from '@taia/types'
+import { type TaskStage, type WorkspaceStages, taskStage } from './task-stage'
+import { loadTaskStages } from './task-outcome'
+
+const NO_COLUMNS: WorkspaceStages = new Map()
+
+/** Tasks in one stage of their own board (see task-stage.ts). */
+function inStage(tasks: Task[], stage: TaskStage, stages: WorkspaceStages): Task[] {
+  return tasks.filter((t) => taskStage(t, stages) === stage)
+}
+
+/** Completed: in a done column, and not rejected. */
+function completedTasks(tasks: Task[], stages: WorkspaceStages): Task[] {
+  return inStage(tasks, 'done', stages).filter((t) => t.status !== 'REJECTED')
+}
 
 export interface StandupStats {
   total: number
@@ -14,16 +28,20 @@ export interface StandupStats {
   inbox: number
 }
 
-function formatStandup(tasks: Task[], activities: Activity[]): string {
+function formatStandup(
+  tasks: Task[],
+  activities: Activity[],
+  stages: WorkspaceStages = NO_COLUMNS,
+): string {
   const now = new Date()
   const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate())
 
-  const completed = tasks.filter((t) => t.status === 'DONE')
-  const inProgress = tasks.filter((t) => t.status === 'IN_PROGRESS')
-  const inReview = tasks.filter((t) => t.status === 'REVIEW')
+  const completed = completedTasks(tasks, stages)
+  const inProgress = inStage(tasks, 'in_progress', stages)
+  const inReview = inStage(tasks, 'review', stages)
   const blocked = tasks.filter((t) => t.tags?.includes('blocked'))
   const needsClarification = tasks.filter((t) => t.tags?.includes('needs-clarification'))
-  const inbox = tasks.filter((t) => t.status === 'INBOX')
+  const inbox = inStage(tasks, 'todo', stages)
 
   // Today's activities
   const todayActivities = activities.filter((a) => new Date(a.created_at) >= todayStart)
@@ -128,15 +146,15 @@ function formatStandup(tasks: Task[], activities: Activity[]): string {
   return lines.join('\n')
 }
 
-function computeStats(tasks: Task[]): StandupStats {
+function computeStats(tasks: Task[], stages: WorkspaceStages = NO_COLUMNS): StandupStats {
   return {
     total: tasks.length,
-    done: tasks.filter((t) => t.status === 'DONE').length,
-    inProgress: tasks.filter((t) => t.status === 'IN_PROGRESS').length,
-    review: tasks.filter((t) => t.status === 'REVIEW').length,
+    done: completedTasks(tasks, stages).length,
+    inProgress: inStage(tasks, 'in_progress', stages).length,
+    review: inStage(tasks, 'review', stages).length,
     blocked: tasks.filter((t) => t.tags?.includes('blocked')).length,
     needsClarification: tasks.filter((t) => t.tags?.includes('needs-clarification')).length,
-    inbox: tasks.filter((t) => t.status === 'INBOX').length,
+    inbox: inStage(tasks, 'todo', stages).length,
   }
 }
 
@@ -144,11 +162,14 @@ function computeStats(tasks: Task[]): StandupStats {
 export async function generateStandup(
   workspaceId?: string,
 ): Promise<{ standup: string; stats: StandupStats }> {
-  const tasks = await getAllTasks(workspaceId ? { workspaceId } : undefined)
-  const activities = (await getActivities(100, workspaceId)) as Activity[]
+  const [tasks, activities, stages] = await Promise.all([
+    getAllTasks(workspaceId ? { workspaceId } : undefined),
+    getActivities(100, workspaceId) as Promise<Activity[]>,
+    loadTaskStages(workspaceId),
+  ])
 
-  const standup = formatStandup(tasks, activities)
-  const stats = computeStats(tasks)
+  const standup = formatStandup(tasks, activities, stages)
+  const stats = computeStats(tasks, stages)
 
   return { standup, stats }
 }

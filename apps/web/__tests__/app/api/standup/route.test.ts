@@ -3,6 +3,8 @@ import { NextRequest } from 'next/server'
 import { GET } from '@/app/api/standup/route'
 
 vi.mock('@taia/core/db', () => ({
+  // No columns known: statuses are read by their names.
+  getColumnStates: async () => [],
   getAllTasks: vi.fn(() => [
     { id: '1', title: 'Task Done', status: 'DONE', priority: 'HIGH' },
     {
