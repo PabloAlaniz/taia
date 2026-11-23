@@ -6,10 +6,13 @@
  *
  * TAIA_MCP_RATE_LIMIT sets the policy (default `600/minute`), and
  * TAIA_MCP_RATE_LIMIT_MODE picks the mode:
- *   shadow  (default) count, and log each request the limit would refuse, but
- *           let it through
- *   enforce refuse with a JSON-RPC error and HTTP 429
+ *   enforce (default) refuse with a JSON-RPC error and HTTP 429
+ *   shadow  count, and log each request the limit would refuse, but let it
+ *           through
  *   off     no limit
+ *
+ * Enforced by default, unlike the spend limits: it is the brake on guessing
+ * the token, and most installs never read a shadow log.
  */
 
 import type express from 'express'
@@ -24,7 +27,7 @@ export function mcpRateLimitMode(
   env: Record<string, string | undefined> = process.env,
 ): McpRateLimitMode {
   const value = env.TAIA_MCP_RATE_LIMIT_MODE?.trim().toLowerCase()
-  return value === 'enforce' || value === 'off' ? value : 'shadow'
+  return value === 'shadow' || value === 'off' ? value : 'enforce'
 }
 
 /** TAIA_MCP_RATE_LIMIT as a policy; the default if unset or invalid. */

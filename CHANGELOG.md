@@ -36,7 +36,7 @@ El formato se basa en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/
 - `POST /api/webhooks/incoming`, abierto sin token, admite 120 entregas por minuto por cliente (`TAIA_WEBHOOK_RATE_LIMIT`) y responde `429` antes de leer el cuerpo o tocar la base.
 - `POST /api/webhooks/incoming` rechaza con `413` los cuerpos de más de 25 MiB (`TAIA_WEBHOOK_MAX_BYTES`) sin leerlos enteros.
 - El servidor de WebSocket admite hasta 200 conexiones (`TAIA_WS_MAX_CLIENTS`), corta a los clientes que le mandan mensajes de más de 4 KiB y rechaza los broadcasts internos de más de 1 MiB (`TAIA_WS_MAX_BROADCAST_BYTES`).
-- `POST /mcp` tiene un límite por cliente (600 por minuto, `TAIA_MCP_RATE_LIMIT`), contado antes del token para frenar también una ráfaga de tokens equivocados. Arranca en modo sombra (`TAIA_MCP_RATE_LIMIT_MODE=shadow`); `enforce` responde `429`.
+- `POST /mcp` tiene un límite por cliente (600 por minuto, `TAIA_MCP_RATE_LIMIT`), contado antes del token para frenar también una ráfaga de tokens equivocados. Viene activo (`TAIA_MCP_RATE_LIMIT_MODE=enforce`) y responde `429`; `shadow` sólo loguea lo que rechazaría y `off` lo desactiva.
 
 ## [v1.0.0-alpha.3] - 2026-11-21
 

@@ -37,11 +37,8 @@ async function start(env: Record<string, string>) {
 }
 
 describe('POST /mcp rate limit', () => {
-  it('enforce: answers 429 with a JSON-RPC error and Retry-After once the limit is spent', async () => {
-    const post = await start({
-      TAIA_MCP_RATE_LIMIT: '2/minute',
-      TAIA_MCP_RATE_LIMIT_MODE: 'enforce',
-    })
+  it('enforce (default): answers 429 with a JSON-RPC error and Retry-After once the limit is spent', async () => {
+    const post = await start({ TAIA_MCP_RATE_LIMIT: '2/minute' })
     expect((await post()).status).not.toBe(429)
     expect((await post()).status).not.toBe(429)
 
@@ -52,9 +49,12 @@ describe('POST /mcp rate limit', () => {
     expect(JSON.parse(refused.text)).toMatchObject({ jsonrpc: '2.0', error: { code: -32029 } })
   })
 
-  it('shadow (default): lets everything through and logs what it would refuse', async () => {
+  it('shadow: lets everything through and logs what it would refuse', async () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
-    const post = await start({ TAIA_MCP_RATE_LIMIT: '1/minute' })
+    const post = await start({
+      TAIA_MCP_RATE_LIMIT: '1/minute',
+      TAIA_MCP_RATE_LIMIT_MODE: 'shadow',
+    })
 
     for (let i = 0; i < 3; i++) {
       const res = await post()
@@ -73,8 +73,10 @@ describe('POST /mcp rate limit', () => {
 describe('mcpPolicy and mcpRateLimitMode', () => {
   it('read the environment, with defaults', () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
-    expect(mcpRateLimitMode({})).toBe('shadow')
-    expect(mcpRateLimitMode({ TAIA_MCP_RATE_LIMIT_MODE: 'Enforce' })).toBe('enforce')
+    expect(mcpRateLimitMode({})).toBe('enforce')
+    expect(mcpRateLimitMode({ TAIA_MCP_RATE_LIMIT_MODE: 'nonsense' })).toBe('enforce')
+    expect(mcpRateLimitMode({ TAIA_MCP_RATE_LIMIT_MODE: 'Shadow' })).toBe('shadow')
+    expect(mcpRateLimitMode({ TAIA_MCP_RATE_LIMIT_MODE: 'off' })).toBe('off')
     expect(mcpPolicy({ TAIA_MCP_RATE_LIMIT: '30/second' })).toEqual({ limit: 30, windowMs: 1000 })
     expect(mcpPolicy({ TAIA_MCP_RATE_LIMIT: 'many' })).toEqual(
       mcpPolicy({ TAIA_MCP_RATE_LIMIT: DEFAULT_MCP_LIMIT }),
