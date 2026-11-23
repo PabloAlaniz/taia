@@ -107,13 +107,21 @@
     "tagsPlaceholder": "api, bugfix…"
   },
   "search": {
-    "label": "Buscar tareas",
-    "ariaLabel": "Buscar tareas por título, ID, proyecto o tag",
-    "placeholder": "Buscar tareas… (por título, ID, proyecto o tag)",
-    "noResults": "No se encontraron tareas",
+    "label": "Buscar tareas, páginas, equipo y proyectos",
+    "ariaLabel": "Buscá tareas, páginas, agentes, personas o proyectos",
+    "placeholder": "Buscar tareas, páginas, equipo o proyectos…",
+    "noResults": "Nada coincide con la búsqueda",
     "navigate": "navegar",
     "select": "seleccionar",
-    "close": "cerrar"
+    "close": "cerrar",
+    "resultsCount": "{count, plural, =0 {Sin resultados} one {# resultado} other {# resultados}}",
+    "groups": {
+      "waiting": "Te espera",
+      "tasks": "Tareas",
+      "pages": "Páginas",
+      "team": "Equipo",
+      "projects": "Proyectos"
+    }
   },
   "agents": {
     "heading": "Agentes",
@@ -187,37 +195,18 @@
   "dashboard": {
     "title": "Dashboard",
     "refresh": "Actualizar",
-    "totalTasks": "Total de tareas",
-    "completedToday": "Completadas hoy",
-    "thisWeek": "Esta semana",
-    "avgTime": "Tiempo promedio",
-    "inProgress": "En progreso",
-    "blocked": "Bloqueadas",
-    "inReview": "En revisión",
-    "stale": "Estancadas (>24h)",
-    "totalCost": "Gasto total",
-    "totalTokens": "Tokens",
-    "sessionCount": "Sesiones registradas",
-    "models": "Modelos usados",
-    "chartTitle": "Tareas completadas por día (últimos 30 días)",
     "noCompletions": "No hay tareas completadas en los últimos 30 días",
     "byAgent": "Carga por participante",
     "offlineMode": "(standalone)",
     "noAgentData": "Sin datos de agentes",
-    "tracked": "{time} registrado",
-    "doneVsPending": "listas / pendientes",
     "byProject": "Por proyecto",
     "noProjects": "Sin proyectos",
     "staleTasks": "Tareas estancadas (>24h asignadas)",
     "recentActivity": "Actividad reciente",
-    "costByAgent": "Gasto registrado por agente",
-    "sessions": "{count} sesiones · {models}",
-    "dailyCostTrend": "Gasto registrado por día",
     "last24h": "Últimas 24h",
     "lastWeek": "Última semana",
     "lastMonth": "Último mes",
     "allTime": "Todo",
-    "statusSection": "Estado",
     "costSection": "Gasto registrado",
     "costNote": "Lo que TAIA guardó de sesiones que ya corrieron. Es historial: queda aunque el runtime que las corrió ya no esté conectado."
   },
@@ -357,11 +346,11 @@
       "standalone": "Sin runtime — modo standalone",
       "connected": "Runtime {provider} conectado",
       "connecting": "Conectando con {provider}...",
-      "disconnected": "Runtime {provider} desconectado — revisá Ajustes › Runtime",
+      "disconnected": "Runtime {provider} desconectado — revisá Configuración › Runtime",
       "allConnected": "{total} runtimes conectados",
-      "degraded": "{connected} de {total} runtimes conectados — revisá Ajustes › Runtime",
+      "degraded": "{connected} de {total} runtimes conectados — revisá Configuración › Runtime",
       "connectingMany": "Conectando con {total} runtimes...",
-      "allDisconnected": "{total} runtimes desconectados — revisá Ajustes › Runtime",
+      "allDisconnected": "{total} runtimes desconectados — revisá Configuración › Runtime",
       "instance": "{label} ({provider}): {state, select, connected {conectado} connecting {conectando} reconnecting {reconectando} other {desconectado}}"
     },
     "unsupported": "El runtime activo ({provider}) no expone esta información.",
@@ -377,7 +366,7 @@
     "usedBy": "Usado por:",
     "empty": "No se encontraron modelos configurados.",
     "provider": "Proveedor:",
-    "info": "El modelo por defecto se usa para los agentes que no tienen uno propio. Cada runtime define cómo se cambia: en OpenClaw, en su configuración de agentes; con Claude (API de Anthropic), en Ajustes › Runtime.",
+    "info": "El modelo por defecto se usa para los agentes que no tienen uno propio. Cada runtime define cómo se cambia: en OpenClaw, en su configuración de agentes; con Claude (API de Anthropic), en Configuración › Runtime.",
     "standalone": "Sin runtime no hay modelos configurados: los define el runtime que corre a los agentes. Los modelos que usaron sesiones pasadas figuran en el gasto registrado.",
     "standaloneDashboardLink": "Ver el gasto registrado"
   },
@@ -574,8 +563,8 @@
       "offline": "cerrada"
     },
     "noneYet": "Todavía no hay sesiones",
-    "standaloneHistory": "Sin runtime no hay sesiones para listar",
-    "standaloneHistoryHint": "Este historial lo lee del runtime que corrió las sesiones. Lo que TAIA registró de ellas (gasto, tokens y modelos) sigue en el dashboard.",
+    "standaloneHistory": "Sin sesiones para listar",
+    "standaloneHistoryHint": "Lo que TAIA registró de sesiones pasadas está en el dashboard.",
     "standaloneHistoryLink": "Ver el gasto registrado"
   },
   "squad": {
@@ -887,7 +876,8 @@
     "timezoneHelp": "Formato IANA, por ejemplo UTC, America/Argentina/Buenos_Aires o Europe/Madrid.",
     "planningTitle": "Planificación con IA",
     "planningDesc": "El asistente de planificación divide un objetivo en tareas.",
-    "planningBody": "Usa el runtime activo, que tiene que soportar sesiones (OpenClaw, Claude por API, Claude Code o Aider). Lo configurás en <link>Ajustes › Runtime</link>."
+    "planningBody": "Usa el runtime activo, que tiene que soportar sesiones (OpenClaw, Claude por API, Claude Code o Aider). Lo configurás en <link>Configuración › Runtime</link>.",
+    "timezoneInvalid": "No es una zona horaria válida. Elegí una de la lista, como America/Argentina/Buenos_Aires o UTC."
   },
   "settingsModels": {
     "default": "por defecto",
@@ -1207,17 +1197,36 @@
     "flowSection": "Ritmo de trabajo",
     "exportCsv": "Exportar CSV",
     "exportCsvLabel": "Exportar las métricas de ritmo de trabajo del período como CSV",
-    "throughput": "Completadas en el período",
-    "avgAging": "Antigüedad promedio",
-    "p95Aging": "Antigüedad P95",
-    "trackedTime": "Tiempo registrado",
     "agingNote": "La antigüedad cuenta los días que lleva abierta cada tarea. P95 es el valor que no supera el 95 % de ellas: muestra cuánto esperan las más demoradas.",
     "days": "{days} d",
     "agentSessions": "{count, plural, one {# sesión} other {# sesiones}} · {models}",
     "tokens": "{count} tokens",
     "noActivity": "Todavía no hay actividad.",
     "nowSection": "Ahora",
-    "waiting": "Te esperan"
+    "nowWaiting": "{count, plural, one {te espera} other {te esperan}}",
+    "nowWaitingLink": "{count, plural, one {# tarea te espera: verla en el tablero} other {# tareas te esperan: verlas en el tablero}}",
+    "nowInProgress": "en progreso",
+    "nowInReview": "en revisión",
+    "nowBlocked": "{count, plural, one {bloqueada} other {bloqueadas}}",
+    "nowStale": "{count, plural, one {estancada} other {estancadas}} +24 h",
+    "nowSpend": "gasto registrado 24 h",
+    "paceToday": "{count, plural, one {completada hoy} other {completadas hoy}}",
+    "paceWeek": "en 7 días",
+    "paceAvgTime": "tiempo promedio",
+    "paceP95": "antigüedad P95",
+    "completedByDay": "Completadas por día · 30 días",
+    "nameCount": "{name} {count}",
+    "unassigned": "Sin asignar",
+    "colPending": "en curso",
+    "colDone": "hechas",
+    "colTime": "tiempo",
+    "spendTotal": "gasto total",
+    "spendTokens": "tokens",
+    "spendSessions": "{count, plural, one {sesión} other {sesiones}}",
+    "spendModels": "{count, plural, one {modelo} other {modelos}}",
+    "spendByParticipant": "Por participante",
+    "spendByDay": "Por día",
+    "doneOfTotal": "{done}/{total} hechas"
   },
   "sessionCard": {
     "tokens": "{count} tokens"
@@ -1253,7 +1262,9 @@
   "waitingBand": {
     "mergeInto": "Integra {branch} en {base}: {files, plural, one {# archivo} other {# archivos}}",
     "filedApproved": "Aprobaste y se envió al agente:",
-    "filedRejected": "Rechazaste y se avisó al agente:"
+    "filedRejected": "Rechazaste y se avisó al agente:",
+    "keyApprove": "aprueba",
+    "keyReject": "rechaza"
   },
   "costBadge": {
     "withTokens": "{cost} · {tokens} tokens"
@@ -1261,13 +1272,15 @@
   "shortcuts": {
     "title": "Atajos de teclado",
     "newTask": "Nueva tarea",
-    "search": "Buscar tareas",
+    "search": "Buscar tareas, páginas, equipo y proyectos",
     "refresh": "Actualizar el tablero",
     "nextWaiting": "Ir a la próxima tarea que te espera",
     "toggleWaiting": "Mostrar solo lo que te espera / todo",
     "help": "Mostrar estos atajos",
     "close": "Cerrar",
-    "taskPage": "En una tarea: E edita el título, D la descripción, S el estado; Esc vuelve al tablero."
+    "taskPage": "En una tarea: E edita el título, D la descripción, S el estado; Esc vuelve al tablero.",
+    "approve": "Aprobar lo que te espera en la tarjeta enfocada (o en la tarea abierta)",
+    "reject": "Rechazarlo"
   },
   "activityText": {
     "taskCreated": "Creó «{title}»",

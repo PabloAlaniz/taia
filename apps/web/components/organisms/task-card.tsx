@@ -267,6 +267,8 @@ export const TaskCard = memo(function TaskCard({
                 disabled={!approvals?.canDecide}
                 // biome-ignore lint/a11y/noAutofocus: returns focus after Deshacer
                 autoFocus={justUndone}
+                data-decide="approve"
+                aria-keyshortcuts="A"
                 onClick={() => approvals?.queue(approvalId, 'approved')}
               >
                 {t('approve')}
@@ -275,6 +277,8 @@ export const TaskCard = memo(function TaskCard({
                 variant="danger"
                 size="xs"
                 disabled={!approvals?.canDecide}
+                data-decide="reject"
+                aria-keyshortcuts="X"
                 onClick={() => approvals?.queue(approvalId, 'rejected')}
               >
                 {t('reject')}

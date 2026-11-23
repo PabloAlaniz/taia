@@ -57,37 +57,39 @@ export function SessionList() {
       title={t('history')}
       count={loading ? undefined : sorted.length}
       aside={
-        <>
-          <label className="flex items-center gap-1.5">
-            <span>{t('agent')}</span>
-            <Select
-              value={agentFilter}
-              onChange={(e) => setAgentFilter(e.target.value)}
-              className={selectClass}
-            >
-              <option value="">{t('all')}</option>
-              {agents
-                .filter((a) => a.type !== 'human')
-                .map((a) => (
-                  <option key={a.id} value={a.id}>
-                    {a.name}
-                  </option>
-                ))}
-            </Select>
-          </label>
-          <label className="flex items-center gap-1.5">
-            <span>{t('state')}</span>
-            <Select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-              className={selectClass}
-            >
-              <option value="all">{t('all')}</option>
-              <option value="active">{t('filterActive')}</option>
-              <option value="recent">{t('filterRecent')}</option>
-            </Select>
-          </label>
-        </>
+        standalone ? undefined : (
+          <>
+            <label className="flex items-center gap-1.5">
+              <span>{t('agent')}</span>
+              <Select
+                value={agentFilter}
+                onChange={(e) => setAgentFilter(e.target.value)}
+                className={selectClass}
+              >
+                <option value="">{t('all')}</option>
+                {agents
+                  .filter((a) => a.type !== 'human')
+                  .map((a) => (
+                    <option key={a.id} value={a.id}>
+                      {a.name}
+                    </option>
+                  ))}
+              </Select>
+            </label>
+            <label className="flex items-center gap-1.5">
+              <span>{t('state')}</span>
+              <Select
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
+                className={selectClass}
+              >
+                <option value="all">{t('all')}</option>
+                <option value="active">{t('filterActive')}</option>
+                <option value="recent">{t('filterRecent')}</option>
+              </Select>
+            </label>
+          </>
+        )
       }
     >
       {loading ? (

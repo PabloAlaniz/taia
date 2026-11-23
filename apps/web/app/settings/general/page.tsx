@@ -1,5 +1,6 @@
 'use client'
 
+import { cn } from '@/lib/utils'
 import { useTranslations } from 'next-intl'
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
@@ -8,6 +9,24 @@ import { PageHeader } from '@/components/molecules/page-header'
 import { fetchJson } from '@/lib/use-resource'
 import { RackSection } from '@/components/molecules/rack-section'
 
+/** IANA zones the browser knows, offered as suggestions; free text still works. */
+const TIME_ZONES: string[] =
+  typeof Intl !== 'undefined' && 'supportedValuesOf' in Intl
+    ? (Intl as unknown as { supportedValuesOf: (k: string) => string[] }).supportedValuesOf(
+        'timeZone',
+      )
+    : ['UTC']
+
+function isValidTimeZone(tz: string): boolean {
+  if (!tz.trim()) return true
+  try {
+    new Intl.DateTimeFormat('en', { timeZone: tz.trim() })
+    return true
+  } catch {
+    return false
+  }
+}
+
 export default function GeneralSettingsPage() {
   const tp = useTranslations('pageTitles')
   const t = useTranslations('settingsGeneral')
@@ -15,6 +34,7 @@ export default function GeneralSettingsPage() {
   const tCommon = useTranslations('common')
   const [wsUrl, setWsUrl] = useState('ws://localhost:13334')
   const [defaultTz, setDefaultTz] = useState('UTC')
+  const tzInvalid = !isValidTimeZone(defaultTz)
 
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -121,11 +141,24 @@ export default function GeneralSettingsPage() {
               </label>
               <Input
                 id="settings-default-tz"
+                list="settings-tz-options"
                 value={defaultTz}
                 onChange={(e) => setDefaultTz(e.target.value)}
                 placeholder="UTC"
+                aria-invalid={tzInvalid || undefined}
+                aria-describedby="settings-tz-help"
               />
-              <p className="text-xs text-muted mt-1">{t('timezoneHelp')}</p>
+              <datalist id="settings-tz-options">
+                {TIME_ZONES.map((tz) => (
+                  <option key={tz} value={tz} />
+                ))}
+              </datalist>
+              <p
+                id="settings-tz-help"
+                className={cn('text-xs mt-1', tzInvalid ? 'text-alert' : 'text-muted')}
+              >
+                {tzInvalid ? t('timezoneInvalid') : t('timezoneHelp')}
+              </p>
             </div>
           </Strip>
         </RackSection>
@@ -159,7 +192,7 @@ export default function GeneralSettingsPage() {
           >
             {tCommon('cancel')}
           </Link>
-          <Button variant="primary" size="lg" onClick={handleSave} disabled={saving}>
+          <Button variant="primary" size="lg" onClick={handleSave} disabled={saving || tzInvalid}>
             {saving ? tc('saving') : tc('saveChanges')}
           </Button>
         </div>

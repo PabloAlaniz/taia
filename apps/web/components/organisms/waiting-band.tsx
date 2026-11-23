@@ -6,7 +6,7 @@ import type { Task } from '@taia/types'
 import { cn } from '../../lib/utils'
 import { useStore } from '../../lib/store'
 import { UNDO_MS, useBoardSignals } from '../../lib/use-board-signals'
-import { Button, UndoCountdown } from '../atoms'
+import { Button, Kbd, UndoCountdown } from '../atoms'
 import { REVIEW_MERGE } from './worktree-panel'
 
 /**
@@ -59,7 +59,7 @@ export function WaitingBand({ task }: { task: Task }) {
         ref={filedRef}
         tabIndex={-1}
         role="status"
-        className="mx-4 md:mx-8 mt-6 rounded-[2px] bg-strip-done px-4 py-2.5 text-sm focus-visible:outline-2 focus-visible:outline-accent"
+        className="max-w-3xl mx-auto mt-6 w-[calc(100%-3rem)] rounded-[2px] bg-strip-done px-4 py-2.5 text-sm focus-visible:outline-2 focus-visible:outline-accent"
       >
         <span
           className={cn('font-semibold', filed.decision === 'approved' ? 'text-ok' : 'text-alert')}
@@ -90,8 +90,9 @@ export function WaitingBand({ task }: { task: Task }) {
 
   return (
     <section
+      data-waiting-band
       aria-label={t('waitingTag')}
-      className="relative mx-4 md:mx-8 mt-6 rounded-[2px] bg-card shadow-[0_0_0_1px_var(--person),0_6px_14px_rgba(0,0,0,0.18)] pl-5 pr-4 py-3"
+      className="relative max-w-3xl mx-auto mt-6 w-[calc(100%-3rem)] rounded-[2px] bg-card shadow-[0_0_0_1px_var(--person),0_6px_14px_rgba(0,0,0,0.18)] pl-5 pr-4 py-3"
     >
       <span
         aria-hidden="true"
@@ -152,6 +153,8 @@ export function WaitingBand({ task }: { task: Task }) {
               disabled={!currentUserId}
               // biome-ignore lint/a11y/noAutofocus: returns focus after Deshacer
               autoFocus={justUndone}
+              data-decide="approve"
+              aria-keyshortcuts="A"
               onClick={() =>
                 currentUserId && signals.queueDecision(approval.id, 'approved', currentUserId)
               }
@@ -162,13 +165,22 @@ export function WaitingBand({ task }: { task: Task }) {
               variant="danger"
               size="sm"
               disabled={!currentUserId}
+              data-decide="reject"
+              aria-keyshortcuts="X"
               onClick={() =>
                 currentUserId && signals.queueDecision(approval.id, 'rejected', currentUserId)
               }
             >
               {t('reject')}
             </Button>
-            {!currentUserId && (
+            {currentUserId ? (
+              <span className="hidden md:inline-flex items-center gap-1.5 text-xs text-muted ml-1">
+                <Kbd>A</Kbd>
+                {tb('keyApprove')}
+                <Kbd>X</Kbd>
+                {tb('keyReject')}
+              </span>
+            ) : (
               <p className="basis-full text-xs text-muted">{t('pickUserToDecide')}</p>
             )}
           </>

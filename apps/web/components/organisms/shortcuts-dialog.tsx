@@ -9,6 +9,8 @@ const KEYS = [
   ['/', 'search'],
   ['W', 'nextWaiting'],
   ['T', 'toggleWaiting'],
+  ['A', 'approve'],
+  ['X', 'reject'],
   ['R', 'refresh'],
   ['?', 'help'],
 ] as const

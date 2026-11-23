@@ -13,7 +13,8 @@ import { useFormatter, useNow, useTranslations } from 'next-intl'
 import { useCallback, useEffect, useState } from 'react'
 import type { UserProfile } from '@taia/types'
 import { X } from 'lucide-react'
-import { Alert, Button, Input, Label } from '@/components/atoms'
+import { Alert, Button, Input, Label, Strip } from '@/components/atoms'
+import { RackSection } from '@/components/molecules/rack-section'
 import { fetchJson, useResource } from '@/lib/use-resource'
 import { PageHeader } from '@/components/molecules/page-header'
 
@@ -311,7 +312,7 @@ export default function UserProfilePage() {
         backHref="/settings"
         backLabel={tp('settings')}
       />
-      <div className="px-4 md:px-6 pt-5 pb-10 max-w-2xl mx-auto space-y-6">
+      <div className="px-4 md:px-6 pt-5 pb-10 max-w-2xl mx-auto space-y-4">
         <p className="text-muted text-sm">{t('intro')}</p>
 
         {message && <Alert variant={message.type}>{message.text}</Alert>}
@@ -335,16 +336,20 @@ export default function UserProfilePage() {
           </div>
         ) : (
           <>
-            <div>
-              <Label htmlFor="profile-displayName">{t('displayNameLabel')}</Label>
-              <Input
-                id="profile-displayName"
-                type="text"
-                value={displayName}
-                onChange={(e) => setDisplayName(e.target.value)}
-                placeholder={t('displayNamePlaceholder')}
-              />
-            </div>
+            <RackSection id="profile-identity" title={t('displayNameLabel')}>
+              <Strip className="p-4">
+                <Label htmlFor="profile-displayName" className="sr-only">
+                  {t('displayNameLabel')}
+                </Label>
+                <Input
+                  id="profile-displayName"
+                  type="text"
+                  value={displayName}
+                  onChange={(e) => setDisplayName(e.target.value)}
+                  placeholder={t('displayNamePlaceholder')}
+                />
+              </Strip>
+            </RackSection>
 
             <ListField
               label={t('factsLabel')}
@@ -359,60 +364,62 @@ export default function UserProfilePage() {
               placeholder={t('factPlaceholder')}
             />
 
-            <div>
-              <Label>{t('prefsLabel')}</Label>
-              <p className="text-muted text-xs mb-2">{t('prefsHelp')}</p>
-              {prefs.length > 0 && (
-                <ul className="space-y-1 mb-2">
-                  {prefs.map(([k, v], i) => (
-                    <li
-                      key={`${i}-${k}`}
-                      className="flex items-center gap-2 text-sm bg-strip rounded-[2px] p-2"
-                    >
-                      <span className="font-medium">{k}</span>
-                      <span className="text-muted">→</span>
-                      <span className="flex-1">{v}</span>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => removePref(i)}
-                        aria-label={t('removePref', { key: k })}
+            <RackSection id="profile-prefs" title={t('prefsLabel')}>
+              <Strip className="p-4">
+                <p className="text-muted text-xs mb-2">{t('prefsHelp')}</p>
+                {prefs.length > 0 && (
+                  <ul className="space-y-1 mb-2">
+                    {prefs.map(([k, v], i) => (
+                      <li
+                        key={`${i}-${k}`}
+                        className="flex items-center gap-2 text-sm bg-strip rounded-[2px] p-2"
                       >
-                        <X className="w-3.5 h-3.5" aria-hidden="true" />
-                      </Button>
-                    </li>
-                  ))}
-                </ul>
-              )}
-              <div className="grid grid-cols-[1fr_2fr_auto] gap-2">
-                <Input
-                  type="text"
-                  value={prefKey}
-                  placeholder={t('keyPlaceholder')}
-                  onChange={(e) => setPrefKey(e.target.value)}
-                />
-                <Input
-                  type="text"
-                  value={prefValue}
-                  placeholder={t('valuePlaceholder')}
-                  onChange={(e) => setPrefValue(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                      e.preventDefault()
-                      addPref()
-                    }
-                  }}
-                />
-                <Button
-                  variant="secondary"
-                  size="md"
-                  onClick={addPref}
-                  disabled={!prefKey.trim() || !prefValue.trim()}
-                >
-                  {t('addPref')}
-                </Button>
-              </div>
-            </div>
+                        <span className="font-medium">{k}</span>
+                        <span className="text-muted">→</span>
+                        <span className="flex-1">{v}</span>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => removePref(i)}
+                          aria-label={t('removePref', { key: k })}
+                        >
+                          <X className="w-3.5 h-3.5" aria-hidden="true" />
+                        </Button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+                <div className="grid grid-cols-[1fr_2fr_auto] gap-2">
+                  <Input
+                    type="text"
+                    value={prefKey}
+                    placeholder={t('keyPlaceholder')}
+                    onChange={(e) => setPrefKey(e.target.value)}
+                  />
+                  <Input
+                    type="text"
+                    value={prefValue}
+                    placeholder={t('valuePlaceholder')}
+                    onChange={(e) => setPrefValue(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault()
+                        addPref()
+                      }
+                    }}
+                  />
+                  <Button
+                    variant="secondary"
+                    size="md"
+                    className="shrink-0 whitespace-nowrap"
+                    onClick={addPref}
+                    disabled={!prefKey.trim() || !prefValue.trim()}
+                  >
+                    {t('addPref')}
+                  </Button>
+                </div>
+              </Strip>
+            </RackSection>
 
             <ListField
               label={t('doNotLabel')}
@@ -427,7 +434,7 @@ export default function UserProfilePage() {
               placeholder={t('doNotPlaceholder')}
             />
 
-            <div className="flex justify-end gap-3 pt-2 border-t border-border">
+            <div className="flex justify-end gap-3 pt-2">
               {hasChanges && (
                 <span className="text-accent text-sm self-center" role="status">
                   {tc('unsaved')}
@@ -486,51 +493,53 @@ function ListField({
   placeholder: string
 }) {
   return (
-    <div>
-      <Label>{label}</Label>
-      <p className="text-muted text-xs mb-2">{hint}</p>
-      {items.length > 0 && (
-        <ul className="space-y-1 mb-2">
-          {items.map((item, i) => (
-            <li
-              key={`${i}-${item}`}
-              className="flex items-center gap-2 text-sm bg-strip rounded-[2px] p-2"
-            >
-              <span className="flex-1">{item}</span>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => onRemove(i)}
-                aria-label={removeLabel(item)}
+    <RackSection title={label}>
+      <Strip className="p-4">
+        <p className="text-muted text-xs mb-2">{hint}</p>
+        {items.length > 0 && (
+          <ul className="space-y-1 mb-2">
+            {items.map((item, i) => (
+              <li
+                key={`${i}-${item}`}
+                className="flex items-center gap-2 text-sm bg-strip rounded-[2px] p-2"
               >
-                <X className="w-3.5 h-3.5" aria-hidden="true" />
-              </Button>
-            </li>
-          ))}
-        </ul>
-      )}
-      <div className="flex gap-2">
-        <Input
-          type="text"
-          value={newValue}
-          placeholder={placeholder}
-          onChange={(e) => onNewValue(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter') {
-              e.preventDefault()
-              onAdd()
-            }
-          }}
-        />
-        <Button
-          variant="secondary"
-          size="md"
-          onClick={onAdd}
-          disabled={newValue.trim().length === 0}
-        >
-          {addLabel}
-        </Button>
-      </div>
-    </div>
+                <span className="flex-1">{item}</span>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => onRemove(i)}
+                  aria-label={removeLabel(item)}
+                >
+                  <X className="w-3.5 h-3.5" aria-hidden="true" />
+                </Button>
+              </li>
+            ))}
+          </ul>
+        )}
+        <div className="flex gap-2">
+          <Input
+            type="text"
+            value={newValue}
+            placeholder={placeholder}
+            onChange={(e) => onNewValue(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                e.preventDefault()
+                onAdd()
+              }
+            }}
+          />
+          <Button
+            variant="secondary"
+            size="md"
+            className="shrink-0 whitespace-nowrap"
+            onClick={onAdd}
+            disabled={newValue.trim().length === 0}
+          >
+            {addLabel}
+          </Button>
+        </div>
+      </Strip>
+    </RackSection>
   )
 }

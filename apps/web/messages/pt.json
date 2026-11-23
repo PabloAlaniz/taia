@@ -107,13 +107,21 @@
     "tagsPlaceholder": "api, bugfix…"
   },
   "search": {
-    "label": "Buscar tarefas",
-    "ariaLabel": "Buscar tarefas por título, ID, projeto ou tag",
-    "placeholder": "Buscar tarefas… (por título, ID, projeto ou tag)",
-    "noResults": "Nenhuma tarefa encontrada",
+    "label": "Buscar tarefas, páginas, equipe e projetos",
+    "ariaLabel": "Busque tarefas, páginas, agentes, pessoas ou projetos",
+    "placeholder": "Buscar tarefas, páginas, equipe ou projetos…",
+    "noResults": "Nada corresponde à busca",
     "navigate": "navegar",
     "select": "selecionar",
-    "close": "fechar"
+    "close": "fechar",
+    "resultsCount": "{count, plural, =0 {Nenhum resultado} one {# resultado} other {# resultados}}",
+    "groups": {
+      "waiting": "Espera você",
+      "tasks": "Tarefas",
+      "pages": "Páginas",
+      "team": "Equipe",
+      "projects": "Projetos"
+    }
   },
   "agents": {
     "heading": "Agentes",
@@ -187,37 +195,18 @@
   "dashboard": {
     "title": "Dashboard",
     "refresh": "Atualizar",
-    "totalTasks": "Total de tarefas",
-    "completedToday": "Concluídas hoje",
-    "thisWeek": "Esta semana",
-    "avgTime": "Tempo médio",
-    "inProgress": "Em progresso",
-    "blocked": "Bloqueadas",
-    "inReview": "Em revisão",
-    "stale": "Paradas (>24h)",
-    "totalCost": "Gasto total",
-    "totalTokens": "Tokens",
-    "sessionCount": "Sessões registradas",
-    "models": "Modelos usados",
-    "chartTitle": "Tarefas concluídas por dia (últimos 30 dias)",
     "noCompletions": "Não há tarefas concluídas nos últimos 30 dias",
     "byAgent": "Carga por participante",
     "offlineMode": "(standalone)",
     "noAgentData": "Sem dados de agentes",
-    "tracked": "{time} registrado",
-    "doneVsPending": "concluídas / pendentes",
     "byProject": "Por projeto",
     "noProjects": "Sem projetos",
     "staleTasks": "Tarefas paradas (>24h atribuídas)",
     "recentActivity": "Atividade recente",
-    "costByAgent": "Gasto registrado por agente",
-    "sessions": "{count} sessões · {models}",
-    "dailyCostTrend": "Gasto registrado por dia",
     "last24h": "Últimas 24h",
     "lastWeek": "Última semana",
     "lastMonth": "Último mês",
     "allTime": "Tudo",
-    "statusSection": "Status",
     "costSection": "Gasto registrado",
     "costNote": "O que o TAIA guardou de sessões que já rodaram. É histórico: fica mesmo que o runtime que as rodou não esteja mais conectado."
   },
@@ -574,8 +563,8 @@
       "offline": "encerrada"
     },
     "noneYet": "Ainda não há sessões",
-    "standaloneHistory": "Sem runtime não há sessões para listar",
-    "standaloneHistoryHint": "Este histórico vem do runtime que rodou as sessões. O que o TAIA registrou delas (gasto, tokens e modelos) continua no dashboard.",
+    "standaloneHistory": "Sem sessões para listar",
+    "standaloneHistoryHint": "O que o TAIA registrou de sessões passadas está no dashboard.",
     "standaloneHistoryLink": "Ver o gasto registrado"
   },
   "squad": {
@@ -887,7 +876,8 @@
     "timezoneHelp": "Formato IANA, por exemplo UTC, America/Sao_Paulo ou Europe/Lisbon.",
     "planningTitle": "Planejamento com IA",
     "planningDesc": "O assistente de planejamento divide um objetivo em tarefas.",
-    "planningBody": "Usa o runtime ativo, que precisa suportar sessões (OpenClaw, Claude via API, Claude Code ou Aider). Configure em <link>Configurações › Runtime</link>."
+    "planningBody": "Usa o runtime ativo, que precisa suportar sessões (OpenClaw, Claude via API, Claude Code ou Aider). Configure em <link>Configurações › Runtime</link>.",
+    "timezoneInvalid": "Não é um fuso horário válido. Escolha um da lista, como America/Sao_Paulo ou UTC."
   },
   "settingsModels": {
     "default": "padrão",
@@ -1207,17 +1197,36 @@
     "flowSection": "Ritmo de trabalho",
     "exportCsv": "Exportar CSV",
     "exportCsvLabel": "Exportar as métricas de ritmo de trabalho do período como CSV",
-    "throughput": "Concluídas no período",
-    "avgAging": "Idade média",
-    "p95Aging": "Idade P95",
-    "trackedTime": "Tempo registrado",
     "agingNote": "A idade conta os dias que cada tarefa está aberta. P95 é o valor que 95 % delas não ultrapassa: mostra quanto esperam as mais atrasadas.",
     "days": "{days} d",
     "agentSessions": "{count, plural, one {# sessão} other {# sessões}} · {models}",
     "tokens": "{count} tokens",
     "noActivity": "Ainda não há atividade.",
     "nowSection": "Agora",
-    "waiting": "Esperam você"
+    "nowWaiting": "{count, plural, one {espera você} other {esperam você}}",
+    "nowWaitingLink": "{count, plural, one {# tarefa espera você: ver no quadro} other {# tarefas esperam você: ver no quadro}}",
+    "nowInProgress": "em progresso",
+    "nowInReview": "em revisão",
+    "nowBlocked": "{count, plural, one {bloqueada} other {bloqueadas}}",
+    "nowStale": "{count, plural, one {parada} other {paradas}} +24 h",
+    "nowSpend": "gasto registrado 24 h",
+    "paceToday": "{count, plural, one {concluída hoje} other {concluídas hoje}}",
+    "paceWeek": "em 7 dias",
+    "paceAvgTime": "tempo médio",
+    "paceP95": "idade P95",
+    "completedByDay": "Concluídas por dia · 30 dias",
+    "nameCount": "{name} {count}",
+    "unassigned": "Sem responsável",
+    "colPending": "em curso",
+    "colDone": "feitas",
+    "colTime": "tempo",
+    "spendTotal": "gasto total",
+    "spendTokens": "tokens",
+    "spendSessions": "{count, plural, one {sessão} other {sessões}}",
+    "spendModels": "{count, plural, one {modelo} other {modelos}}",
+    "spendByParticipant": "Por participante",
+    "spendByDay": "Por dia",
+    "doneOfTotal": "{done}/{total} feitas"
   },
   "sessionCard": {
     "tokens": "{count} tokens"
@@ -1253,7 +1262,9 @@
   "waitingBand": {
     "mergeInto": "Integra {branch} em {base}: {files, plural, one {# arquivo} other {# arquivos}}",
     "filedApproved": "Você aprovou e foi enviado ao agente:",
-    "filedRejected": "Você rejeitou e o agente foi avisado:"
+    "filedRejected": "Você rejeitou e o agente foi avisado:",
+    "keyApprove": "aprova",
+    "keyReject": "rejeita"
   },
   "costBadge": {
     "withTokens": "{cost} · {tokens} tokens"
@@ -1261,13 +1272,15 @@
   "shortcuts": {
     "title": "Atalhos de teclado",
     "newTask": "Nova tarefa",
-    "search": "Buscar tarefas",
+    "search": "Buscar tarefas, páginas, equipe e projetos",
     "refresh": "Atualizar o quadro",
     "nextWaiting": "Ir para a próxima tarefa que espera você",
     "toggleWaiting": "Mostrar só o que espera você / tudo",
     "help": "Mostrar estes atalhos",
     "close": "Fechar",
-    "taskPage": "Numa tarefa: E edita o título, D a descrição, S o estado; Esc volta ao quadro."
+    "taskPage": "Numa tarefa: E edita o título, D a descrição, S o estado; Esc volta ao quadro.",
+    "approve": "Aprovar o que espera por você no cartão em foco (ou na tarefa aberta)",
+    "reject": "Rejeitar"
   },
   "activityText": {
     "taskCreated": "Criou «{title}»",

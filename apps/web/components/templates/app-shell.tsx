@@ -7,6 +7,7 @@ import { useTranslations } from 'next-intl'
 import { BarChart3, FolderKanban, LayoutGrid, PlayCircle, Settings, Users } from 'lucide-react'
 import { cn } from '../../lib/utils'
 import { useChromeStore } from '../../lib/chrome'
+import { useDecisionKeys } from '../../lib/use-decision-keys'
 import { TopBar } from '../organisms/top-bar'
 import { CreateWorkspaceModal } from '../organisms/create-workspace-modal'
 
@@ -21,6 +22,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
   const hidden = useChromeStore((s) => s.hidden > 0)
   const [creatingWorkspace, setCreatingWorkspace] = useState(false)
+  useDecisionKeys()
 
   // Children keep the same position in the tree whether or not the chrome
   // shows: hiding it must never remount the page (and reset its state).
