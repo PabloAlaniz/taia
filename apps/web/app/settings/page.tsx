@@ -6,6 +6,7 @@ import {
   Brain,
   ChevronRight,
   GitBranch,
+  KeyRound,
   Plug,
   ScrollText,
   Settings,
@@ -83,6 +84,12 @@ export default function SettingsPage() {
           icon: Settings,
           title: tp('general'),
           description: ti('generalDesc'),
+        },
+        {
+          href: '/settings/access',
+          icon: KeyRound,
+          title: tp('access'),
+          description: ti('accessDesc'),
         },
         {
           href: '/settings/audit',

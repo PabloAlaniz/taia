@@ -1,12 +1,29 @@
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { NextRequest } from 'next/server'
 import { sessionCookieValue, SESSION_COOKIE } from '@taia/core/auth'
-import { proxy } from '../proxy'
+
+const verify = vi.fn()
+vi.mock('@taia/core/services/access-token.service', () => ({
+  verifyAccessToken: (...args: unknown[]) => verify(...args),
+}))
+
+const { proxy } = await import('../proxy')
+
+const DB_TOKEN = `taia_abcdefgh_${'a'.repeat(43)}`
+
+beforeEach(() => {
+  verify.mockReset().mockResolvedValue(null)
+})
 
 const TOKEN = 'a-test-token-0123456789'
 
-function request(path: string, headers: Record<string, string> = {}) {
-  return new NextRequest(`http://localhost${path}`, { headers })
+function request(path: string, headers: Record<string, string> = {}, method = 'GET') {
+  return new NextRequest(`http://localhost${path}`, { headers, method })
+}
+
+/** The request headers the proxy forwards to the route handler. */
+function forwarded(response: Response, name: string) {
+  return response.headers.get(`x-middleware-request-${name}`)
 }
 
 /** `NextResponse.next()` marks the response instead of carrying a status. */
@@ -19,6 +36,12 @@ afterEach(() => {
 })
 
 describe('proxy without TAIA_API_TOKEN', () => {
+  it('drops a principal header the client made up', async () => {
+    const response = await proxy(request('/api/access/tokens', { 'x-taia-principal': 'root' }))
+    expect(passedThrough(response)).toBe(true)
+    expect(forwarded(response, 'x-taia-principal')).toBeNull()
+  })
+
   it('lets every request through', async () => {
     expect(passedThrough(await proxy(request('/api/tasks')))).toBe(true)
     expect(passedThrough(await proxy(request('/')))).toBe(true)
@@ -88,4 +111,53 @@ describe('proxy with TAIA_API_TOKEN', () => {
       expect((await proxy(request(path))).status).toBe(401)
     },
   )
+
+  it('lets an access token from the database through and names it', async () => {
+    protect()
+    verify.mockResolvedValue({ id: 'abcdefgh', scope: 'agent' })
+    const response = await proxy(request('/api/tasks', { authorization: `Bearer ${DB_TOKEN}` }))
+
+    expect(passedThrough(response)).toBe(true)
+    expect(forwarded(response, 'x-taia-principal')).toBe('token:abcdefgh:agent')
+  })
+
+  it.each([
+    ['GET', '/api/access/tokens'],
+    ['POST', '/api/access/tokens'],
+    ['PUT', '/api/settings'],
+    ['GET', '/api/settings?reveal=anthropic.api_key'],
+  ])('refuses %s %s to an agent token with 403', async (method, path) => {
+    protect()
+    verify.mockResolvedValue({ id: 'abcdefgh', scope: 'agent' })
+    const response = await proxy(request(path, { 'x-api-key': DB_TOKEN }, method))
+
+    expect(response.status).toBe(403)
+    expect(await response.json()).toMatchObject({ code: 'FORBIDDEN' })
+  })
+
+  it('lets an admin token manage tokens', async () => {
+    protect()
+    verify.mockResolvedValue({ id: 'abcdefgh', scope: 'admin' })
+    expect(
+      passedThrough(await proxy(request('/api/access/tokens', { 'x-api-key': DB_TOKEN }, 'POST'))),
+    ).toBe(true)
+  })
+
+  it('drops a principal header the client made up', async () => {
+    protect()
+    const response = await proxy(
+      request('/api/tasks', {
+        authorization: `Bearer ${TOKEN}`,
+        'x-taia-principal': 'token:evil:admin',
+      }),
+    )
+    expect(forwarded(response, 'x-taia-principal')).toBe('root')
+  })
+
+  it('answers 503 when the database cannot verify a token', async () => {
+    protect()
+    verify.mockRejectedValue(new Error('db down'))
+    const response = await proxy(request('/api/tasks', { authorization: `Bearer ${DB_TOKEN}` }))
+    expect(response.status).toBe(503)
+  })
 })

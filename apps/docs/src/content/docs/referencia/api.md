@@ -8,7 +8,7 @@ sidebar:
 La API vive en `http://localhost:13333/api`. El listado completo de rutas y métodos está en el [índice de rutas](/taia/referencia/rutas-api/), generado desde el código.
 
 :::caution
-Por defecto la API no pide credenciales: cualquiera que llegue al puerto puede usarla entera. Con `TAIA_API_TOKEN` en el servidor, cada request necesita `Authorization: Bearer <token>` (o `X-API-Key: <token>`); sin él responde `401`. Quedan abiertas `GET /api/health` y `POST /api/webhooks/incoming`, que valida su propia firma. Ver [token de acceso](/taia/guias/deploy/#token-de-acceso) y [SECURITY](https://github.com/PabloAlaniz/taia/blob/main/.github/SECURITY.md).
+Por defecto la API no pide credenciales: cualquiera que llegue al puerto puede usarla entera. Con `TAIA_API_TOKEN` en el servidor, cada request necesita `Authorization: Bearer <token>` (o `X-API-Key: <token>`), con ese token o con uno creado en **Configuración → Acceso**; sin él responde `401`. Un token con scope `agent` recibe `403` en `/api/access/*`, en `PUT`/`DELETE /api/settings` y en `GET /api/settings?reveal=`. Quedan abiertas `GET /api/health` y `POST /api/webhooks/incoming`, que valida su propia firma. Ver [token de acceso](/taia/guias/deploy/#token-de-acceso) y [SECURITY](https://github.com/PabloAlaniz/taia/blob/main/.github/SECURITY.md).
 :::
 
 ## Convenciones
@@ -64,6 +64,7 @@ El `status` tiene que ser una columna del workspace de la tarea; si no, la API r
 - **Planificación, QA, webhooks e importación:** ver las [guías](/taia/guias/planificacion/).
 - **Aprobaciones y costos:** `/api/approvals`, `/api/cost/dashboard` y `/api/cost/sync`.
 - **Actividad y métricas:** `/api/activities`, `/api/stats`, `/api/usage-analytics` y `/api/standup` (`GET`, texto o `?format=json`).
+- **Tokens de acceso:** `GET`/`POST /api/access/tokens` (`{ name, scope: 'admin'|'agent', expiresInDays: 30|90|365|null }`; la respuesta trae el token completo una sola vez) y `DELETE /api/access/tokens/[id]` (revoca). Requieren scope `admin`.
 - **Settings:** `/api/settings` (`GET`, `PUT`, `DELETE`; las claves sensibles vuelven enmascaradas) y `/api/settings/audit`.
 - **Salud:** `/api/health`, `/api/health/migrations`, `/api/health/event-bus` y `/api/runtime-target`.
 
