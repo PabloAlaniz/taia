@@ -184,7 +184,7 @@ export default function SettingsAccessPage() {
         <RackSection id="access-create" title={t('createTitle')}>
           <form onSubmit={create} className="flex flex-col gap-3">
             <div>
-              <label htmlFor="access-name" className="text-xs text-muted block mb-1">
+              <label htmlFor="access-name" className="text-xs text-on-rack-muted block mb-1">
                 {t('nameLabel')}
               </label>
               <Input
@@ -198,7 +198,7 @@ export default function SettingsAccessPage() {
             </div>
             <div className="flex flex-wrap gap-3">
               <div className="min-w-40 flex-1">
-                <label htmlFor="access-scope" className="text-xs text-muted block mb-1">
+                <label htmlFor="access-scope" className="text-xs text-on-rack-muted block mb-1">
                   {t('scopeLabel')}
                 </label>
                 <Select
@@ -211,7 +211,7 @@ export default function SettingsAccessPage() {
                 </Select>
               </div>
               <div className="min-w-40 flex-1">
-                <label htmlFor="access-expiry" className="text-xs text-muted block mb-1">
+                <label htmlFor="access-expiry" className="text-xs text-on-rack-muted block mb-1">
                   {t('expiryLabel')}
                 </label>
                 <Select
@@ -229,7 +229,7 @@ export default function SettingsAccessPage() {
                 </Select>
               </div>
             </div>
-            <p className="text-mid text-muted">{t(`scopeHint.${scope}`)}</p>
+            <p className="text-mid text-on-rack-muted">{t(`scopeHint.${scope}`)}</p>
             <div>
               <Button type="submit" variant="primary" disabled={creating || !name.trim()}>
                 {creating ? t('creating') : t('create')}
