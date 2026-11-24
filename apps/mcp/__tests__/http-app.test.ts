@@ -1,8 +1,14 @@
 import type { AddressInfo } from 'node:net'
 import type { Server } from 'node:http'
 import http from 'node:http'
-import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest'
-import { allowedHosts, createHttpApp } from '../src/http-app'
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
+
+const verify = vi.fn()
+vi.mock('@taia/core/services/access-token.service', () => ({
+  verifyAccessToken: (...args: unknown[]) => verify(...args),
+}))
+
+const { allowedHosts, createHttpApp } = await import('../src/http-app')
 
 // Starts the real Express app on a free port and talks to it over HTTP.
 
@@ -118,6 +124,42 @@ describe('MCP HTTP app with TAIA_API_TOKEN', () => {
 
   afterEach(() => {
     delete process.env.TAIA_API_TOKEN
+  })
+
+  beforeEach(() => {
+    verify.mockReset().mockResolvedValue(null)
+  })
+
+  const DB_TOKEN = `taia_abcdefgh_${'a'.repeat(43)}`
+
+  it.each(['agent', 'admin'])(
+    'serves an access token from the database (%s scope)',
+    async (scope) => {
+      process.env.TAIA_API_TOKEN = TOKEN
+      verify.mockResolvedValue({ id: 'abcdefgh', scope })
+
+      const res = await postMcp(`127.0.0.1:${port}`, { authorization: `Bearer ${DB_TOKEN}` })
+
+      expect(res.status).toBe(200)
+      expect(verify).toHaveBeenCalledWith(DB_TOKEN)
+    },
+  )
+
+  it('refuses a revoked or unknown access token', async () => {
+    process.env.TAIA_API_TOKEN = TOKEN
+
+    const res = await postMcp(`127.0.0.1:${port}`, { 'x-api-key': DB_TOKEN })
+
+    expect(res.status).toBe(401)
+  })
+
+  it('answers 503 when the token cannot be checked', async () => {
+    process.env.TAIA_API_TOKEN = TOKEN
+    verify.mockRejectedValue(new Error('db down'))
+
+    const res = await postMcp(`127.0.0.1:${port}`, { authorization: `Bearer ${DB_TOKEN}` })
+
+    expect(res.status).toBe(503)
   })
 
   it('refuses a request without the token', async () => {

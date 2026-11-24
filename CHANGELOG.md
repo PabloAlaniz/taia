@@ -6,6 +6,12 @@ El formato se basa en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/
 
 ## [Sin publicar]
 
+### Acceso
+
+- Tokens de acceso por agente, creados y revocados en **Configuración → Acceso** (`/api/access/tokens`, migración `0009`). El MCP, la API, el CLI y la extensión de VS Code los aceptan como `Authorization: Bearer` o `X-API-Key`, igual que `TAIA_API_TOKEN`. TAIA guarda solo el SHA-256 del secreto, y el token completo se muestra una sola vez.
+- Dos scopes: `admin` y `agent`. Un token `agent` no puede gestionar tokens ni escribir o revelar credenciales en `/api/settings` (`403`).
+- Cada token puede vencer y registra su último uso. Crearlo o revocarlo queda en la auditoría de ajustes.
+
 ### Proyectos
 
 - Los proyectos cruzan workspaces: un workspace es cómo se trabaja (sus columnas) y un proyecto es para quién o sobre qué (su contexto). Las tareas de un proyecto pueden estar en cualquier workspace, y borrar el workspace de origen ya no borra el proyecto (migración `0004`).

@@ -5,7 +5,8 @@
 
 import express from 'express'
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js'
-import { isAuthorized } from '@taia/core/auth'
+import { authEnabled } from '@taia/core/auth'
+import { authenticate } from '@taia/core/access/authenticate'
 import { mcpRateLimit } from './rate-limit'
 import { createTaiaMcpServer } from './server'
 
@@ -45,14 +46,27 @@ export function createHttpApp(
   const limit = mcpRateLimit(env)
   if (limit) app.use('/mcp', limit)
 
-  // With TAIA_API_TOKEN set, MCP clients send it as a bearer token
+  // With TAIA_API_TOKEN set, MCP clients send it, or an access token created
+  // in the web UI (any scope), as a bearer token
   // (`claude mcp add --header "Authorization: Bearer …"`).
   app.use('/mcp', async (req, res, next) => {
-    const authorized = await isAuthorized({
-      authorization: req.get('authorization'),
-      apiKey: req.get('x-api-key'),
-    })
-    if (authorized) return next()
+    if (!authEnabled(env)) return next()
+    let principal
+    try {
+      principal = await authenticate(
+        { authorization: req.get('authorization'), apiKey: req.get('x-api-key') },
+        env,
+      )
+    } catch (err) {
+      console.error('MCP auth check failed:', err)
+      res.status(503).json({
+        jsonrpc: '2.0',
+        error: { code: -32603, message: 'Could not verify the access token' },
+        id: null,
+      })
+      return
+    }
+    if (principal) return next()
     res
       .status(401)
       .set('WWW-Authenticate', 'Bearer realm="TAIA"')

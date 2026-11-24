@@ -521,7 +521,8 @@
     "profile": "Perfil",
     "calendar": "Calendário",
     "board": "Quadro",
-    "sessions": "Sessões"
+    "sessions": "Sessões",
+    "access": "Acesso"
   },
   "runtimeNotice": {
     "choose": "Escolher runtime",
@@ -866,7 +867,8 @@
     "modelsDesc": "Qual modelo cada agente usa no runtime ativo.",
     "profileDesc": "O que todos os agentes sabem sobre você: nome, fatos, preferências e limites.",
     "worktreesDesc": "Onde os worktrees de cada tarefa são criados, quando são limpos e o que roda ao criá-los.",
-    "auditDesc": "Quem alterou qual configuração ou API key, e quando."
+    "auditDesc": "Quem alterou qual configuração ou API key, e quando.",
+    "accessDesc": "Tokens para conectar agentes via MCP, a CLI e a extensão do VS Code."
   },
   "settingsGeneral": {
     "websocketTitle": "Conexão ao vivo",
@@ -1041,6 +1043,51 @@
     "empty": "Este workspace ainda não tem alterações registradas.",
     "workspaceSelectLabel": "Workspace",
     "rackTitle": "Alterações registradas"
+  },
+  "settingsAccess": {
+    "intro": "Cada agente ou cliente usa seu próprio token. Ele aparece uma única vez ao ser criado: o TAIA guarda só um hash. Revogue o que não usar mais ou suspeitar que vazou.",
+    "createTitle": "Novo token",
+    "nameLabel": "Nome",
+    "namePlaceholder": "ex: agente de revisão no notebook",
+    "scopeLabel": "Permissões",
+    "scope": {
+      "agent": "Agente",
+      "admin": "Admin"
+    },
+    "scopeHint": {
+      "agent": "Agente: usa o MCP e a API, mas não pode gerenciar tokens nem ver ou alterar credenciais salvas.",
+      "admin": "Admin: acesso completo, incluindo a gestão de tokens. Dê só a quem precisar."
+    },
+    "expiryLabel": "Expira",
+    "expiryDays": "Em {days} dias",
+    "expiryNever": "Nunca",
+    "create": "Criar token",
+    "creating": "Criando…",
+    "createdTitle": "Token «{name}» criado",
+    "createdOnce": "Copie agora: ele não aparece de novo.",
+    "tokenLabel": "Token",
+    "mcpUrlLabel": "URL do servidor MCP",
+    "snippetClaudeCode": "Claude Code",
+    "snippetDesktop": "Claude Desktop e outros clientes (claude_desktop_config.json)",
+    "snippetCli": "CLI do TAIA",
+    "copy": "Copiar",
+    "copied": "Copiado",
+    "done": "Pronto, já guardei",
+    "listTitle": "Tokens",
+    "loading": "Carregando…",
+    "loadFailed": "Não foi possível carregar os tokens. Tente de novo.",
+    "empty": "Ainda não há tokens.",
+    "status": {
+      "revoked": "Revogado",
+      "expired": "Expirado"
+    },
+    "revoke": "Revogar",
+    "revokeConfirm": "Sim, revogar",
+    "cancel": "Cancelar",
+    "createdAt": "criado {when}",
+    "lastUsed": "usado {when}",
+    "neverUsed": "nunca usado",
+    "expiresOn": "expira em {date}"
   },
   "appearanceUi": {
     "light": "Tema claro",

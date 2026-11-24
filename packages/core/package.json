@@ -8,6 +8,7 @@
     ".": "./src/index.ts",
     "./db": "./src/db/index.ts",
     "./services/*": "./src/services/*",
+    "./access/*": "./src/access/*",
     "./events": "./src/events/index.ts",
     "./events/*": "./src/events/*",
     "./validation/*": "./src/validation/*",
